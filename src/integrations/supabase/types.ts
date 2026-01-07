@@ -14,13 +14,174 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      channel_blueprints: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          script_rules: string | null
+          topic: string | null
+          updated_at: string
+          upload_frequency: string | null
+          visual_style: string | null
+          voice_id: string | null
+          voice_name: string | null
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          id?: string
+          script_rules?: string | null
+          topic?: string | null
+          updated_at?: string
+          upload_frequency?: string | null
+          visual_style?: string | null
+          voice_id?: string | null
+          voice_name?: string | null
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          id?: string
+          script_rules?: string | null
+          topic?: string | null
+          updated_at?: string
+          upload_frequency?: string | null
+          visual_style?: string | null
+          voice_id?: string | null
+          voice_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_blueprints_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: true
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_contents: {
+        Row: {
+          channel_id: string
+          created_at: string
+          id: string
+          scheduled_date: string | null
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string
+          id?: string
+          scheduled_date?: string | null
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string
+          id?: string
+          scheduled_date?: string | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_contents_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channel_metrics: {
+        Row: {
+          channel_id: string
+          id: string
+          last_video_date: string | null
+          last_video_views: number | null
+          recorded_at: string
+          rpm: number | null
+        }
+        Insert: {
+          channel_id: string
+          id?: string
+          last_video_date?: string | null
+          last_video_views?: number | null
+          recorded_at?: string
+          rpm?: number | null
+        }
+        Update: {
+          channel_id?: string
+          id?: string
+          last_video_date?: string | null
+          last_video_views?: number | null
+          recorded_at?: string
+          rpm?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_metrics_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          health: string | null
+          id: string
+          monthly_views: number | null
+          name: string
+          niche: string
+          niche_color: string | null
+          subscribers: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          health?: string | null
+          id?: string
+          monthly_views?: number | null
+          name: string
+          niche: string
+          niche_color?: string | null
+          subscribers?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          health?: string | null
+          id?: string
+          monthly_views?: number | null
+          name?: string
+          niche?: string
+          niche_color?: string | null
+          subscribers?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      owns_channel: { Args: { _channel_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
