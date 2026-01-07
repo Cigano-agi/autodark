@@ -211,7 +211,7 @@ export const formatNumber = (num: number): string => {
   return num.toString();
 };
 
-export const getHealthColor = (health: HealthStatus): string => {
+export const getHealthColor = (health: string): string => {
   switch (health) {
     case 'green':
       return 'bg-health-green';
@@ -219,10 +219,12 @@ export const getHealthColor = (health: HealthStatus): string => {
       return 'bg-health-yellow';
     case 'red':
       return 'bg-health-red';
+    default:
+      return 'bg-health-green';
   }
 };
 
-export const getStatusBadge = (status: ContentStatus): { label: string; className: string } => {
+export const getStatusBadge = (status: string): { label: string; className: string } => {
   switch (status) {
     case 'draft':
       return { label: 'Rascunho', className: 'bg-muted text-muted-foreground' };
@@ -232,5 +234,7 @@ export const getStatusBadge = (status: ContentStatus): { label: string; classNam
       return { label: 'Áudio', className: 'bg-warning/20 text-warning' };
     case 'done':
       return { label: 'Pronto', className: 'bg-success/20 text-success' };
+    default:
+      return { label: status, className: 'bg-muted text-muted-foreground' };
   }
 };
