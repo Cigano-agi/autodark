@@ -102,27 +102,36 @@ export type Database = {
       channel_metrics: {
         Row: {
           channel_id: string
+          estimated_revenue: number | null
           id: string
           last_video_date: string | null
           last_video_views: number | null
           recorded_at: string
           rpm: number | null
+          views: number | null
+          watch_time_minutes: number | null
         }
         Insert: {
           channel_id: string
+          estimated_revenue?: number | null
           id?: string
           last_video_date?: string | null
           last_video_views?: number | null
           recorded_at?: string
           rpm?: number | null
+          views?: number | null
+          watch_time_minutes?: number | null
         }
         Update: {
           channel_id?: string
+          estimated_revenue?: number | null
           id?: string
           last_video_date?: string | null
           last_video_views?: number | null
           recorded_at?: string
           rpm?: number | null
+          views?: number | null
+          watch_time_minutes?: number | null
         }
         Relationships: [
           {
@@ -147,6 +156,10 @@ export type Database = {
           subscribers: number | null
           updated_at: string
           user_id: string
+          youtube_access_token: string | null
+          youtube_channel_id: string | null
+          youtube_connected_at: string | null
+          youtube_refresh_token: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -160,6 +173,10 @@ export type Database = {
           subscribers?: number | null
           updated_at?: string
           user_id: string
+          youtube_access_token?: string | null
+          youtube_channel_id?: string | null
+          youtube_connected_at?: string | null
+          youtube_refresh_token?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -173,6 +190,10 @@ export type Database = {
           subscribers?: number | null
           updated_at?: string
           user_id?: string
+          youtube_access_token?: string | null
+          youtube_channel_id?: string | null
+          youtube_connected_at?: string | null
+          youtube_refresh_token?: string | null
         }
         Relationships: []
       }

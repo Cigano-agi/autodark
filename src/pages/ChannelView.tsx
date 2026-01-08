@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useChannel } from '@/hooks/useChannels';
 import { useBlueprint } from '@/hooks/useBlueprint';
 import { useContents } from '@/hooks/useContents';
+import { useYouTubeMetrics } from '@/hooks/useYouTubeMetrics';
+import { supabase } from '@/integrations/supabase/client';
 import { formatNumber, getStatusBadge, voiceOptions, nicheOptions, uploadFrequencyOptions } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,16 +14,41 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, BarChart3, Settings, FileText, TrendingUp, Users, DollarSign, Video, Save, Zap, Loader2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, Settings, FileText, TrendingUp, Users, DollarSign, Video, Save, Zap, Loader2, Youtube, RefreshCw, Unlink } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function ChannelView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const { data: channel, isLoading: channelLoading } = useChannel(id);
   const { blueprint, isLoading: blueprintLoading, updateBlueprint } = useBlueprint(id);
   const { contents, isLoading: contentsLoading } = useContents(id);
+  const { connectYouTube, saveYouTubeConnection, syncMetrics, disconnectYouTube, fetchYouTubeChannelId } = useYouTubeMetrics();
+
+  // Handle YouTube OAuth callback
+  useEffect(() => {
+    const handleYouTubeCallback = async () => {
+      if (searchParams.get('youtube_connect') === 'true' && id) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.provider_token) {
+          const youtubeChannelId = await fetchYouTubeChannelId(session.provider_token);
+          if (youtubeChannelId) {
+            await saveYouTubeConnection.mutateAsync({
+              channelId: id,
+              youtubeChannelId,
+              accessToken: session.provider_token,
+              refreshToken: session.provider_refresh_token || undefined,
+            });
+          }
+        }
+        // Clean up URL params
+        setSearchParams({});
+      }
+    };
+    handleYouTubeCallback();
+  }, [searchParams, id]);
 
   const [localBlueprint, setLocalBlueprint] = useState({
     topic: '',
@@ -151,6 +178,71 @@ export default function ChannelView() {
 
           {/* METRICS TAB */}
           <TabsContent value="metrics" className="space-y-6">
+            {/* YouTube Connection Card */}
+            <Card className="bg-card/50 border-border/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${channel.youtube_channel_id ? 'bg-red-500/10' : 'bg-muted'}`}>
+                      <Youtube className={`w-5 h-5 ${channel.youtube_channel_id ? 'text-red-500' : 'text-muted-foreground'}`} />
+                    </div>
+                    <div>
+                      <p className="font-medium">
+                        {channel.youtube_channel_id ? 'YouTube Conectado' : 'Conectar YouTube'}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {channel.youtube_channel_id 
+                          ? `ID: ${channel.youtube_channel_id}` 
+                          : 'Vincule para importar métricas reais'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {channel.youtube_channel_id ? (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-2"
+                          onClick={() => syncMetrics.mutate(id!)}
+                          disabled={syncMetrics.isPending}
+                        >
+                          {syncMetrics.isPending ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-4 h-4" />
+                          )}
+                          Atualizar
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => disconnectYouTube.mutate(id!)}
+                          disabled={disconnectYouTube.isPending}
+                        >
+                          <Unlink className="w-4 h-4" />
+                        </Button>
+                      </>
+                    ) : (
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="gap-2 bg-red-500 hover:bg-red-600"
+                        onClick={() => connectYouTube.mutate(id!)}
+                        disabled={connectYouTube.isPending}
+                      >
+                        {connectYouTube.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Youtube className="w-4 h-4" />
+                        )}
+                        Conectar
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             {/* Stats Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="bg-card/50 border-border/50">
