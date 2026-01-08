@@ -13,6 +13,10 @@ export interface Channel {
   monthly_views: number;
   health: string;
   avatar_url: string | null;
+  youtube_channel_id: string | null;
+  youtube_access_token: string | null;
+  youtube_refresh_token: string | null;
+  youtube_connected_at: string | null;
   created_at: string;
   updated_at: string;
 }
