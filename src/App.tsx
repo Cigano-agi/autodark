@@ -8,13 +8,18 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ChannelView from "./pages/ChannelView";
 import NotFound from "./pages/NotFound";
+import MainLayout from "./components/Layout/MainLayout";
+import StrategyDashboard from "./pages/Strategy/Index";
+import ProductionWizard from "./pages/Production/Index";
+import OperationsPage from "./pages/Operations/Index";
+import LandingPage from "./pages/LandingPage";
 
 const queryClient = new QueryClient();
 
 // Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -22,18 +27,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (!user) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
 // Public Route (redirect to dashboard if logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -41,17 +46,17 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <>{children}</>;
 }
 
 const AppRoutes = () => (
   <Routes>
-    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+    <Route path="/" element={<LandingPage />} />
     <Route
       path="/login"
       element={
@@ -60,22 +65,22 @@ const AppRoutes = () => (
         </PublicRoute>
       }
     />
+
+    {/* Protected Routes wrapped in MainLayout */}
     <Route
-      path="/dashboard"
       element={
         <ProtectedRoute>
-          <Dashboard />
+          <MainLayout />
         </ProtectedRoute>
       }
-    />
-    <Route
-      path="/channel/:id"
-      element={
-        <ProtectedRoute>
-          <ChannelView />
-        </ProtectedRoute>
-      }
-    />
+    >
+      <Route path="/dashboard" element={<Dashboard />} />
+      <Route path="/strategy" element={<StrategyDashboard />} />
+      <Route path="/production" element={<ProductionWizard />} />
+      <Route path="/operations" element={<OperationsPage />} />
+      <Route path="/channel/:id" element={<ChannelView />} />
+    </Route>
+
     <Route path="*" element={<NotFound />} />
   </Routes>
 );

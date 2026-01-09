@@ -21,7 +21,7 @@ export default function ChannelView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const { data: channel, isLoading: channelLoading } = useChannel(id);
   const { blueprint, isLoading: blueprintLoading, updateBlueprint } = useBlueprint(id);
   const { contents, isLoading: contentsLoading } = useContents(id);
@@ -139,24 +139,23 @@ export default function ChannelView() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-semibold">{channel.name}</h1>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${channel.niche_color}`}>
-                {channel.niche}
-              </span>
-            </div>
+      {/* Header */}
+      <div className="mb-6 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Zap className="w-4 h-4 text-primary" />
+          </div>
+          <div>
+            <h1 className="font-semibold text-xl">{channel.name}</h1>
+            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${channel.niche_color}`}>
+              {channel.niche}
+            </span>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -191,8 +190,8 @@ export default function ChannelView() {
                         {channel.youtube_channel_id ? 'YouTube Conectado' : 'Conectar YouTube'}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {channel.youtube_channel_id 
-                          ? `ID: ${channel.youtube_channel_id}` 
+                        {channel.youtube_channel_id
+                          ? `ID: ${channel.youtube_channel_id}`
                           : 'Vincule para importar métricas reais'}
                       </p>
                     </div>
@@ -200,9 +199,9 @@ export default function ChannelView() {
                   <div className="flex gap-2">
                     {channel.youtube_channel_id ? (
                       <>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           className="gap-2"
                           onClick={() => syncMetrics.mutate(id!)}
                           disabled={syncMetrics.isPending}
@@ -214,8 +213,8 @@ export default function ChannelView() {
                           )}
                           Atualizar
                         </Button>
-                        <Button 
-                          variant="ghost" 
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => disconnectYouTube.mutate(id!)}
                           disabled={disconnectYouTube.isPending}
@@ -224,9 +223,9 @@ export default function ChannelView() {
                         </Button>
                       </>
                     ) : (
-                      <Button 
-                        variant="default" 
-                        size="sm" 
+                      <Button
+                        variant="default"
+                        size="sm"
                         className="gap-2 bg-red-500 hover:bg-red-600"
                         onClick={() => connectYouTube.mutate(id!)}
                         disabled={connectYouTube.isPending}
@@ -310,8 +309,8 @@ export default function ChannelView() {
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={chartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         tickFormatter={(value) => {
@@ -319,16 +318,16 @@ export default function ChannelView() {
                           return `${date.getDate()}/${date.getMonth() + 1}`;
                         }}
                       />
-                      <YAxis 
+                      <YAxis
                         stroke="hsl(var(--muted-foreground))"
                         tick={{ fill: 'hsl(var(--muted-foreground))' }}
                         tickFormatter={(value) => formatNumber(value)}
                       />
                       <Tooltip content={<CustomTooltip />} />
-                      <Line 
-                        type="monotone" 
-                        dataKey="views" 
-                        stroke="hsl(var(--primary))" 
+                      <Line
+                        type="monotone"
+                        dataKey="views"
+                        stroke="hsl(var(--primary))"
                         strokeWidth={2}
                         dot={false}
                         activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
@@ -359,8 +358,8 @@ export default function ChannelView() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label htmlFor="niche">Nicho/Tópico</Label>
-                        <Select 
-                          value={localBlueprint.topic} 
+                        <Select
+                          value={localBlueprint.topic}
                           onValueChange={(value) => setLocalBlueprint({ ...localBlueprint, topic: value })}
                         >
                           <SelectTrigger>
@@ -378,8 +377,8 @@ export default function ChannelView() {
 
                       <div className="space-y-2">
                         <Label htmlFor="voice">Voz do Narrador</Label>
-                        <Select 
-                          value={localBlueprint.voice_id} 
+                        <Select
+                          value={localBlueprint.voice_id}
                           onValueChange={(value) => setLocalBlueprint({ ...localBlueprint, voice_id: value })}
                         >
                           <SelectTrigger>
@@ -397,8 +396,8 @@ export default function ChannelView() {
 
                       <div className="space-y-2">
                         <Label htmlFor="frequency">Frequência de Upload</Label>
-                        <Select 
-                          value={localBlueprint.upload_frequency} 
+                        <Select
+                          value={localBlueprint.upload_frequency}
                           onValueChange={(value) => setLocalBlueprint({ ...localBlueprint, upload_frequency: value })}
                         >
                           <SelectTrigger>
@@ -443,8 +442,8 @@ export default function ChannelView() {
                       </p>
                     </div>
 
-                    <Button 
-                      onClick={handleSaveBlueprint} 
+                    <Button
+                      onClick={handleSaveBlueprint}
                       className="gap-2"
                       disabled={updateBlueprint.isPending}
                     >
@@ -496,7 +495,7 @@ export default function ChannelView() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-muted-foreground">
-                              {content.scheduled_date 
+                              {content.scheduled_date
                                 ? new Date(content.scheduled_date).toLocaleDateString('pt-BR')
                                 : '-'}
                             </TableCell>

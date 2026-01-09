@@ -52,7 +52,7 @@ export default function Dashboard() {
     }
 
     const nicheData = nicheOptions.find(n => n.value === newChannelNiche);
-    
+
     await createChannel.mutateAsync({
       name: newChannelName,
       niche: nicheData?.label || newChannelNiche,
@@ -67,39 +67,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-primary" />
-            </div>
-            <span className="font-semibold text-lg">Dark Ops</span>
-          </div>
-
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <User className="w-4 h-4 text-primary" />
-                </div>
-                <span className="hidden sm:inline text-sm">
-                  {user?.email?.split('@')[0]}
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                {user?.email}
-              </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </header>
+      {/* Header removed - replaced by Sidebar */}
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
@@ -151,8 +119,8 @@ export default function Dashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button 
-                  onClick={handleAddChannel} 
+                <Button
+                  onClick={handleAddChannel}
                   className="w-full"
                   disabled={createChannel.isPending}
                 >

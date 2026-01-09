@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Temp files
+*.tmp
+*.temp
+*~
+.cache
+.parcel-cache
+
+# OS files
+Thumbs.db
+Desktop.ini
+
+# Bun lockfile (if using npm)
+bun.lockb
