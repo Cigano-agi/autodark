@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, BarChart3, Settings, FileText, TrendingUp, Users, DollarSign, Video, Save, Zap, Loader2, Youtube, RefreshCw, Unlink } from 'lucide-react';
+import { ArrowLeft, BarChart3, Settings, FileText, TrendingUp, Users, DollarSign, Video, Save, Zap, Loader2, Youtube, RefreshCw, Unlink, Eye, Calendar, PlayCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ConnectYouTubeModal } from '@/components/YouTube/ConnectYouTubeModal';
 
@@ -253,7 +253,63 @@ export default function ChannelView() {
                 </div>
               </CardContent>
             </Card>
-            {/* Stats Cards */}
+            {/* Stats Cards - Row 1 */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="bg-card/50 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-info" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Inscritos</p>
+                      <p className="text-2xl font-bold">{formatNumber(channel.subscribers || 0)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-card/50 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Eye className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Views Totais</p>
+                      <p className="text-2xl font-bold">{formatNumber((channel as any).youtube_total_views || 0)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-card/50 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                      <PlayCircle className="w-5 h-5 text-success" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Total Vídeos</p>
+                      <p className="text-2xl font-bold">{formatNumber((channel as any).youtube_total_videos || 0)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="bg-card/50 border-border/50">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-warning" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Views/Mês</p>
+                      <p className="text-2xl font-bold">{formatNumber(channel.monthly_views || 0)}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Stats Cards - Row 2 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="bg-card/50 border-border/50">
                 <CardContent className="p-4">
@@ -266,19 +322,6 @@ export default function ChannelView() {
                       <p className="text-2xl font-bold">
                         R$ {latestMetric?.rpm?.toFixed(2) || '0.00'}
                       </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-card/50 border-border/50">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
-                      <Users className="w-5 h-5 text-info" />
-                    </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Total Inscritos</p>
-                      <p className="text-2xl font-bold">{formatNumber(channel.subscribers || 0)}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -303,20 +346,41 @@ export default function ChannelView() {
                   </div>
                 </CardContent>
               </Card>
-              <Card className="bg-card/50 border-border/50">
+              <Card className="bg-card/50 border-border/50 lg:col-span-2">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-warning" />
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-muted-foreground" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Views/Mês</p>
-                      <p className="text-2xl font-bold">{formatNumber(channel.monthly_views || 0)}</p>
+                    <div className="flex-1">
+                      <p className="text-sm text-muted-foreground">Canal desde</p>
+                      <p className="text-lg font-medium">
+                        {(channel as any).youtube_joined_date || 'Não informado'}
+                      </p>
+                      {(channel as any).youtube_username && (
+                        <p className="text-xs text-muted-foreground">
+                          @{(channel as any).youtube_username}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Channel Description */}
+            {(channel as any).youtube_description && (
+              <Card className="bg-card/50 border-border/50">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Sobre o Canal</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line line-clamp-4">
+                    {(channel as any).youtube_description}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Chart */}
             <Card className="bg-card/50 border-border/50">
