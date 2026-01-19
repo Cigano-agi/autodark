@@ -94,13 +94,17 @@ export default function ChannelView() {
     return null;
   };
 
-  // Get chart data from real metrics or generate placeholder
+  // Get chart data from real metrics (video views by date)
   const getChartData = () => {
     if (metricsHistory && metricsHistory.length > 0) {
-      return metricsHistory.map(metric => ({
-        date: new Date(metric.recorded_at).toISOString().split('T')[0],
-        views: metric.views || 0,
-      }));
+      // Sort by date and format for chart
+      return metricsHistory
+        .filter(metric => metric.last_video_date)
+        .sort((a, b) => new Date(a.last_video_date!).getTime() - new Date(b.last_video_date!).getTime())
+        .map(metric => ({
+          date: metric.last_video_date!,
+          views: metric.last_video_views || metric.views || 0,
+        }));
     }
     
     // Generate placeholder data if no metrics
