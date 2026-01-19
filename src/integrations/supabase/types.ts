@@ -157,9 +157,15 @@ export type Database = {
           updated_at: string
           user_id: string
           youtube_access_token: string | null
+          youtube_banner_url: string | null
           youtube_channel_id: string | null
           youtube_connected_at: string | null
+          youtube_description: string | null
+          youtube_joined_date: string | null
           youtube_refresh_token: string | null
+          youtube_total_videos: number | null
+          youtube_total_views: number | null
+          youtube_username: string | null
         }
         Insert: {
           avatar_url?: string | null
@@ -174,9 +180,15 @@ export type Database = {
           updated_at?: string
           user_id: string
           youtube_access_token?: string | null
+          youtube_banner_url?: string | null
           youtube_channel_id?: string | null
           youtube_connected_at?: string | null
+          youtube_description?: string | null
+          youtube_joined_date?: string | null
           youtube_refresh_token?: string | null
+          youtube_total_videos?: number | null
+          youtube_total_views?: number | null
+          youtube_username?: string | null
         }
         Update: {
           avatar_url?: string | null
@@ -191,9 +203,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
           youtube_access_token?: string | null
+          youtube_banner_url?: string | null
           youtube_channel_id?: string | null
           youtube_connected_at?: string | null
+          youtube_description?: string | null
+          youtube_joined_date?: string | null
           youtube_refresh_token?: string | null
+          youtube_total_videos?: number | null
+          youtube_total_views?: number | null
+          youtube_username?: string | null
         }
         Relationships: []
       }

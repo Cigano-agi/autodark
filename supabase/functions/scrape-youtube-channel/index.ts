@@ -28,9 +28,15 @@ interface YouTubeVideoData {
   channelBannerUrl?: string;
   channelTotalVideos?: number;
   channelTotalViews?: number;
+  channelDescription?: string;
+  channelJoinedDate?: string;
   numberOfSubscribers: number;
   duration: string;
   thumbnailUrl?: string;
+  aboutChannelInfo?: {
+    channelDescription?: string;
+    channelJoinedDate?: string;
+  };
 }
 
 Deno.serve(async (req) => {
@@ -179,9 +185,12 @@ Deno.serve(async (req) => {
       channel_name: firstVideo.channelName,
       username: firstVideo.channelUsername || null,
       avatar_url: firstVideo.channelAvatarUrl || null,
+      banner_url: firstVideo.channelBannerUrl || null,
       subscribers: firstVideo.numberOfSubscribers || 0,
       total_videos: firstVideo.channelTotalVideos || 0,
       total_views: firstVideo.channelTotalViews || 0,
+      description: firstVideo.aboutChannelInfo?.channelDescription || firstVideo.channelDescription || null,
+      joined_date: firstVideo.aboutChannelInfo?.channelJoinedDate || firstVideo.channelJoinedDate || null,
     };
 
     // Calculate monthly views (sum of views from videos in last 30 days)
@@ -195,7 +204,7 @@ Deno.serve(async (req) => {
     console.log(`Channel info:`, channelInfo);
     console.log(`Recent views (30 days): ${recentViews}`);
 
-    // Update channels table
+    // Update channels table with all metrics
     const { error: updateError } = await supabase
       .from('channels')
       .update({
@@ -204,6 +213,12 @@ Deno.serve(async (req) => {
         monthly_views: recentViews,
         avatar_url: channelInfo.avatar_url,
         youtube_connected_at: new Date().toISOString(),
+        youtube_username: channelInfo.username,
+        youtube_total_videos: channelInfo.total_videos,
+        youtube_total_views: channelInfo.total_views,
+        youtube_description: channelInfo.description,
+        youtube_joined_date: channelInfo.joined_date,
+        youtube_banner_url: channelInfo.banner_url,
       })
       .eq('id', channel_id);
 
@@ -260,11 +275,16 @@ Deno.serve(async (req) => {
         data: {
           channel_name: channelInfo.channel_name,
           youtube_channel_id: channelInfo.youtube_channel_id,
+          username: channelInfo.username,
           subscribers: channelInfo.subscribers,
           monthly_views: recentViews,
           total_videos: channelInfo.total_videos,
+          total_views: channelInfo.total_views,
           videos_imported: contentsToInsert.length,
           avatar_url: channelInfo.avatar_url,
+          banner_url: channelInfo.banner_url,
+          description: channelInfo.description,
+          joined_date: channelInfo.joined_date,
         },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
