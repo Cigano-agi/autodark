@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { useChannels } from '@/hooks/useChannels';
+import { useChannels, Channel } from '@/hooks/useChannels';
 import { formatNumber, getHealthColor, nicheOptions } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,7 +14,18 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Select,
   SelectContent,
@@ -29,16 +40,28 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Users, Eye, TrendingUp, LogOut, User, Zap, Loader2 } from 'lucide-react';
+import { Plus, Users, Eye, TrendingUp, Zap, Loader2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
-  const { channels, isLoading, createChannel } = useChannels();
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const { channels, isLoading, createChannel, updateChannel, deleteChannel } = useChannels();
+  
+  // Create dialog state
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelNiche, setNewChannelNiche] = useState('');
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [editChannelName, setEditChannelName] = useState('');
+  const [editChannelNiche, setEditChannelNiche] = useState('');
+
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingChannel, setDeletingChannel] = useState<Channel | null>(null);
 
   const handleSignOut = async () => {
     await signOut();
@@ -59,9 +82,54 @@ export default function Dashboard() {
       niche_color: nicheData?.color || 'bg-muted text-muted-foreground',
     });
 
-    setDialogOpen(false);
+    setCreateDialogOpen(false);
     setNewChannelName('');
     setNewChannelNiche('');
+  };
+
+  const handleEditChannel = (channel: Channel, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingChannel(channel);
+    setEditChannelName(channel.name);
+    // Find niche value from label
+    const nicheData = nicheOptions.find(n => n.label === channel.niche);
+    setEditChannelNiche(nicheData?.value || '');
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateChannel = async () => {
+    if (!editingChannel || !editChannelName || !editChannelNiche) {
+      toast.error('Preencha todos os campos');
+      return;
+    }
+
+    const nicheData = nicheOptions.find(n => n.value === editChannelNiche);
+
+    await updateChannel.mutateAsync({
+      channelId: editingChannel.id,
+      data: {
+        name: editChannelName,
+        niche: nicheData?.label || editChannelNiche,
+        niche_color: nicheData?.color || 'bg-muted text-muted-foreground',
+      },
+    });
+
+    setEditDialogOpen(false);
+    setEditingChannel(null);
+  };
+
+  const handleDeleteClick = (channel: Channel, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingChannel(channel);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingChannel) return;
+    
+    await deleteChannel.mutateAsync(deletingChannel.id);
+    setDeleteDialogOpen(false);
+    setDeletingChannel(null);
   };
 
   return (
@@ -80,7 +148,7 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2">
                 <Plus className="w-4 h-4" />
@@ -190,7 +258,7 @@ export default function Dashboard() {
             <p className="text-muted-foreground mb-4">
               Comece adicionando seu primeiro canal
             </p>
-            <Button onClick={() => setDialogOpen(true)} className="gap-2">
+            <Button onClick={() => setCreateDialogOpen(true)} className="gap-2">
               <Plus className="w-4 h-4" />
               Adicionar Canal
             </Button>
@@ -221,7 +289,35 @@ export default function Dashboard() {
                         </span>
                       </div>
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${getHealthColor(channel.health)} animate-pulse-glow`} />
+                    <div className="flex items-center gap-2">
+                      <div className={`w-3 h-3 rounded-full ${getHealthColor(channel.health)} animate-pulse-glow`} />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => handleEditChannel(channel, e as any)}>
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={(e) => handleDeleteClick(channel, e as any)}
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -239,6 +335,80 @@ export default function Dashboard() {
             ))}
           </div>
         )}
+
+        {/* Edit Channel Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Editar Canal</DialogTitle>
+              <DialogDescription>
+                Atualize as informações do canal
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-channel-name">Nome do Canal</Label>
+                <Input
+                  id="edit-channel-name"
+                  placeholder="Ex: Curiosidades Terror"
+                  value={editChannelName}
+                  onChange={(e) => setEditChannelName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-channel-niche">Nicho</Label>
+                <Select value={editChannelNiche} onValueChange={setEditChannelNiche}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o nicho" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nicheOptions.map((niche) => (
+                      <SelectItem key={niche.value} value={niche.value}>
+                        {niche.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={handleUpdateChannel}
+                  disabled={updateChannel.isPending}
+                >
+                  {updateChannel.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                  Salvar
+                </Button>
+              </DialogFooter>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir canal?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação não pode ser desfeita. Isso excluirá permanentemente o canal
+                <strong> {deletingChannel?.name}</strong> e todos os seus dados associados
+                (métricas, conteúdos, blueprints).
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleConfirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteChannel.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </div>
   );

@@ -27,6 +27,12 @@ export interface CreateChannelData {
   niche_color?: string;
 }
 
+export interface UpdateChannelData {
+  name?: string;
+  niche?: string;
+  niche_color?: string;
+}
+
 export function useChannels() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -86,8 +92,46 @@ export function useChannels() {
     },
   });
 
+  const updateChannel = useMutation({
+    mutationFn: async ({ channelId, data }: { channelId: string; data: UpdateChannelData }) => {
+      const { data: updated, error } = await supabase
+        .from('channels')
+        .update({
+          name: data.name,
+          niche: data.niche,
+          niche_color: data.niche_color,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', channelId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return updated as Channel;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['channels'] });
+      toast({
+        title: 'Canal atualizado!',
+        description: 'As informações do canal foram atualizadas.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Erro ao atualizar canal',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const deleteChannel = useMutation({
     mutationFn: async (channelId: string) => {
+      // Delete related data first (cascade)
+      await supabase.from('channel_metrics').delete().eq('channel_id', channelId);
+      await supabase.from('channel_contents').delete().eq('channel_id', channelId);
+      await supabase.from('channel_blueprints').delete().eq('channel_id', channelId);
+      
       const { error } = await supabase
         .from('channels')
         .delete()
@@ -116,6 +160,7 @@ export function useChannels() {
     isLoading: channelsQuery.isLoading,
     error: channelsQuery.error,
     createChannel,
+    updateChannel,
     deleteChannel,
   };
 }
