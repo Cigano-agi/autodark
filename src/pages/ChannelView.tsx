@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useChannel } from '@/hooks/useChannels';
 import { useBlueprint } from '@/hooks/useBlueprint';
 import { useContents } from '@/hooks/useContents';
 import { useYouTubeMetrics } from '@/hooks/useYouTubeMetrics';
-import { supabase } from '@/integrations/supabase/client';
 import { formatNumber, getStatusBadge, voiceOptions, nicheOptions, uploadFrequencyOptions } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,39 +15,30 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, BarChart3, Settings, FileText, TrendingUp, Users, DollarSign, Video, Save, Zap, Loader2, Youtube, RefreshCw, Unlink } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ConnectYouTubeModal } from '@/components/YouTube/ConnectYouTubeModal';
 
 export default function ChannelView() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [showConnectModal, setShowConnectModal] = useState(false);
 
   const { data: channel, isLoading: channelLoading } = useChannel(id);
   const { blueprint, isLoading: blueprintLoading, updateBlueprint } = useBlueprint(id);
   const { contents, isLoading: contentsLoading } = useContents(id);
-  const { connectYouTube, saveYouTubeConnection, syncMetrics, disconnectYouTube, fetchYouTubeChannelId } = useYouTubeMetrics();
+  const { connectWithApify, syncMetrics, disconnectYouTube } = useYouTubeMetrics();
 
-  // Handle YouTube OAuth callback
-  useEffect(() => {
-    const handleYouTubeCallback = async () => {
-      if (searchParams.get('youtube_connect') === 'true' && id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.provider_token) {
-          const youtubeChannelId = await fetchYouTubeChannelId(session.provider_token);
-          if (youtubeChannelId) {
-            await saveYouTubeConnection.mutateAsync({
-              channelId: id,
-              youtubeChannelId,
-              accessToken: session.provider_token,
-              refreshToken: session.provider_refresh_token || undefined,
-            });
-          }
-        }
-        // Clean up URL params
-        setSearchParams({});
-      }
-    };
-    handleYouTubeCallback();
-  }, [searchParams, id]);
+  const handleConnectYouTube = async (youtubeUrl: string) => {
+    if (!id) return;
+    await connectWithApify.mutateAsync({ channelId: id, youtubeUrl });
+  };
+
+  const handleSyncMetrics = () => {
+    if (!id || !channel?.youtube_channel_id) return;
+    syncMetrics.mutate({ 
+      channelId: id, 
+      youtubeUrl: `https://www.youtube.com/channel/${channel.youtube_channel_id}` 
+    });
+  };
 
   const [localBlueprint, setLocalBlueprint] = useState({
     topic: '',
@@ -203,7 +193,7 @@ export default function ChannelView() {
                           variant="outline"
                           size="sm"
                           className="gap-2"
-                          onClick={() => syncMetrics.mutate(id!)}
+                          onClick={handleSyncMetrics}
                           disabled={syncMetrics.isPending}
                         >
                           {syncMetrics.isPending ? (
@@ -227,14 +217,9 @@ export default function ChannelView() {
                         variant="default"
                         size="sm"
                         className="gap-2 bg-red-500 hover:bg-red-600"
-                        onClick={() => connectYouTube.mutate(id!)}
-                        disabled={connectYouTube.isPending}
+                        onClick={() => setShowConnectModal(true)}
                       >
-                        {connectYouTube.isPending ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <Youtube className="w-4 h-4" />
-                        )}
+                        <Youtube className="w-4 h-4" />
                         Conectar
                       </Button>
                     )}
@@ -517,6 +502,14 @@ export default function ChannelView() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Connect YouTube Modal */}
+      <ConnectYouTubeModal
+        open={showConnectModal}
+        onOpenChange={setShowConnectModal}
+        onConnect={handleConnectYouTube}
+        isConnecting={connectWithApify.isPending}
+      />
     </div>
   );
 }
