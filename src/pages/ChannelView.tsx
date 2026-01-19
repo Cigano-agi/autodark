@@ -4,6 +4,7 @@ import { useChannel } from '@/hooks/useChannels';
 import { useBlueprint } from '@/hooks/useBlueprint';
 import { useContents } from '@/hooks/useContents';
 import { useYouTubeMetrics } from '@/hooks/useYouTubeMetrics';
+import { useChannelMetrics, useLatestMetric } from '@/hooks/useChannelMetrics';
 import { formatNumber, getStatusBadge, voiceOptions, nicheOptions, uploadFrequencyOptions } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, BarChart3, Settings, FileText, TrendingUp, Users, DollarSign, Video, Save, Zap, Loader2, Youtube, RefreshCw, Unlink } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ConnectYouTubeModal } from '@/components/YouTube/ConnectYouTubeModal';
@@ -26,6 +28,8 @@ export default function ChannelView() {
   const { blueprint, isLoading: blueprintLoading, updateBlueprint } = useBlueprint(id);
   const { contents, isLoading: contentsLoading } = useContents(id);
   const { connectWithApify, syncMetrics, disconnectYouTube } = useYouTubeMetrics();
+  const { data: metricsHistory } = useChannelMetrics(id);
+  const { data: latestMetric } = useLatestMetric(id);
 
   const handleConnectYouTube = async (youtubeUrl: string) => {
     if (!id) return;
@@ -90,8 +94,16 @@ export default function ChannelView() {
     return null;
   };
 
-  // Generate mock chart data (in a real app, this would come from the API)
-  const generateChartData = () => {
+  // Get chart data from real metrics or generate placeholder
+  const getChartData = () => {
+    if (metricsHistory && metricsHistory.length > 0) {
+      return metricsHistory.map(metric => ({
+        date: new Date(metric.recorded_at).toISOString().split('T')[0],
+        views: metric.views || 0,
+      }));
+    }
+    
+    // Generate placeholder data if no metrics
     const data = [];
     const today = new Date();
     for (let i = 29; i >= 0; i--) {
@@ -99,11 +111,13 @@ export default function ChannelView() {
       date.setDate(date.getDate() - i);
       data.push({
         date: date.toISOString().split('T')[0],
-        views: Math.floor(Math.random() * 50000) + 10000,
+        views: 0,
       });
     }
     return data;
   };
+
+  const chartData = getChartData();
 
   if (channelLoading) {
     return (
@@ -123,8 +137,6 @@ export default function ChannelView() {
       </div>
     );
   }
-
-  const chartData = generateChartData();
 
   return (
     <div className="min-h-screen bg-background">
@@ -172,18 +184,32 @@ export default function ChannelView() {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${channel.youtube_channel_id ? 'bg-red-500/10' : 'bg-muted'}`}>
-                      <Youtube className={`w-5 h-5 ${channel.youtube_channel_id ? 'text-red-500' : 'text-muted-foreground'}`} />
-                    </div>
+                    {channel.youtube_channel_id && channel.avatar_url ? (
+                      <Avatar className="w-12 h-12 border-2 border-red-500/20">
+                        <AvatarImage src={channel.avatar_url} alt={channel.name} />
+                        <AvatarFallback className="bg-red-500/10">
+                          <Youtube className="w-5 h-5 text-red-500" />
+                        </AvatarFallback>
+                      </Avatar>
+                    ) : (
+                      <div className={`w-12 h-12 rounded-full flex items-center justify-center ${channel.youtube_channel_id ? 'bg-red-500/10' : 'bg-muted'}`}>
+                        <Youtube className={`w-6 h-6 ${channel.youtube_channel_id ? 'text-red-500' : 'text-muted-foreground'}`} />
+                      </div>
+                    )}
                     <div>
-                      <p className="font-medium">
-                        {channel.youtube_channel_id ? 'YouTube Conectado' : 'Conectar YouTube'}
+                      <p className="font-medium text-lg">
+                        {channel.youtube_channel_id ? channel.name : 'Conectar YouTube'}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         {channel.youtube_channel_id
-                          ? `ID: ${channel.youtube_channel_id}`
-                          : 'Vincule para importar métricas reais'}
+                          ? `${formatNumber(channel.subscribers || 0)} inscritos • ${formatNumber(channel.monthly_views || 0)} views/mês`
+                          : 'Vincule seu canal para importar métricas reais'}
                       </p>
+                      {channel.youtube_connected_at && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Conectado em {new Date(channel.youtube_connected_at).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex gap-2">
@@ -237,7 +263,9 @@ export default function ChannelView() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">RPM</p>
-                      <p className="text-2xl font-bold">R$ 0.00</p>
+                      <p className="text-2xl font-bold">
+                        R$ {latestMetric?.rpm?.toFixed(2) || '0.00'}
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -263,7 +291,14 @@ export default function ChannelView() {
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Último Vídeo</p>
-                      <p className="text-2xl font-bold">0</p>
+                      <p className="text-2xl font-bold">
+                        {formatNumber(latestMetric?.last_video_views || 0)}
+                      </p>
+                      {latestMetric?.last_video_date && (
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(latestMetric.last_video_date).toLocaleDateString('pt-BR')}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
