@@ -40,14 +40,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Plus, Users, Eye, TrendingUp, Zap, Loader2, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Users, Eye, TrendingUp, Zap, Loader2, MoreVertical, Pencil, Trash2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { channels, isLoading, createChannel, updateChannel, deleteChannel } = useChannels();
-  
+
   // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
@@ -126,7 +127,7 @@ export default function Dashboard() {
 
   const handleConfirmDelete = async () => {
     if (!deletingChannel) return;
-    
+
     await deleteChannel.mutateAsync(deletingChannel.id);
     setDeleteDialogOpen(false);
     setDeletingChannel(null);
@@ -155,47 +156,78 @@ export default function Dashboard() {
                 Adicionar Canal
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>Novo Canal</DialogTitle>
                 <DialogDescription>
-                  Configure as informações básicas do canal
+                  Como você deseja iniciar este canal?
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 pt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="channel-name">Nome do Canal</Label>
-                  <Input
-                    id="channel-name"
-                    placeholder="Ex: Curiosidades Terror"
-                    value={newChannelName}
-                    onChange={(e) => setNewChannelName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="channel-niche">Nicho</Label>
-                  <Select value={newChannelNiche} onValueChange={setNewChannelNiche}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o nicho" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nicheOptions.map((niche) => (
-                        <SelectItem key={niche.value} value={niche.value}>
-                          {niche.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  onClick={handleAddChannel}
-                  className="w-full"
-                  disabled={createChannel.isPending}
-                >
-                  {createChannel.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                  Criar Canal
-                </Button>
-              </div>
+
+              <Tabs defaultValue="idea" className="w-full pt-4">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="idea">Ideia Própria</TabsTrigger>
+                  <TabsTrigger value="research">Pesquisa de Mercado</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="idea" className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="channel-name">Nome do Canal</Label>
+                    <Input
+                      id="channel-name"
+                      placeholder="Ex: Curiosidades Terror"
+                      value={newChannelName}
+                      onChange={(e) => setNewChannelName(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="channel-niche">Nicho</Label>
+                    <Select value={newChannelNiche} onValueChange={setNewChannelNiche}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o nicho" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {nicheOptions.map((niche) => (
+                          <SelectItem key={niche.value} value={niche.value}>
+                            {niche.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    onClick={handleAddChannel}
+                    className="w-full"
+                    disabled={createChannel.isPending}
+                  >
+                    {createChannel.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Criar Canal
+                  </Button>
+                </TabsContent>
+
+                <TabsContent value="research" className="space-y-4">
+                  <div className="p-4 bg-muted/50 rounded-lg text-sm text-muted-foreground mb-4">
+                    <p>Cole a URL de um canal existente para importar dados e estilo.</p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="channel-url">URL do Canal (YouTube)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="channel-url"
+                        placeholder="https://youtube.com/@Canal..."
+                        disabled
+                      />
+                      <Button variant="outline" disabled>
+                        <Search className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Integração API FY em breve.</p>
+                  </div>
+                  <Button disabled className="w-full">
+                    Importar Canal
+                  </Button>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         </div>
@@ -293,9 +325,9 @@ export default function Dashboard() {
                       <div className={`w-3 h-3 rounded-full ${getHealthColor(channel.health)} animate-pulse-glow`} />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -308,7 +340,7 @@ export default function Dashboard() {
                             Editar
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={(e) => handleDeleteClick(channel, e as any)}
                             className="text-destructive focus:text-destructive"
                           >

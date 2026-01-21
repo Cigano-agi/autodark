@@ -25,7 +25,7 @@ export default function Login() {
     setLoading(true);
     const { error } = await signInWithEmail(loginEmail, loginPassword);
     setLoading(false);
-    
+
     if (error) {
       toast.error('Erro ao entrar: ' + error.message);
     } else {
@@ -39,7 +39,7 @@ export default function Login() {
     setLoading(true);
     const { error } = await signUpWithEmail(signupEmail, signupPassword);
     setLoading(false);
-    
+
     if (error) {
       toast.error('Erro ao criar conta: ' + error.message);
     } else {
@@ -58,33 +58,64 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative overflow-hidden bg-background">
       {/* Background pattern */}
       <div className="absolute inset-0 bg-background">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/5 via-background to-background" />
-        <div 
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2322c55e' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
       </div>
 
-      <Card className="w-full max-w-md border-border/50 bg-card/80 backdrop-blur-sm relative z-10">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary" />
-          </div>
+      <Card className="w-full max-w-[400px] border-border/50 bg-card/80 backdrop-blur-sm relative z-10 shadow-xl">
+        <CardHeader className="text-center space-y-6 pb-6 pt-10">
           <div>
-            <CardTitle className="text-2xl font-bold">Dark Ops</CardTitle>
-            <CardDescription className="text-muted-foreground">
-              Plataforma de Automação Estratégica
+            <CardTitle className="text-3xl font-bold tracking-tight mb-2">Seja bem-vindo, Gustavo</CardTitle>
+            <CardDescription className="text-muted-foreground text-lg">
+              O que vamos criar hoje?
             </CardDescription>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-6">
-          {/* Google Login */}
+        <CardContent className="space-y-6 pb-10 px-8">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="login-email">Email</Label>
+              <Input
+                id="login-email"
+                type="email"
+                placeholder="seu@email.com"
+                value={loginEmail}
+                onChange={(e) => setLoginEmail(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="login-password">Senha</Label>
+              <Input
+                id="login-password"
+                type="password"
+                placeholder="••••••••"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                required
+                className="h-11"
+              />
+            </div>
+
+            <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              {loading ? 'Entrando...' : 'Entrar na Plataforma'}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">ou</span>
+            </div>
+          </div>
+
           <Button
             variant="outline"
             className="w-full h-11 gap-3"
@@ -115,86 +146,15 @@ export default function Login() {
             )}
             Continuar com Google
           </Button>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">ou</span>
-            </div>
-          </div>
-
-          {/* Email/Password Tabs */}
-          <Tabs defaultValue="login" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="signup">Criar Conta</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="login" className="space-y-4 mt-4">
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="login-email">Email</Label>
-                  <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="login-password">Senha</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={loginPassword}
-                    onChange={(e) => setLoginPassword(e.target.value)}
-                    required
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Entrar'}
-                </Button>
-              </form>
-            </TabsContent>
-
-            <TabsContent value="signup" className="space-y-4 mt-4">
-              <form onSubmit={handleSignup} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="seu@email.com"
-                    value={signupEmail}
-                    onChange={(e) => setSignupEmail(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Senha</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar Conta'}
-                </Button>
-              </form>
-            </TabsContent>
-          </Tabs>
         </CardContent>
       </Card>
+
+      {/* Gysi Footer */}
+      <div className="absolute bottom-6 left-0 right-0 text-center">
+        <p className="text-sm font-medium text-muted-foreground">
+          Desenvolvido por <span className="text-primary font-bold">Gysi Company</span>
+        </p>
+      </div>
     </div>
   );
 }

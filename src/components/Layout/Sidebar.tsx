@@ -24,7 +24,7 @@ export function Sidebar() {
           <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
             <Zap className="w-5 h-5 text-primary" />
           </div>
-          <span className="font-bold text-xl tracking-tight">AutoDark</span>
+          <span className="font-bold text-xl tracking-tight">Gysi Ops</span>
         </Link>
         <NotificationCenter />
       </div>

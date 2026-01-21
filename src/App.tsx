@@ -12,7 +12,7 @@ import MainLayout from "./components/Layout/MainLayout";
 import StrategyDashboard from "./pages/Strategy/Index";
 import ProductionWizard from "./pages/Production/Index";
 import OperationsPage from "./pages/Operations/Index";
-import LandingPage from "./pages/LandingPage";
+import DesignSystemShowcase from "./pages/DesignSystemShowcase";
 
 const queryClient = new QueryClient();
 
@@ -29,7 +29,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -56,15 +56,15 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 
 const AppRoutes = () => (
   <Routes>
-    <Route path="/" element={<LandingPage />} />
     <Route
-      path="/login"
+      path="/"
       element={
         <PublicRoute>
           <Login />
         </PublicRoute>
       }
     />
+    <Route path="/design-system" element={<DesignSystemShowcase />} />
 
     {/* Protected Routes wrapped in MainLayout */}
     <Route

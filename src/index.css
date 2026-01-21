@@ -1,130 +1,171 @@
+/* Uber Base Design System - Global Styles */
+
+/* Font Imports - Uber Move (using system fallbacks) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* YouTube Dark Ops - Design System
-   Theme: Dark Mode with Zinc/Slate + Emerald accents
-   All colors MUST be HSL.
-*/
+/* 
+ * Uber Base Design System 
+ * Theme: Dark Mode Default with Light Mode Support
+ * All colors in HSL format for easy manipulation
+ */
 
 @layer base {
     :root {
-        --background: 240 10% 3.9%;
-        --foreground: 0 0% 98%;
+        /* Primary Colors */
+        --base-black: 0 0% 0%;
+        --base-white: 0 0% 100%;
 
-        --card: 240 10% 5.5%;
-        --card-foreground: 0 0% 98%;
+        /* Gray Scale */
+        --base-gray50: 0 0% 96%;
+        --base-gray100: 0 0% 93%;
+        --base-gray200: 0 0% 89%;
+        --base-gray300: 0 0% 80%;
+        --base-gray400: 0 0% 69%;
+        --base-gray500: 0 0% 46%;
+        --base-gray600: 0 0% 33%;
+        --base-gray700: 0 0% 20%;
+        --base-gray800: 0 0% 12%;
+        --base-gray900: 0 0% 8%;
 
-        --popover: 240 10% 5.5%;
-        --popover-foreground: 0 0% 98%;
+        /* Semantic - Positive (Success) */
+        --base-positive: 153 95% 30%;
+        --base-positiveDark: 153 96% 23%;
+        --base-positiveLight: 147 52% 93%;
 
-        --primary: 142 71% 45%;
-        --primary-foreground: 0 0% 2%;
+        /* Semantic - Negative (Error) */
+        --base-negative: 8 100% 45%;
+        --base-negativeDark: 8 100% 34%;
+        --base-negativeLight: 8 100% 97%;
 
-        --secondary: 240 5% 15%;
-        --secondary-foreground: 0 0% 98%;
+        /* Semantic - Warning */
+        --base-warning: 38 100% 63%;
+        --base-warningDark: 38 53% 38%;
+        --base-warningLight: 38 100% 93%;
 
-        --muted: 240 5% 15%;
-        --muted-foreground: 240 5% 64.9%;
+        /* Semantic - Accent (Interactive) */
+        --base-accent: 220 87% 55%;
+        --base-accentDark: 220 72% 42%;
+        --base-accentLight: 224 89% 97%;
 
-        --accent: 240 5% 15%;
-        --accent-foreground: 0 0% 98%;
-
-        --destructive: 0 62.8% 50%;
-        --destructive-foreground: 0 0% 98%;
-
-        --border: 240 5% 17%;
-        --input: 240 5% 17%;
-        --ring: 142 71% 45%;
-
+        /* Legacy support - mapped to Base Design System */
+        --background: var(--base-gray900);
+        --foreground: var(--base-white);
+        --card: var(--base-gray800);
+        --card-foreground: var(--base-white);
+        --popover: var(--base-gray800);
+        --popover-foreground: var(--base-white);
+        --primary: var(--base-black);
+        --primary-foreground: var(--base-white);
+        --secondary: var(--base-gray700);
+        --secondary-foreground: var(--base-white);
+        --muted: var(--base-gray700);
+        --muted-foreground: var(--base-gray400);
+        --accent: var(--base-accent);
+        --accent-foreground: var(--base-white);
+        --destructive: var(--base-negative);
+        --destructive-foreground: var(--base-white);
+        --border: var(--base-gray700);
+        --input: var(--base-gray700);
+        --ring: var(--base-accent);
         --radius: 0.5rem;
 
-        /* Custom semantic colors */
-        --success: 142 71% 45%;
-        --success-foreground: 0 0% 2%;
-        --warning: 38 92% 50%;
-        --warning-foreground: 0 0% 2%;
-        --info: 199 89% 48%;
-        --info-foreground: 0 0% 2%;
+        /* Semantic colors (legacy) */
+        --success: var(--base-positive);
+        --success-foreground: var(--base-white);
+        --warning: var(--base-warning);
+        --warning-foreground: var(--base-black);
+        --info: var(--base-accent);
+        --info-foreground: var(--base-white);
 
         /* Health indicators */
-        --health-green: 142 71% 45%;
-        --health-yellow: 38 92% 50%;
-        --health-red: 0 72% 51%;
+        --health-green: var(--base-positive);
+        --health-yellow: var(--base-warning);
+        --health-red: var(--base-negative);
 
         /* Chart colors */
-        --chart-1: 142 71% 45%;
-        --chart-2: 199 89% 48%;
+        --chart-1: var(--base-positive);
+        --chart-2: var(--base-accent);
         --chart-3: 280 65% 60%;
-        --chart-4: 38 92% 50%;
-        --chart-5: 0 72% 51%;
+        --chart-4: var(--base-warning);
+        --chart-5: var(--base-negative);
 
         /* Sidebar */
-        --sidebar-background: 240 10% 5%;
-        --sidebar-foreground: 0 0% 98%;
-        --sidebar-primary: 142 71% 45%;
-        --sidebar-primary-foreground: 0 0% 2%;
-        --sidebar-accent: 240 5% 12%;
-        --sidebar-accent-foreground: 0 0% 98%;
-        --sidebar-border: 240 5% 17%;
-        --sidebar-ring: 142 71% 45%;
+        --sidebar-background: var(--base-gray900);
+        --sidebar-foreground: var(--base-white);
+        --sidebar-primary: var(--base-accent);
+        --sidebar-primary-foreground: var(--base-white);
+        --sidebar-accent: var(--base-gray800);
+        --sidebar-accent-foreground: var(--base-white);
+        --sidebar-border: var(--base-gray700);
+        --sidebar-ring: var(--base-accent);
     }
 
-    /* Force dark mode as default */
+    /* Light mode */
+    .light {
+        --background: var(--base-white);
+        --foreground: var(--base-gray900);
+        --card: var(--base-white);
+        --card-foreground: var(--base-gray900);
+        --popover: var(--base-white);
+        --popover-foreground: var(--base-gray900);
+        --primary: var(--base-black);
+        --primary-foreground: var(--base-white);
+        --secondary: var(--base-gray100);
+        --secondary-foreground: var(--base-gray700);
+        --muted: var(--base-gray100);
+        --muted-foreground: var(--base-gray500);
+        --accent: var(--base-accent);
+        --accent-foreground: var(--base-white);
+        --destructive: var(--base-negative);
+        --destructive-foreground: var(--base-white);
+        --border: var(--base-gray200);
+        --input: var(--base-gray200);
+        --ring: var(--base-accent);
+
+        --sidebar-background: var(--base-gray50);
+        --sidebar-foreground: var(--base-gray900);
+        --sidebar-primary: var(--base-accent);
+        --sidebar-primary-foreground: var(--base-white);
+        --sidebar-accent: var(--base-gray100);
+        --sidebar-accent-foreground: var(--base-gray900);
+        --sidebar-border: var(--base-gray200);
+        --sidebar-ring: var(--base-accent);
+    }
+
+    /* Dark mode (default) */
     .dark {
-        --background: 240 10% 3.9%;
-        --foreground: 0 0% 98%;
+        --background: var(--base-gray900);
+        --foreground: var(--base-white);
+        --card: var(--base-gray800);
+        --card-foreground: var(--base-white);
+        --popover: var(--base-gray800);
+        --popover-foreground: var(--base-white);
+        --primary: var(--base-white);
+        --primary-foreground: var(--base-black);
+        --secondary: var(--base-gray700);
+        --secondary-foreground: var(--base-white);
+        --muted: var(--base-gray700);
+        --muted-foreground: var(--base-gray400);
+        --accent: var(--base-accent);
+        --accent-foreground: var(--base-white);
+        --destructive: var(--base-negative);
+        --destructive-foreground: var(--base-white);
+        --border: var(--base-gray700);
+        --input: var(--base-gray700);
+        --ring: var(--base-accent);
 
-        --card: 240 10% 5.5%;
-        --card-foreground: 0 0% 98%;
-
-        --popover: 240 10% 5.5%;
-        --popover-foreground: 0 0% 98%;
-
-        --primary: 142 71% 45%;
-        --primary-foreground: 0 0% 2%;
-
-        --secondary: 240 5% 15%;
-        --secondary-foreground: 0 0% 98%;
-
-        --muted: 240 5% 15%;
-        --muted-foreground: 240 5% 64.9%;
-
-        --accent: 240 5% 15%;
-        --accent-foreground: 0 0% 98%;
-
-        --destructive: 0 62.8% 50%;
-        --destructive-foreground: 0 0% 98%;
-
-        --border: 240 5% 17%;
-        --input: 240 5% 17%;
-        --ring: 142 71% 45%;
-
-        --success: 142 71% 45%;
-        --success-foreground: 0 0% 2%;
-        --warning: 38 92% 50%;
-        --warning-foreground: 0 0% 2%;
-        --info: 199 89% 48%;
-        --info-foreground: 0 0% 2%;
-
-        --health-green: 142 71% 45%;
-        --health-yellow: 38 92% 50%;
-        --health-red: 0 72% 51%;
-
-        --chart-1: 142 71% 45%;
-        --chart-2: 199 89% 48%;
-        --chart-3: 280 65% 60%;
-        --chart-4: 38 92% 50%;
-        --chart-5: 0 72% 51%;
-
-        --sidebar-background: 240 10% 5%;
-        --sidebar-foreground: 0 0% 98%;
-        --sidebar-primary: 142 71% 45%;
-        --sidebar-primary-foreground: 0 0% 2%;
-        --sidebar-accent: 240 5% 12%;
-        --sidebar-accent-foreground: 0 0% 98%;
-        --sidebar-border: 240 5% 17%;
-        --sidebar-ring: 142 71% 45%;
+        --sidebar-background: var(--base-gray900);
+        --sidebar-foreground: var(--base-white);
+        --sidebar-primary: var(--base-accent);
+        --sidebar-primary-foreground: var(--base-white);
+        --sidebar-accent: var(--base-gray800);
+        --sidebar-accent-foreground: var(--base-white);
+        --sidebar-border: var(--base-gray700);
+        --sidebar-ring: var(--base-accent);
     }
 }
 
@@ -139,7 +180,14 @@
 
     body {
         @apply bg-background text-foreground antialiased;
+        font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-feature-settings: "rlig" 1, "calt" 1;
+    }
+
+    /* Focus styles */
+    *:focus-visible {
+        @apply outline-none ring-2 ring-offset-2 ring-offset-background;
+        --tw-ring-color: hsl(var(--ring));
     }
 }
 
@@ -163,6 +211,12 @@
         background: hsl(var(--muted-foreground));
     }
 
+    /* Text selection */
+    ::selection {
+        background-color: hsl(var(--base-accent) / 0.3);
+        color: hsl(var(--foreground));
+    }
+
     /* Animations */
     @keyframes fade-in {
         from {
@@ -176,8 +230,56 @@
         }
     }
 
+    @keyframes slide-up {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
     .animate-fade-in {
         animation: fade-in 0.5s ease-out forwards;
+    }
+
+    .animate-slide-up {
+        animation: slide-up 0.4s ease-out forwards;
+    }
+
+    .animate-scale-in {
+        animation: scale-in 0.3s ease-out forwards;
+    }
+
+    .delay-100 {
+        animation-delay: 100ms;
+    }
+
+    .delay-200 {
+        animation-delay: 200ms;
+    }
+
+    .delay-300 {
+        animation-delay: 300ms;
+    }
+
+    .delay-500 {
+        animation-delay: 500ms;
     }
 
     .delay-1000 {
