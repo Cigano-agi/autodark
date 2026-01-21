@@ -19,6 +19,7 @@ export interface Channel {
   youtube_connected_at: string | null;
   created_at: string;
   updated_at: string;
+  videos?: any[]; // Added for compatibility with UI
 }
 
 export interface CreateChannelData {
@@ -131,7 +132,7 @@ export function useChannels() {
       await supabase.from('channel_metrics').delete().eq('channel_id', channelId);
       await supabase.from('channel_contents').delete().eq('channel_id', channelId);
       await supabase.from('channel_blueprints').delete().eq('channel_id', channelId);
-      
+
       const { error } = await supabase
         .from('channels')
         .delete()

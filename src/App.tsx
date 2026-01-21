@@ -8,7 +8,6 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import ChannelView from "./pages/ChannelView";
 import NotFound from "./pages/NotFound";
-import MainLayout from "./components/Layout/MainLayout";
 import StrategyDashboard from "./pages/Strategy/Index";
 import ProductionWizard from "./pages/Production/Index";
 import OperationsPage from "./pages/Operations/Index";
@@ -66,20 +65,50 @@ const AppRoutes = () => (
     />
     <Route path="/design-system" element={<DesignSystemShowcase />} />
 
-    {/* Protected Routes wrapped in MainLayout */}
     <Route
+      path="/dashboard"
       element={
         <ProtectedRoute>
-          <MainLayout />
+          <Dashboard />
         </ProtectedRoute>
       }
-    >
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/strategy" element={<StrategyDashboard />} />
-      <Route path="/production" element={<ProductionWizard />} />
-      <Route path="/operations" element={<OperationsPage />} />
-      <Route path="/channel/:id" element={<ChannelView />} />
-    </Route>
+    />
+
+    <Route
+      path="/production"
+      element={
+        <ProtectedRoute>
+          <ProductionWizard />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/channel/:id"
+      element={
+        <ProtectedRoute>
+          <ChannelView />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/strategy"
+      element={
+        <ProtectedRoute>
+          <StrategyDashboard />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/operations"
+      element={
+        <ProtectedRoute>
+          <OperationsPage />
+        </ProtectedRoute>
+      }
+    />
 
     <Route path="*" element={<NotFound />} />
   </Routes>
