@@ -7,16 +7,36 @@ export interface Content {
   id: string;
   channel_id: string;
   title: string;
-  status: string;
+  status: string | null;
   scheduled_date: string | null;
   created_at: string;
   updated_at: string;
+  // Pipeline fields
+  hook: string | null;
+  topic: string | null;
+  angle: string | null;
+  character: string | null;
+  reference: string | null;
+  nicho_slug: string | null;
+  script: string | null;
+  ssml_cache: string | null;
+  audio_path: string | null;
+  subtitle_path: string | null;
+  audio_duration: number | null;
+  error_log: string | null;
 }
 
 export interface CreateContentData {
   title: string;
   status?: string;
   scheduled_date?: string;
+  hook?: string;
+  topic?: string;
+  angle?: string;
+  character?: string;
+  reference?: string;
+  nicho_slug?: string;
+  script?: string;
 }
 
 export function useContents(channelId: string | undefined) {
@@ -52,6 +72,13 @@ export function useContents(channelId: string | undefined) {
           title: contentData.title,
           status: contentData.status || 'draft',
           scheduled_date: contentData.scheduled_date,
+          hook: contentData.hook,
+          topic: contentData.topic,
+          angle: contentData.angle,
+          character: contentData.character,
+          reference: contentData.reference,
+          nicho_slug: contentData.nicho_slug,
+          script: contentData.script,
         })
         .select()
         .single();

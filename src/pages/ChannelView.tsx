@@ -1,4 +1,5 @@
 
+
 import { useParams, useNavigate } from "react-router-dom";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
@@ -11,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { GrowthGraph } from "@/components/ui/growth-graph";
+import { ContentPipeline } from "@/components/ContentPipeline";
 import {
   Users,
   Play,
@@ -25,7 +27,8 @@ import {
   Check,
   X,
   Terminal,
-  Wand2
+  Wand2,
+  Zap
 } from "lucide-react";
 import { formatNumber } from "@/lib/mock-data";
 import { useHeadAgent } from "@/hooks/useHeadAgent";
@@ -140,6 +143,9 @@ export default function ChannelView() {
             </TabsTrigger>
             <TabsTrigger value="ideas" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Lightbulb className="w-4 h-4" /> Ideias AI ({ideas.length})
+            </TabsTrigger>
+            <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <Zap className="w-4 h-4" /> Pipeline
             </TabsTrigger>
             <TabsTrigger value="videos" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Video className="w-4 h-4" /> Conteúdos
@@ -305,6 +311,11 @@ export default function ChannelView() {
                 ))}
               </div>
             )}
+          </TabsContent>
+
+          {/* Pipeline Tab - N8N Inspired */}
+          <TabsContent value="pipeline" className="focus-visible:outline-none">
+            <ContentPipeline channelId={id} />
           </TabsContent>
 
           <TabsContent value="videos" className="focus-visible:outline-none">

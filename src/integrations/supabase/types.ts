@@ -17,42 +17,54 @@ export type Database = {
       channel_blueprints: {
         Row: {
           channel_id: string
+          char_limit: number | null
           created_at: string
+          cta: string | null
           id: string
           persona_prompt: string | null
+          reference: string | null
           script_rules: string | null
           target_audience: string | null
           topic: string | null
           updated_at: string
           upload_frequency: string | null
+          videos_per_batch: number | null
           visual_style: string | null
           voice_id: string | null
           voice_name: string | null
         }
         Insert: {
           channel_id: string
+          char_limit?: number | null
           created_at?: string
+          cta?: string | null
           id?: string
           persona_prompt?: string | null
+          reference?: string | null
           script_rules?: string | null
           target_audience?: string | null
           topic?: string | null
           updated_at?: string
           upload_frequency?: string | null
+          videos_per_batch?: number | null
           visual_style?: string | null
           voice_id?: string | null
           voice_name?: string | null
         }
         Update: {
           channel_id?: string
+          char_limit?: number | null
           created_at?: string
+          cta?: string | null
           id?: string
           persona_prompt?: string | null
+          reference?: string | null
           script_rules?: string | null
           target_audience?: string | null
           topic?: string | null
           updated_at?: string
           upload_frequency?: string | null
+          videos_per_batch?: number | null
           visual_style?: string | null
           voice_id?: string | null
           voice_name?: string | null
@@ -69,30 +81,66 @@ export type Database = {
       }
       channel_contents: {
         Row: {
+          angle: string | null
+          audio_duration: number | null
+          audio_path: string | null
           channel_id: string
+          character: string | null
           created_at: string
+          error_log: string | null
+          hook: string | null
           id: string
+          nicho_slug: string | null
+          reference: string | null
           scheduled_date: string | null
+          script: string | null
+          ssml_cache: string | null
           status: string | null
+          subtitle_path: string | null
           title: string
+          topic: string | null
           updated_at: string
         }
         Insert: {
+          angle?: string | null
+          audio_duration?: number | null
+          audio_path?: string | null
           channel_id: string
+          character?: string | null
           created_at?: string
+          error_log?: string | null
+          hook?: string | null
           id?: string
+          nicho_slug?: string | null
+          reference?: string | null
           scheduled_date?: string | null
+          script?: string | null
+          ssml_cache?: string | null
           status?: string | null
+          subtitle_path?: string | null
           title: string
+          topic?: string | null
           updated_at?: string
         }
         Update: {
+          angle?: string | null
+          audio_duration?: number | null
+          audio_path?: string | null
           channel_id?: string
+          character?: string | null
           created_at?: string
+          error_log?: string | null
+          hook?: string | null
           id?: string
+          nicho_slug?: string | null
+          reference?: string | null
           scheduled_date?: string | null
+          script?: string | null
+          ssml_cache?: string | null
           status?: string | null
+          subtitle_path?: string | null
           title?: string
+          topic?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -149,87 +197,6 @@ export type Database = {
           },
         ]
       }
-      channels: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          health: string | null
-          id: string
-          last_scraped_at: string | null
-          monthly_views: number | null
-          name: string
-          niche: string
-          niche_color: string | null
-          subscribers: number | null
-          updated_at: string
-          user_id: string
-          youtube_access_token: string | null
-          youtube_banner_url: string | null
-          youtube_channel_id: string | null
-          youtube_connected_at: string | null
-          youtube_description: string | null
-          youtube_id: string | null
-          youtube_joined_date: string | null
-          youtube_refresh_token: string | null
-          youtube_total_videos: number | null
-          youtube_total_views: number | null
-          youtube_uploads_playlist_id: string | null
-          youtube_username: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          health?: string | null
-          id?: string
-          last_scraped_at?: string | null
-          monthly_views?: number | null
-          name: string
-          niche: string
-          niche_color?: string | null
-          subscribers?: number | null
-          updated_at?: string
-          user_id: string
-          youtube_access_token?: string | null
-          youtube_banner_url?: string | null
-          youtube_channel_id?: string | null
-          youtube_connected_at?: string | null
-          youtube_description?: string | null
-          youtube_id?: string | null
-          youtube_joined_date?: string | null
-          youtube_refresh_token?: string | null
-          youtube_total_videos?: number | null
-          youtube_total_views?: number | null
-          youtube_uploads_playlist_id?: string | null
-          youtube_username?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          health?: string | null
-          id?: string
-          last_scraped_at?: string | null
-          monthly_views?: number | null
-          name?: string
-          niche?: string
-          niche_color?: string | null
-          subscribers?: number | null
-          updated_at?: string
-          user_id?: string
-          youtube_access_token?: string | null
-          youtube_banner_url?: string | null
-          youtube_channel_id?: string | null
-          youtube_connected_at?: string | null
-          youtube_description?: string | null
-          youtube_id?: string | null
-          youtube_joined_date?: string | null
-          youtube_refresh_token?: string | null
-          youtube_total_videos?: number | null
-          youtube_total_views?: number | null
-          youtube_uploads_playlist_id?: string | null
-          youtube_username?: string | null
-        }
-        Relationships: []
-      }
       channel_prompts: {
         Row: {
           channel_id: string
@@ -273,6 +240,102 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      channels: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          health: string | null
+          id: string
+          last_scraped_at: string | null
+          monthly_views: number | null
+          name: string
+          niche: string
+          niche_color: string | null
+          requires_review: boolean | null
+          subscribers: number | null
+          updated_at: string
+          user_id: string
+          whatsapp_connected: boolean | null
+          whatsapp_connected_at: string | null
+          whatsapp_instance_id: string | null
+          whatsapp_phone: string | null
+          youtube_access_token: string | null
+          youtube_banner_url: string | null
+          youtube_channel_id: string | null
+          youtube_connected_at: string | null
+          youtube_description: string | null
+          youtube_id: string | null
+          youtube_joined_date: string | null
+          youtube_refresh_token: string | null
+          youtube_total_videos: number | null
+          youtube_total_views: number | null
+          youtube_uploads_playlist_id: string | null
+          youtube_username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          health?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          monthly_views?: number | null
+          name: string
+          niche: string
+          niche_color?: string | null
+          requires_review?: boolean | null
+          subscribers?: number | null
+          updated_at?: string
+          user_id: string
+          whatsapp_connected?: boolean | null
+          whatsapp_connected_at?: string | null
+          whatsapp_instance_id?: string | null
+          whatsapp_phone?: string | null
+          youtube_access_token?: string | null
+          youtube_banner_url?: string | null
+          youtube_channel_id?: string | null
+          youtube_connected_at?: string | null
+          youtube_description?: string | null
+          youtube_id?: string | null
+          youtube_joined_date?: string | null
+          youtube_refresh_token?: string | null
+          youtube_total_videos?: number | null
+          youtube_total_views?: number | null
+          youtube_uploads_playlist_id?: string | null
+          youtube_username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          health?: string | null
+          id?: string
+          last_scraped_at?: string | null
+          monthly_views?: number | null
+          name?: string
+          niche?: string
+          niche_color?: string | null
+          requires_review?: boolean | null
+          subscribers?: number | null
+          updated_at?: string
+          user_id?: string
+          whatsapp_connected?: boolean | null
+          whatsapp_connected_at?: string | null
+          whatsapp_instance_id?: string | null
+          whatsapp_phone?: string | null
+          youtube_access_token?: string | null
+          youtube_banner_url?: string | null
+          youtube_channel_id?: string | null
+          youtube_connected_at?: string | null
+          youtube_description?: string | null
+          youtube_id?: string | null
+          youtube_joined_date?: string | null
+          youtube_refresh_token?: string | null
+          youtube_total_videos?: number | null
+          youtube_total_views?: number | null
+          youtube_uploads_playlist_id?: string | null
+          youtube_username?: string | null
+        }
+        Relationships: []
       }
       content_ideas: {
         Row: {
