@@ -127,7 +127,7 @@ export default function Dashboard() {
                 <span className="relative z-10">Novo Canal</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-card/95 backdrop-blur-xl border-white/10 shadow-2xl">
+            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 shadow-2xl">
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">Criar Novo Canal</DialogTitle>
                 <DialogDescription>

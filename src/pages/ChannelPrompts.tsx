@@ -154,7 +154,7 @@ export default function ChannelPrompts() {
                                 Novo Prompt
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[700px] bg-card/95 backdrop-blur-xl border-white/10">
+                        <DialogContent className="sm:max-w-[700px] bg-card border-white/10">
                             <DialogHeader>
                                 <DialogTitle>{editingPromptId ? 'Editar Prompt' : 'Novo Prompt'}</DialogTitle>
                                 <DialogDescription>
@@ -234,7 +234,7 @@ export default function ChannelPrompts() {
                         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : prompts.length === 0 ? (
-                    <Card className="bg-card/20 backdrop-blur border-dashed border-white/10 p-12 text-center">
+                    <Card className="bg-card/60 border-dashed border-white/10 p-12 text-center">
                         <Terminal className="w-12 h-12 text-white/20 mx-auto mb-4" />
                         <h3 className="text-xl font-medium text-white mb-2">Sem prompts configurados</h3>
                         <p className="text-muted-foreground mb-6">Crie seu primeiro template variável para automatizar a criação de conteúdo do canal.</p>
@@ -245,7 +245,7 @@ export default function ChannelPrompts() {
                 ) : (
                     <div className="grid grid-cols-1 gap-4">
                         {prompts.map(prompt => (
-                            <Card key={prompt.id} className={`bg-card/30 backdrop-blur border-white/10 transition-colors ${!prompt.is_active ? 'opacity-60 grayscale' : ''}`}>
+                            <Card key={prompt.id} className={`bg-card/80 border-white/10 transition-colors ${!prompt.is_active ? 'opacity-60 grayscale' : ''}`}>
                                 <CardHeader className="pb-3">
                                     <div className="flex justify-between items-start">
                                         <div>

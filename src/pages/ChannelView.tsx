@@ -55,7 +55,7 @@ export default function ChannelView() {
       <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
 
         {/* Channel Header */}
-        <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-card/30 backdrop-blur-xl mb-8">
+        <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-card/80 mb-8">
           {/* Cover Banner */}
           <div className="h-48 bg-gradient-to-r from-primary/20 via-purple-500/10 to-blue-500/20 relative">
             {channel.youtube_banner_url ? (
@@ -137,7 +137,7 @@ export default function ChannelView() {
 
         {/* Main Content */}
         <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className="bg-card/30 backdrop-blur border border-white/10 p-1">
+          <TabsList className="bg-card/80 border border-white/10 p-1">
             <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <BarChart3 className="w-4 h-4" /> Dashboard
             </TabsTrigger>
@@ -170,7 +170,7 @@ export default function ChannelView() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-card/30 backdrop-blur border-white/10 overflow-hidden group">
+                <Card className="bg-card/80 border-white/10 overflow-hidden group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-white/70">
                       Visualizações
@@ -185,7 +185,7 @@ export default function ChannelView() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/30 backdrop-blur border-white/10 overflow-hidden group">
+                <Card className="bg-card/80 border-white/10 overflow-hidden group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-white/70">
                       Inscritos Estimados
@@ -200,7 +200,7 @@ export default function ChannelView() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/30 backdrop-blur border-white/10 overflow-hidden group">
+                <Card className="bg-card/80 border-white/10 overflow-hidden group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-white/70">
                       Receita Estimada
@@ -248,7 +248,7 @@ export default function ChannelView() {
           {/* AI Ideas Tab */}
           <TabsContent value="ideas" className="focus-visible:outline-none space-y-4">
             {ideas.length === 0 ? (
-              <Card className="bg-card/20 backdrop-blur border-dashed border-white/10 p-12 text-center">
+              <Card className="bg-card/60 border-dashed border-white/10 p-12 text-center">
                 <Lightbulb className="w-12 h-12 text-white/20 mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">Nenhuma ideia gerada ainda.</p>
                 <Button
@@ -326,7 +326,7 @@ export default function ChannelView() {
             ) : contents && contents.length > 0 ? (
               <div className="space-y-3">
                 {contents.map(content => (
-                  <Card key={content.id} className="bg-card/30 backdrop-blur border-white/10">
+                  <Card key={content.id} className="bg-card/80 border-white/10">
                     <CardContent className="p-4 flex items-center justify-between">
                       <div>
                         <h3 className="font-medium text-white">{content.title}</h3>
@@ -353,7 +353,7 @@ export default function ChannelView() {
           </TabsContent>
 
           <TabsContent value="settings" className="focus-visible:outline-none">
-            <Card className="bg-card/30 backdrop-blur border-white/10 p-8">
+            <Card className="bg-card/80 border-white/10 p-8">
               <h2 className="text-xl font-bold text-white mb-6">Informações do Canal</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="space-y-3">
