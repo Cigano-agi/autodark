@@ -19,7 +19,9 @@ export type Database = {
           channel_id: string
           created_at: string
           id: string
+          persona_prompt: string | null
           script_rules: string | null
+          target_audience: string | null
           topic: string | null
           updated_at: string
           upload_frequency: string | null
@@ -31,7 +33,9 @@ export type Database = {
           channel_id: string
           created_at?: string
           id?: string
+          persona_prompt?: string | null
           script_rules?: string | null
+          target_audience?: string | null
           topic?: string | null
           updated_at?: string
           upload_frequency?: string | null
@@ -43,7 +47,9 @@ export type Database = {
           channel_id?: string
           created_at?: string
           id?: string
+          persona_prompt?: string | null
           script_rules?: string | null
+          target_audience?: string | null
           topic?: string | null
           updated_at?: string
           upload_frequency?: string | null
@@ -149,6 +155,7 @@ export type Database = {
           created_at: string
           health: string | null
           id: string
+          last_scraped_at: string | null
           monthly_views: number | null
           name: string
           niche: string
@@ -161,10 +168,12 @@ export type Database = {
           youtube_channel_id: string | null
           youtube_connected_at: string | null
           youtube_description: string | null
+          youtube_id: string | null
           youtube_joined_date: string | null
           youtube_refresh_token: string | null
           youtube_total_videos: number | null
           youtube_total_views: number | null
+          youtube_uploads_playlist_id: string | null
           youtube_username: string | null
         }
         Insert: {
@@ -172,6 +181,7 @@ export type Database = {
           created_at?: string
           health?: string | null
           id?: string
+          last_scraped_at?: string | null
           monthly_views?: number | null
           name: string
           niche: string
@@ -184,10 +194,12 @@ export type Database = {
           youtube_channel_id?: string | null
           youtube_connected_at?: string | null
           youtube_description?: string | null
+          youtube_id?: string | null
           youtube_joined_date?: string | null
           youtube_refresh_token?: string | null
           youtube_total_videos?: number | null
           youtube_total_views?: number | null
+          youtube_uploads_playlist_id?: string | null
           youtube_username?: string | null
         }
         Update: {
@@ -195,6 +207,7 @@ export type Database = {
           created_at?: string
           health?: string | null
           id?: string
+          last_scraped_at?: string | null
           monthly_views?: number | null
           name?: string
           niche?: string
@@ -207,13 +220,100 @@ export type Database = {
           youtube_channel_id?: string | null
           youtube_connected_at?: string | null
           youtube_description?: string | null
+          youtube_id?: string | null
           youtube_joined_date?: string | null
           youtube_refresh_token?: string | null
           youtube_total_videos?: number | null
           youtube_total_views?: number | null
+          youtube_uploads_playlist_id?: string | null
           youtube_username?: string | null
         }
         Relationships: []
+      }
+      channel_prompts: {
+        Row: {
+          channel_id: string
+          content_type: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          prompt_template: string
+          updated_at: string | null
+          variables: Json | null
+        }
+        Insert: {
+          channel_id: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          prompt_template: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Update: {
+          channel_id?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          prompt_template?: string
+          updated_at?: string | null
+          variables?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_prompts_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_ideas: {
+        Row: {
+          channel_id: string | null
+          concept: string | null
+          created_at: string | null
+          id: string
+          reasoning: string | null
+          score: number | null
+          status: string | null
+          title: string
+        }
+        Insert: {
+          channel_id?: string | null
+          concept?: string | null
+          created_at?: string | null
+          id?: string
+          reasoning?: string | null
+          score?: number | null
+          status?: string | null
+          title: string
+        }
+        Update: {
+          channel_id?: string | null
+          concept?: string | null
+          created_at?: string | null
+          id?: string
+          reasoning?: string | null
+          score?: number | null
+          status?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ideas_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -237,116 +337,116 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-    ? R
-    : never
+  ? R
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-        Row: infer R
-      }
-      ? R
-      : never
-    : never
+    DefaultSchema["Views"])
+  ? (DefaultSchema["Tables"] &
+    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+      Row: infer R
+    }
+  ? R
+  : never
+  : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Tables"]
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Insert: infer I
-    }
-    ? I
-    : never
+    Insert: infer I
+  }
+  ? I
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Insert: infer I
-      }
-      ? I
-      : never
-    : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    Insert: infer I
+  }
+  ? I
+  : never
+  : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Tables"]
+  | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+  : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-      Update: infer U
-    }
-    ? U
-    : never
+    Update: infer U
+  }
+  ? U
+  : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-        Update: infer U
-      }
-      ? U
-      : never
-    : never
+  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+    Update: infer U
+  }
+  ? U
+  : never
+  : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["Enums"]
+  | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+  : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-    : never
+  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
+  | keyof DefaultSchema["CompositeTypes"]
+  | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+  : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-    : never
+  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : never
 
 export const Constants = {
   public: {

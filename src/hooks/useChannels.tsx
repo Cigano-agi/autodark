@@ -17,15 +17,28 @@ export interface Channel {
   youtube_access_token: string | null;
   youtube_refresh_token: string | null;
   youtube_connected_at: string | null;
+  youtube_id: string | null;
+  youtube_uploads_playlist_id: string | null;
+  youtube_username: string | null;
+  youtube_total_videos: number | null;
+  youtube_total_views: number | null;
+  youtube_description: string | null;
+  youtube_joined_date: string | null;
+  youtube_banner_url: string | null;
+  last_scraped_at: string | null;
+  requires_review: boolean;
+
   created_at: string;
   updated_at: string;
-  videos?: any[]; // Added for compatibility with UI
 }
 
 export interface CreateChannelData {
   name: string;
   niche: string;
   niche_color?: string;
+  tone_of_voice?: string;
+  target_audience?: string;
+  requires_review?: boolean;
 }
 
 export interface UpdateChannelData {
@@ -64,15 +77,18 @@ export function useChannels() {
           name: channelData.name,
           niche: channelData.niche,
           niche_color: channelData.niche_color || 'bg-muted text-muted-foreground',
+          requires_review: channelData.requires_review || false,
         })
         .select()
         .single();
 
       if (error) throw error;
 
-      // Create empty blueprint for the channel
+      // Create empty blueprint for the channel with optional initial values
       await supabase.from('channel_blueprints').insert({
         channel_id: data.id,
+        tone_of_voice: channelData.tone_of_voice || null,
+        target_audience: channelData.target_audience || null,
       });
 
       return data as Channel;

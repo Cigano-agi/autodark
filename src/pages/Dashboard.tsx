@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useChannels, Channel } from '@/hooks/useChannels';
 import { formatNumber, nicheOptions } from '@/lib/mock-data';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,7 +34,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Search, Folder } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Loader2, Search, Folder, ShieldAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Premium Components
@@ -43,13 +45,17 @@ import { ChannelFolder } from "@/components/ui/channel-folder";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { } = useAuth(); // Cleaned up unused user
-  const { channels, isLoading, createChannel, deleteChannel } = useChannels(); // Cleaned up updateChannel
+  const { userName } = useAuth();
+  const { channels, isLoading, createChannel, deleteChannel } = useChannels();
 
   // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelNiche, setNewChannelNiche] = useState('');
+  const [isCustomNiche, setIsCustomNiche] = useState(false);
+  const [toneOfVoice, setToneOfVoice] = useState('');
+  const [targetAudience, setTargetAudience] = useState('');
+  const [requiresReview, setRequiresReview] = useState(false);
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -57,7 +63,7 @@ export default function Dashboard() {
 
   const handleAddChannel = async () => {
     if (!newChannelName || !newChannelNiche) {
-      toast.error('Preencha todos os campos');
+      toast.error('Preencha os campos obrigatórios (Nome e Categoria)');
       return;
     }
 
@@ -65,13 +71,20 @@ export default function Dashboard() {
 
     await createChannel.mutateAsync({
       name: newChannelName,
-      niche: nicheData?.label || newChannelNiche,
+      niche: isCustomNiche ? newChannelNiche : (nicheData?.label || newChannelNiche),
       niche_color: nicheData?.color || 'bg-muted text-muted-foreground',
+      tone_of_voice: toneOfVoice,
+      target_audience: targetAudience,
+      requires_review: requiresReview,
     });
 
     setCreateDialogOpen(false);
     setNewChannelName('');
     setNewChannelNiche('');
+    setIsCustomNiche(false);
+    setToneOfVoice('');
+    setTargetAudience('');
+    setRequiresReview(false);
     toast.success('Canal criado com sucesso!');
   };
 
@@ -99,7 +112,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div className="space-y-2">
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
-              Seus Canais
+              {userName ? `Olá, ${userName.split(' ')[0]}` : 'Seus Canais'}
             </h1>
             <p className="text-lg text-muted-foreground max-w-xl">
               Gerencie seus impérios de conteúdo. Selecione um canal para começar a produzir.
@@ -118,107 +131,121 @@ export default function Dashboard() {
               <DialogHeader>
                 <DialogTitle className="text-2xl font-bold">Criar Novo Canal</DialogTitle>
                 <DialogDescription>
-                  Escolha como deseja iniciar sua jornada no YouTube.
+                  Inicie sua jornada no YouTube. Configure a base do seu robô produtor.
                 </DialogDescription>
               </DialogHeader>
 
-              <Tabs defaultValue="idea" className="w-full mt-6">
-                <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50">
-                  <TabsTrigger value="idea">Ideia Própria</TabsTrigger>
-                  <TabsTrigger value="research">Pesquisa de Mercado</TabsTrigger>
-                </TabsList>
+              <div className="space-y-6 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="channel-name" className="text-white/90">Nome do Canal *</Label>
+                  <Input
+                    id="channel-name"
+                    placeholder="Ex: Curiosidades Terror"
+                    value={newChannelName}
+                    onChange={(e) => setNewChannelName(e.target.value)}
+                    className="bg-background/50 border-white/10 focus:ring-primary/50"
+                  />
+                </div>
 
-                <TabsContent value="idea" className="space-y-6">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="channel-name">Nome do Canal</Label>
-                      <Input
-                        id="channel-name"
-                        placeholder="Ex: Curiosidades Terror"
-                        value={newChannelName}
-                        onChange={(e) => setNewChannelName(e.target.value)}
-                        className="bg-background/50 border-white/10 focus:ring-primary/50"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="channel-niche">Nicho</Label>
-                      <Select value={newChannelNiche} onValueChange={setNewChannelNiche}>
-                        <SelectTrigger className="bg-background/50 border-white/10">
-                          <SelectValue placeholder="Selecione o nicho" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {nicheOptions.map((niche) => (
-                            <SelectItem key={niche.value} value={niche.value}>
-                              {niche.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      onClick={handleAddChannel}
-                      className="w-full h-11"
-                      disabled={createChannel.isPending}
-                    >
-                      {createChannel.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Criando...
-                        </>
-                      ) : (
-                        'Criar Canal'
-                      )}
-                    </Button>
-                  </DialogFooter>
-                </TabsContent>
-
-                <TabsContent value="research" className="space-y-6">
-                  <div className="flex flex-col items-center justify-center p-8 text-center space-y-4 border rounded-xl bg-muted/10 border-dashed border-white/10">
-                    <div className="bg-primary/10 p-4 rounded-full">
-                      <Search className="w-8 h-8 text-primary" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-lg text-white">Importar Dados</h3>
-                      <p className="text-muted-foreground text-sm max-w-sm mx-auto mt-1">
-                        Cole a URL de um canal existente para nossa IA clonar a estratégia de sucesso.
-                      </p>
-                    </div>
-                    <div className="w-full max-w-sm flex gap-2 pt-2">
-                      <Input
-                        placeholder="https://youtube.com/@CanalInspiracao"
-                        className="bg-background/30 border-white/10"
-                        onChange={(e) => setNewChannelNiche(e.target.value)}
-                      />
+                <div className="space-y-3">
+                  <Label className="text-white/90">Categoria *</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {nicheOptions.map((niche) => (
                       <Button
-                        onClick={async () => {
-                          if (!newChannelNiche) {
-                            toast.error("Cole uma URL válida");
-                            return;
-                          }
-                          toast.info("Analisando canal...");
-                          await new Promise(r => setTimeout(r, 1500));
-                          await createChannel.mutateAsync({
-                            name: "Canal Importado (Demo)",
-                            niche: "Curiosidades",
-                            niche_color: "bg-purple-500 text-white"
-                          });
-                          setCreateDialogOpen(false);
-                          setNewChannelNiche("");
-                          toast.success("Estratégia importada com sucesso!");
+                        key={niche.value}
+                        type="button"
+                        variant={!isCustomNiche && newChannelNiche === niche.value ? "default" : "outline"}
+                        className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${!isCustomNiche && newChannelNiche === niche.value ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
+                        onClick={() => {
+                          setNewChannelNiche(niche.value);
+                          setIsCustomNiche(false);
                         }}
-                        className="bg-primary text-white"
                       >
-                        Importar
+                        {niche.label}
                       </Button>
-                    </div>
-                    <span className="text-xs text-primary/60 font-medium bg-primary/5 px-2 py-1 rounded">
-                      Demo: Simula a importação de métricas
-                    </span>
+                    ))}
+                    <Button
+                      type="button"
+                      variant={isCustomNiche ? "default" : "outline"}
+                      className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${isCustomNiche ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
+                      onClick={() => {
+                        setNewChannelNiche('');
+                        setIsCustomNiche(true);
+                      }}
+                    >
+                      Outro (Personalizado)
+                    </Button>
                   </div>
-                </TabsContent>
-              </Tabs>
+                  {isCustomNiche && (
+                    <Input
+                      autoFocus
+                      placeholder="Digite a categoria do seu canal..."
+                      value={newChannelNiche}
+                      onChange={(e) => setNewChannelNiche(e.target.value)}
+                      className="mt-3 bg-background/50 border-white/10 focus:ring-primary/50"
+                    />
+                  )}
+                </div>
+
+                {/* Optional Setup variables for AI */}
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                  <h4 className="text-sm font-medium text-white/80">Estratégia do Agente de Roteiro (Opcional)</h4>
+                  <div className="space-y-2">
+                    <Label htmlFor="tone-of-voice" className="text-xs text-muted-foreground">Tom de Voz</Label>
+                    <Input
+                      id="tone-of-voice"
+                      placeholder="Ex: Tenebroso, misterioso e objetivo..."
+                      value={toneOfVoice}
+                      onChange={(e) => setToneOfVoice(e.target.value)}
+                      className="bg-background/20 h-9 border-white/5 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="target-audience" className="text-xs text-muted-foreground">Público Alvo / Restrições</Label>
+                    <Input
+                      id="target-audience"
+                      placeholder="Ex: Family friendly, sem mencionar mortes explícitas..."
+                      value={targetAudience}
+                      onChange={(e) => setTargetAudience(e.target.value)}
+                      className="bg-background/20 h-9 border-white/5 text-sm"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <div className="flex flex-col gap-1">
+                      <Label className="flex items-center gap-2 text-red-500">
+                        <ShieldAlert className="w-4 h-4" />
+                        Requer Análise Estrita?
+                      </Label>
+                      <span className="text-xs text-muted-foreground">
+                        Ative se este nicho violar regras frequentemente (ex: Terror, Drogas).
+                        A IA irá julgar roteiros para evitar "shadowbans".
+                      </span>
+                    </div>
+                    <Switch
+                      checked={requiresReview}
+                      onCheckedChange={setRequiresReview}
+                      className="data-[state=checked]:bg-red-500"
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="pt-2">
+                  <Button
+                    onClick={handleAddChannel}
+                    className="w-full h-11 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                    disabled={createChannel.isPending}
+                  >
+                    {createChannel.isPending ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Criando Império...
+                      </>
+                    ) : (
+                      'Criar Canal'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </div>
             </DialogContent>
           </Dialog>
         </div>
@@ -257,7 +284,7 @@ export default function Dashboard() {
                   key={channel.id}
                   name={channel.name}
                   subscribers={formatNumber(channel.subscribers || 0)}
-                  videoCount={channel.videos?.length || 0}
+                  videoCount={channel.youtube_total_videos || 0}
                   color={color}
                   onClick={() => handleChannelClick(channel.id)}
                 />

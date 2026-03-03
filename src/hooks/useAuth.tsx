@@ -6,10 +6,10 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  userName: string;
   signInWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUpWithEmail: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
-  signInAsDemo: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -21,7 +21,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener BEFORE checking session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -30,15 +29,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Check for local storage demo flag
-    const isDemo = localStorage.getItem('isDemoUser');
-    if (isDemo) {
-      setUser({ id: 'demo-user', email: 'demo@gysi.com', app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: new Date().toISOString() } as User);
-      setLoading(false);
-      return;
-    }
-
-    // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
@@ -47,11 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
-
-  const signInAsDemo = async () => {
-    localStorage.setItem('isDemoUser', 'true');
-    setUser({ id: 'demo-user', email: 'demo@gysi.com', app_metadata: {}, user_metadata: {}, aud: 'authenticated', created_at: new Date().toISOString() } as User);
-  };
 
   const signInWithEmail = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -80,10 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    localStorage.removeItem('isDemoUser');
     await supabase.auth.signOut();
     setUser(null);
+    setSession(null);
   };
+
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || '';
 
   return (
     <AuthContext.Provider
@@ -91,10 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         session,
         loading,
+        userName,
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
-        signInAsDemo,
         signOut,
       }}
     >

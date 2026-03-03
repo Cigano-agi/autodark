@@ -12,6 +12,7 @@ import { Loader2, Wand2, Play, Image as ImageIcon, FileText, CheckCircle, Zap, A
 import { toast } from "sonner";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
+import { KieGenerator } from "@/components/ui/kie-generator";
 
 // Mock AI functions
 const generateScriptMock = async (topic: string) => {
@@ -194,6 +195,10 @@ export default function ProductionWizard() {
                                         </ul>
                                     </div>
                                 )}
+
+                                <div className="mt-6">
+                                    <KieGenerator channelId={selectedChannelId} topic={blueprint?.topic} />
+                                </div>
                             </CardContent>
                         </Card>
 

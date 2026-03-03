@@ -12,7 +12,8 @@ import StrategyDashboard from "./pages/Strategy/Index";
 import ProductionWizard from "./pages/Production/Index";
 import OperationsPage from "./pages/Operations/Index";
 import DesignSystemShowcase from "./pages/DesignSystemShowcase";
-
+import ChannelPrompts from "./pages/ChannelPrompts";
+import LongVideoStudio from "./pages/LongVideoStudio";
 const queryClient = new QueryClient();
 
 // Protected Route component
@@ -88,6 +89,42 @@ const AppRoutes = () => (
       element={
         <ProtectedRoute>
           <ChannelView />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/channel/:id/strategy"
+      element={
+        <ProtectedRoute>
+          <StrategyDashboard />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/channel/:id/production"
+      element={
+        <ProtectedRoute>
+          <ProductionWizard />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/channel/:id/prompts"
+      element={
+        <ProtectedRoute>
+          <ChannelPrompts />
+        </ProtectedRoute>
+      }
+    />
+
+    <Route
+      path="/channel/:id/studio"
+      element={
+        <ProtectedRoute>
+          <LongVideoStudio />
         </ProtectedRoute>
       }
     />

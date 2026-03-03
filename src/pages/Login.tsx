@@ -5,22 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, Zap } from 'lucide-react';
-
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signInWithEmail, signUpWithEmail, signInWithGoogle, signInAsDemo } = useAuth();
+  const { signInWithEmail, signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [signupEmail, setSignupEmail] = useState('');
-  const [signupPassword, setSignupPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,28 +29,6 @@ export default function Login() {
       toast.error('Erro ao entrar: ' + error.message);
     } else {
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
-    }
-  };
-
-  const handleDemoLogin = async () => {
-    setLoading(true);
-    await signInAsDemo();
-    setLoading(false);
-    toast.success('Bem-vindo ao Modo Demo!');
-    navigate('/dashboard');
-  };
-
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    const { error } = await signUpWithEmail(signupEmail, signupPassword);
-    setLoading(false);
-
-    if (error) {
-      toast.error('Erro ao criar conta: ' + error.message);
-    } else {
-      toast.success('Conta criada com sucesso!');
       navigate('/dashboard');
     }
   };
@@ -87,9 +62,9 @@ export default function Login() {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.4 }}
             >
-              <CardTitle className="text-3xl font-bold tracking-tight mb-2">Seja bem-vindo, Gustavo</CardTitle>
+              <CardTitle className="text-3xl font-bold tracking-tight mb-2">AutoDark</CardTitle>
               <CardDescription className="text-muted-foreground text-lg">
-                O que vamos criar hoje?
+                Acesse sua plataforma de automação
               </CardDescription>
             </motion.div>
           </CardHeader>
@@ -110,15 +85,24 @@ export default function Login() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="login-password">Senha</Label>
-                <Input
-                  id="login-password"
-                  type="password"
-                  placeholder="••••••••"
-                  value={loginPassword}
-                  onChange={(e) => setLoginPassword(e.target.value)}
-                  required
-                  className="h-11 transition-all focus:ring-2 focus:ring-primary/20"
-                />
+                <div className="relative">
+                  <Input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                    className="h-11 pr-10 transition-all focus:ring-2 focus:ring-primary/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <Button type="submit" className="w-full h-11 text-base relative overflow-hidden group" disabled={loading}>
@@ -127,16 +111,6 @@ export default function Login() {
                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </Button>
             </form>
-
-            <Button
-              variant="secondary"
-              className="w-full h-11 gap-2 font-medium bg-muted/50 hover:bg-muted transition-colors"
-              onClick={handleDemoLogin}
-              disabled={loading}
-            >
-              <Zap className="w-4 h-4 text-warning" />
-              Entrar como Demo
-            </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
@@ -181,7 +155,7 @@ export default function Login() {
         </Card>
       </motion.div>
 
-      {/* Gysi Footer */}
+      {/* Footer */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
