@@ -17,6 +17,7 @@ const OperationsPage = lazy(() => import("./pages/Operations/Index"));
 const DesignSystemShowcase = lazy(() => import("./pages/DesignSystemShowcase"));
 const ChannelPrompts = lazy(() => import("./pages/ChannelPrompts"));
 const LongVideoStudio = lazy(() => import("./pages/LongVideoStudio"));
+const FixAndVerify = lazy(() => import("./pages/FixAndVerify"));
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const AppRoutes = () => (
       <Route path="/channel/:id/studio" element={<ProtectedRoute><LongVideoStudio /></ProtectedRoute>} />
       <Route path="/strategy" element={<ProtectedRoute><StrategyDashboard /></ProtectedRoute>} />
       <Route path="/operations" element={<ProtectedRoute><OperationsPage /></ProtectedRoute>} />
+      <Route path="/fix" element={<ProtectedRoute><FixAndVerify /></ProtectedRoute>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

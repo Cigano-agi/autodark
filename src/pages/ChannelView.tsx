@@ -1,5 +1,4 @@
-
-
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
@@ -7,6 +6,8 @@ import { useChannels } from "@/hooks/useChannels";
 import { useChannelMetrics } from "@/hooks/useChannelMetrics";
 import { useContents } from "@/hooks/useContents";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
+import { useYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
+import { ConnectYouTubeModal } from "@/components/YouTube/ConnectYouTubeModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,7 +29,9 @@ import {
   X,
   Terminal,
   Wand2,
-  Zap
+  Zap,
+  Youtube,
+  Calendar
 } from "lucide-react";
 import { formatNumber } from "@/lib/mock-data";
 import { useHeadAgent } from "@/hooks/useHeadAgent";
@@ -39,18 +42,46 @@ export default function ChannelView() {
   const navigate = useNavigate();
   const { channels } = useChannels();
   const channel = channels?.find(c => c.id === id);
-  const { data: metricsData, isLoading: metricsLoading } = useChannelMetrics(id);
+  const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('all');
+  const { data: metricsData, isLoading: metricsLoading } = useChannelMetrics(id, period);
   const { contents, isLoading: contentsLoading } = useContents(id);
   const { ideas, updateIdeaStatus } = useContentIdeas(id);
   const { generateStrategy, strategy, isLoading: isAiLoading } = useHeadAgent();
+  const { connectWithApify, syncMetrics } = useYouTubeMetrics();
+
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
+
+  // Auto-sync logic
+  useEffect(() => {
+    if (channel?.youtube_channel_id) {
+      const now = new Date();
+      const lastScraped = channel.last_scraped_at ? new Date(channel.last_scraped_at) : new Date(0);
+      const hoursSinceLastScrape = (now.getTime() - lastScraped.getTime()) / (1000 * 60 * 60);
+
+      // Auto-sync if more than 24 hours have passed
+      if (hoursSinceLastScrape > 24 && !syncMetrics.isPending) {
+        syncMetrics.mutate({
+          channelId: channel.id,
+          youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : ''
+        });
+      }
+    }
+  }, [channel?.id, channel?.last_scraped_at]);
 
   if (!channel) return null;
 
-  const hasMetrics = metricsData && metricsData.dailyViews.length > 0;
+  const hasMetrics = metricsData && (metricsData.dailyViews.length > 0 || channel.last_scraped_at);
 
   return (
     <BeamsBackground intensity="medium" className="bg-background">
       <DashboardHeader />
+
+      <ConnectYouTubeModal
+        open={isConnectModalOpen}
+        onOpenChange={setIsConnectModalOpen}
+        onConnect={async (url) => { await connectWithApify.mutateAsync({ channelId: channel.id, youtubeUrl: url }); }}
+        isConnecting={connectWithApify.isPending}
+      />
 
       <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
 
@@ -86,15 +117,34 @@ export default function ChannelView() {
                   <Badge variant="secondary" className="bg-white/10 text-white/70 hover:bg-white/20 border-white/5">
                     {channel.niche}
                   </Badge>
-
                 </h1>
                 <p className="text-muted-foreground">
                   {channel.youtube_username ? `@${channel.youtube_username}` : 'Gerenciado por AutoDark'}
-                  {channel.last_scraped_at && ` • Última sincronização ${new Date(channel.last_scraped_at).toLocaleDateString('pt-BR')}`}
+                  {channel.last_scraped_at && ` • Última sincronização ${new Date(channel.last_scraped_at).toLocaleDateString('pt-BR')} às ${new Date(channel.last_scraped_at).toLocaleTimeString('pt-BR')}`}
                 </p>
               </div>
 
               <div className="flex items-center gap-3">
+                {!channel.youtube_channel_id ? (
+                  <Button
+                    onClick={() => setIsConnectModalOpen(true)}
+                    className="bg-red-500 hover:bg-red-600 text-white gap-2"
+                  >
+                    <Youtube className="w-4 h-4" />
+                    Conectar YouTube
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() => syncMetrics.mutate({ channelId: channel.id, youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : '' })}
+                    variant="outline"
+                    disabled={syncMetrics.isPending}
+                    className="bg-black/20 text-white hover:bg-black/40 border-white/10 gap-2"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${syncMetrics.isPending ? 'animate-spin' : ''}`} />
+                    Sincronizar
+                  </Button>
+                )}
+
                 <Button
                   onClick={() => navigate(`/channel/${id}/prompts`)}
                   variant="outline"
@@ -156,6 +206,37 @@ export default function ChannelView() {
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-6 focus-visible:outline-none">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" /> Visão Geral
+              </h2>
+              <div className="flex bg-card/50 backdrop-blur-sm border border-white/10 p-1 rounded-xl">
+                <Button
+                  size="sm"
+                  variant={period === '7d' ? 'default' : 'ghost'}
+                  onClick={() => setPeriod('7d')}
+                  className="h-8 px-3 text-xs"
+                >
+                  7 dias
+                </Button>
+                <Button
+                  size="sm"
+                  variant={period === '30d' ? 'default' : 'ghost'}
+                  onClick={() => setPeriod('30d')}
+                  className="h-8 px-3 text-xs"
+                >
+                  30 dias
+                </Button>
+                <Button
+                  size="sm"
+                  variant={period === 'all' ? 'default' : 'ghost'}
+                  onClick={() => setPeriod('all')}
+                  className="h-8 px-3 text-xs"
+                >
+                  Tudo
+                </Button>
+              </div>
+            </div>
             {metricsLoading ? (
               <div className="h-40 flex items-center justify-center">
                 <RefreshCw className="w-8 h-8 animate-spin text-white/20" />
@@ -179,7 +260,7 @@ export default function ChannelView() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-white mb-4">
-                      {formatNumber(metricsData.totalViews)}
+                      {formatNumber(metricsData.channelMonthlyViews)}
                     </div>
                     <GrowthGraph data={metricsData.dailyViews} color="#10b981" />
                   </CardContent>
@@ -194,7 +275,7 @@ export default function ChannelView() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-white mb-4">
-                      {formatNumber(channel.subscribers || 0)}
+                      {formatNumber(metricsData.channelTotalSubscribers)}
                     </div>
                     <GrowthGraph data={metricsData.dailySubs} color="#3b82f6" />
                   </CardContent>
@@ -209,13 +290,76 @@ export default function ChannelView() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-2xl font-bold text-white mb-4">
-                      R$ {metricsData.totalRevenue.toLocaleString('pt-BR')}
+                      R$ {metricsData.totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </div>
                     <GrowthGraph data={metricsData.dailyRevenue} color="#a855f7" />
                   </CardContent>
                 </Card>
               </div>
             )}
+
+            {/* Top Performing Videos */}
+            {metricsData && metricsData.topVideos && metricsData.topVideos.length > 0 && (
+              <div className="mt-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <Zap className="w-5 h-5 text-yellow-500" /> Melhores Performances
+                  </h3>
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wider text-muted-foreground border-white/5">
+                    Top 5 Vídeos
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {metricsData.topVideos.map((video, index) => (
+                    <Card
+                      key={video.id + index}
+                      className="bg-card/20 backdrop-blur-sm border-white/5 hover:border-primary/30 transition-all group cursor-pointer"
+                      onClick={() => video.video_url && window.open(video.video_url, '_blank')}
+                    >
+                      <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary shrink-0 text-sm">
+                          {index + 1}
+                        </div>
+                        <div className="w-20 aspect-video rounded-lg overflow-hidden shrink-0 bg-black/40 relative">
+                          {video.video_thumbnail ? (
+                            <img src={video.video_thumbnail} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Play className="w-4 h-4 text-white/20" />
+                            </div>
+                          )}
+                          <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors flex items-center justify-center">
+                            <Play className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-white line-clamp-1 group-hover:text-primary transition-colors text-sm sm:text-base">
+                            {video.video_title || 'Vídeo Importado'}
+                          </h4>
+                          <div className="flex items-center gap-3 mt-1">
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {video.last_video_date && <span>{new Date(video.last_video_date).toLocaleDateString('pt-BR')}</span>}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Eye className="w-3 h-3 text-emerald-500" />
+                              {formatNumber(video.views || 0)} views
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right hidden sm:block">
+                          <p className="text-sm font-bold text-emerald-400">
+                            + R$ {((video.estimated_revenue || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Receita Estimada</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+
 
             {/* Recent Contents */}
             {contents && contents.length > 0 && (

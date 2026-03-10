@@ -44,6 +44,7 @@ export function useYouTubeMetrics() {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channel'] });
       queryClient.invalidateQueries({ queryKey: ['contents'] });
+      queryClient.invalidateQueries({ queryKey: ['channel-metrics'] });
       toast({
         title: 'YouTube conectado!',
         description: `${data.data?.channel_name}: ${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.videos_imported} vídeos importados`,
@@ -95,6 +96,7 @@ export function useYouTubeMetrics() {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channel'] });
       queryClient.invalidateQueries({ queryKey: ['contents'] });
+      queryClient.invalidateQueries({ queryKey: ['channel-metrics'] });
       toast({
         title: 'Métricas atualizadas!',
         description: `${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.monthly_views.toLocaleString()} views/mês`,
