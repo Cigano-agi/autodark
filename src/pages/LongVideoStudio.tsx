@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { toast } from 'sonner';
 import { Loader2, Play, Wand2, FileAudio, Video, Save, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, RefreshCw } from "lucide-react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
 import { fetchFile, toBlobURL } from "@ffmpeg/util";
@@ -48,7 +48,6 @@ export default function LongVideoStudio() {
     const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
     const ffmpegRef = useRef(new FFmpeg());
-    const { toast } = useToast();
 
     useEffect(() => {
         if (blueprint) {
@@ -60,7 +59,7 @@ export default function LongVideoStudio() {
 
     const handleGenerateScript = async () => {
         if (!topic) {
-            toast({ title: "Erro", description: "Digite um tópico.", variant: "destructive" });
+            toast.error('Digite um tópico.');
             return;
         }
         setGeneratingScript(true);
@@ -74,9 +73,9 @@ export default function LongVideoStudio() {
             const script = response.data.script;
             setScriptData(script);
             setRulesLog(null);
-            toast({ title: "Roteiro Gerado com Sucesso!", description: "Revise os blocos abaixos." });
+            toast.success('Roteiro Gerado com Sucesso! Revise os blocos abaixos.');
         } catch (e: any) {
-            toast({ title: "Erro na IA", description: e.message, variant: "destructive" });
+            toast.error(`Erro na IA: ${e.message}`);
         } finally {
             setGeneratingScript(false);
         }
@@ -87,7 +86,7 @@ export default function LongVideoStudio() {
         setTimeout(() => {
             setRulesLog("✔️ Análise concluída: Nenhuma violação das políticas do Programa de Parcerias do YT encontrada. Diretrizes de Desinformação e Conteúdo Sensível respeitadas. Script seguro.");
             setAnalyzingRules(false);
-            toast({ title: "Análise YT Concluída", description: "O script segue as diretrizes da comunidade." });
+            toast.success('Análise YT Concluída. O script segue as diretrizes da comunidade.');
         }, 3000);
     };
 
@@ -106,10 +105,10 @@ export default function LongVideoStudio() {
 
             setAudioDataUrls(prev => ({ ...prev, [sceneId]: audioUrl }));
             setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
-            toast({ title: "Áudio Gerado", description: `Narração baixada.` });
+            toast.success('Áudio Gerado. Narração baixada.');
 
         } catch (e: any) {
-            toast({ title: "Erro no TTS", description: e.message, variant: "destructive" });
+            toast.error(`Erro no TTS: ${e.message}`);
         } finally {
             setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
         }
@@ -155,7 +154,7 @@ export default function LongVideoStudio() {
         setVideoUrl(null);
 
         try {
-            toast({ title: "Renderizando Cenas...", description: "Juntando áudios e imagens localmente..." });
+            toast.info('Renderizando Cenas... Juntando áudios e imagens localmente...');
             const ffmpeg = await loadFFmpeg();
 
             const textToDisplay = scriptData.title.replace(/'/g, "");
@@ -175,10 +174,10 @@ export default function LongVideoStudio() {
 
             setVideoUrl(url);
             setRenderProgress(100);
-            toast({ title: "Vídeo Renderizado!", description: "Seu MP4 está pronto." });
+            toast.success('Vídeo Renderizado! Seu MP4 está pronto.');
 
         } catch (e: any) {
-            toast({ title: "Erro de Renderização", description: e.message, variant: "destructive" });
+            toast.error(`Erro de Renderização: ${e.message}`);
         } finally {
             setRenderingVideo(false);
         }

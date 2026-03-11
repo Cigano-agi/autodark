@@ -73,10 +73,11 @@ export function useDemoData(channelId?: string) {
     const simulateLiveUpdate = () => {
         if (!metrics) return;
 
-        // Add random views to last day
-        const newViews = [...metrics.dailyViews];
-        const lastView = newViews[newViews.length - 1];
-        lastView.value += Math.floor(Math.random() * 50) + 10;
+        const newViews = metrics.dailyViews.map((v, i) =>
+            i === metrics.dailyViews.length - 1
+                ? { ...v, value: v.value + Math.floor(Math.random() * 50) + 10 }
+                : v
+        );
 
         setMetrics({
             ...metrics,

@@ -1,12 +1,15 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "http://localhost:5173";
+
 const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const AI33_API_KEY = Deno.env.get("AI33_API_KEY") || "sk_aykke6mp4owf9pjtv4k1xubga0t12gu7nljjm72bls8wwjhv";
+const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
+if (!AI33_API_KEY) throw new Error("AI33_API_KEY não configurado nas variáveis de ambiente");
 const AI33_TTS_URL = "https://api.ai33.pro/v1/audio/speech";
 const AI33_WHISPER_URL = "https://api.ai33.pro/v1/audio/transcriptions";
 

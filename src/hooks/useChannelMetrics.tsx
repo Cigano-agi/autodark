@@ -81,9 +81,9 @@ export function useChannelMetrics(channelId: string | undefined, period: TimePer
 
       // Filter metrics by period
       if (period !== 'all') {
-        const now = new Date();
         const days = period === '7d' ? 7 : 30;
-        const cutoff = new Date(now.setDate(now.getDate() - days));
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - days);
         metrics = metrics.filter(m => new Date(m.recorded_at) >= cutoff);
       }
 
@@ -130,11 +130,8 @@ export function useChannelMetrics(channelId: string | undefined, period: TimePer
         value: m.estimated_revenue,
       }));
 
-      // Subs data isn't directly in metrics, use a placeholder based on views trend
-      const dailySubs: ChartDataPoint[] = processedMetrics.map(m => ({
-        date: new Date(m.recorded_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-        value: Math.round(m.views * 0.01), // ~1% conversion estimate
-      }));
+      // Subscriber data is not available from metrics — return empty to avoid misleading data
+      const dailySubs: ChartDataPoint[] = [];
 
       const totalViews = processedMetrics.reduce((sum, m) => sum + m.views, 0);
       const totalRevenue = processedMetrics.reduce((sum, m) => sum + m.estimated_revenue, 0);

@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from './use-toast';
+import { toast } from 'sonner';
 
 export type ContentStatus =
     | 'draft'
@@ -56,8 +56,8 @@ export function getStatusInfo(status: string | null | undefined) {
 
 export function useContentPipeline(channelId: string | undefined) {
     const queryClient = useQueryClient();
-    const { toast } = useToast();
 
+    const ideaLockRef = useRef(false);
     const [generatingIdeas, setGeneratingIdeas] = useState(false);
     const [generatingScript, setGeneratingScript] = useState<Record<string, boolean>>({});
     const [processingAudio, setProcessingAudio] = useState<Record<string, boolean>>({});
@@ -68,9 +68,12 @@ export function useContentPipeline(channelId: string | undefined) {
 
     const generateIdeas = useCallback(async () => {
         if (!channelId) {
-            toast({ title: 'Erro', description: 'Selecione um canal primeiro.', variant: 'destructive' });
+            toast.error('Selecione um canal primeiro.');
             return null;
         }
+
+        if (ideaLockRef.current) return null;
+        ideaLockRef.current = true;
 
         setGeneratingIdeas(true);
         try {
@@ -81,24 +84,18 @@ export function useContentPipeline(channelId: string | undefined) {
             if (error) throw new Error(error.message);
             if (data?.error) throw new Error(data.error);
 
-            toast({
-                title: '💡 Ideias Geradas!',
-                description: `${data.count} ideias criadas com sucesso.`,
-            });
+            toast.success(`💡 Ideias Geradas! ${data.count} ideias criadas com sucesso.`);
 
             invalidateContents();
             return data;
         } catch (e: any) {
-            toast({
-                title: 'Erro ao gerar ideias',
-                description: e.message,
-                variant: 'destructive',
-            });
+            toast.error(`Erro ao gerar ideias: ${e.message}`);
             return null;
         } finally {
             setGeneratingIdeas(false);
+            ideaLockRef.current = false;
         }
-    }, [channelId, toast, invalidateContents]);
+    }, [channelId, invalidateContents]);
 
     const generateScript = useCallback(async (contentId: string) => {
         setGeneratingScript(prev => ({ ...prev, [contentId]: true }));
@@ -110,19 +107,12 @@ export function useContentPipeline(channelId: string | undefined) {
             if (error) throw new Error(error.message);
             if (data?.error) throw new Error(data.error);
 
-            toast({
-                title: '📜 Roteiro Gerado!',
-                description: `${data.char_used || '?'} caracteres utilizados.`,
-            });
+            toast.success(`📜 Roteiro Gerado! ${data.char_used || '?'} caracteres utilizados.`);
 
             invalidateContents();
             return data;
         } catch (e: any) {
-            toast({
-                title: 'Erro ao gerar roteiro',
-                description: e.message,
-                variant: 'destructive',
-            });
+            toast.error(`Erro ao gerar roteiro: ${e.message}`);
             return null;
         } finally {
             setGeneratingScript(prev => ({ ...prev, [contentId]: false }));
@@ -139,24 +129,17 @@ export function useContentPipeline(channelId: string | undefined) {
             if (error) throw new Error(error.message);
             if (data?.error) throw new Error(data.error);
 
-            toast({
-                title: '🎵 Áudio Processado!',
-                description: `Duração: ~${data.estimatedDuration?.toFixed(1)}s${data.hasSubtitle ? ' | Legenda gerada' : ''}`,
-            });
+            toast.success(`🎵 Áudio Processado! Duração: ~${data.estimatedDuration?.toFixed(1)}s${data.hasSubtitle ? ' | Legenda gerada' : ''}`);
 
             invalidateContents();
             return data;
         } catch (e: any) {
-            toast({
-                title: 'Erro no processamento de áudio',
-                description: e.message,
-                variant: 'destructive',
-            });
+            toast.error(`Erro no processamento de áudio: ${e.message}`);
             return null;
         } finally {
             setProcessingAudio(prev => ({ ...prev, [contentId]: false }));
         }
-    }, [toast, invalidateContents]);
+    }, [invalidateContents]);
 
     const retryFailed = useCallback(async (contentId: string) => {
         return processAudioPipeline(contentId);
