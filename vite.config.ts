@@ -12,6 +12,13 @@ export default defineConfig(({ mode }) => ({
       "Cross-Origin-Opener-Policy": "same-origin",
       "Cross-Origin-Embedder-Policy": "require-corp",
     },
+    proxy: {
+      '/api-ai': {
+        target: 'https://api.ai33.pro',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-ai/, ''),
+      }
+    }
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
