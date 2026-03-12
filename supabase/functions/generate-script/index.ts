@@ -28,8 +28,10 @@ Deno.serve(async (req) => {
             }
         );
 
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (!user) throw new Error("Unauthorized");
+        const authHeader = req.headers.get("Authorization");
+        const token = authHeader ? authHeader.replace("Bearer ", "") : "";
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+        if (!user || authError) throw new Error("Unauthorized: " + (authError?.message || "Invalid or missing token"));
 
         const { contentId } = await req.json();
         if (!contentId) throw new Error("contentId is required");
@@ -148,7 +150,7 @@ FORMATO DE SAÍDA (JSON PURO):
             error: error instanceof Error ? error.message : "Unknown error",
         }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
-            status: 400,
+            status: 200, // Supabase invoke masks 400 errors, return 200 with error payload
         });
     }
 });

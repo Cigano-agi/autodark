@@ -23,12 +23,12 @@ Deno.serve(async (req) => {
       }
     )
 
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser()
+    const authHeader = req.headers.get('Authorization')
+    const token = authHeader ? authHeader.replace('Bearer ', '') : ''
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token)
 
-    if (!user) {
-      throw new Error('Unauthorized')
+    if (!user || authError) {
+      throw new Error('Unauthorized: ' + (authError?.message || 'Invalid or missing token'))
     }
 
     const { channelId } = await req.json()
@@ -150,7 +150,7 @@ Respond ONLY with valid JSON. All text must be in Portuguese (BR).`
       JSON.stringify({ error: error.message }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
+        status: 200, // Supabase invoke masks 400 errors, return 200 with error payload
       }
     )
   }

@@ -13,14 +13,14 @@ export function DashboardHeader() {
                 <div className="bg-background/40 backdrop-blur-xl border border-white/10 rounded-full px-6 py-3 flex items-center justify-between shadow-lg">
 
                     {/* Brand */}
-                    <div className="flex items-center gap-2">
+                    <Link to="/dashboard" className="flex items-center gap-2">
                         <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
                             <Zap className="w-4 h-4 text-white fill-current" />
                         </div>
                         <span className="font-bold text-lg tracking-tight text-white">
                             Auto<span className="text-primary">Dark</span>
                         </span>
-                    </div>
+                    </Link>
 
                     {/* Navigation */}
                     <nav className="hidden md:flex items-center gap-8">
@@ -30,20 +30,6 @@ export function DashboardHeader() {
                                 }`}
                         >
                             Dashboard
-                        </Link>
-                        <Link
-                            to="/operations"
-                            className={`text-sm font-medium transition-colors ${location.pathname === '/operations' ? 'text-white' : 'text-white/70 hover:text-white'
-                                }`}
-                        >
-                            Operações
-                        </Link>
-                        <Link
-                            to="/strategy"
-                            className={`text-sm font-medium transition-colors ${location.pathname === '/strategy' ? 'text-white' : 'text-white/70 hover:text-white'
-                                }`}
-                        >
-                            Estratégia
                         </Link>
                     </nav>
 

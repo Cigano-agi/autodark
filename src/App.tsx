@@ -9,15 +9,12 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
-// Lazy-load all heavy pages (code-splitting)
+// Lazy-load pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ChannelView = lazy(() => import("./pages/ChannelView"));
-const StrategyDashboard = lazy(() => import("./pages/Strategy/Index"));
-const ProductionWizard = lazy(() => import("./pages/Production/Index"));
-const OperationsPage = lazy(() => import("./pages/Operations/Index"));
-const DesignSystemShowcase = lazy(() => import("./pages/DesignSystemShowcase"));
 const ChannelPrompts = lazy(() => import("./pages/ChannelPrompts"));
 const LongVideoStudio = lazy(() => import("./pages/LongVideoStudio"));
+const ProductionWizard = lazy(() => import("./pages/Production/Index"));
 const FixAndVerify = lazy(() => import("./pages/FixAndVerify"));
 
 const queryClient = new QueryClient({
@@ -31,7 +28,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Protected Route component
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -50,7 +46,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// Public Route (redirect to dashboard if logged in)
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
@@ -86,17 +81,12 @@ const AppRoutes = () => (
           </PublicRoute>
         }
       />
-      <Route path="/design-system" element={<ProtectedRoute><DesignSystemShowcase /></ProtectedRoute>} />
 
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/production" element={<ProtectedRoute><ProductionWizard /></ProtectedRoute>} />
       <Route path="/channel/:id" element={<ProtectedRoute><ChannelView /></ProtectedRoute>} />
-      <Route path="/channel/:id/strategy" element={<ProtectedRoute><StrategyDashboard /></ProtectedRoute>} />
-      <Route path="/channel/:id/production" element={<ProtectedRoute><ProductionWizard /></ProtectedRoute>} />
       <Route path="/channel/:id/prompts" element={<ProtectedRoute><ChannelPrompts /></ProtectedRoute>} />
       <Route path="/channel/:id/studio" element={<ProtectedRoute><LongVideoStudio /></ProtectedRoute>} />
-      <Route path="/strategy" element={<ProtectedRoute><StrategyDashboard /></ProtectedRoute>} />
-      <Route path="/operations" element={<ProtectedRoute><OperationsPage /></ProtectedRoute>} />
+      <Route path="/production" element={<ProtectedRoute><ProductionWizard /></ProtectedRoute>} />
       <Route path="/fix" element={<ProtectedRoute><FixAndVerify /></ProtectedRoute>} />
 
       <Route path="*" element={<NotFound />} />

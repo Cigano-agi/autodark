@@ -35,7 +35,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Loader2, Search, Folder, ShieldAlert } from 'lucide-react';
+import { Plus, Loader2, Search, Folder, ShieldAlert, ArrowRight, CheckCircle2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Premium Components
@@ -50,6 +50,7 @@ export default function Dashboard() {
 
   // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [newChannelName, setNewChannelName] = useState('');
   const [newChannelNiche, setNewChannelNiche] = useState('');
   const [isCustomNiche, setIsCustomNiche] = useState(false);
@@ -79,6 +80,7 @@ export default function Dashboard() {
     });
 
     setCreateDialogOpen(false);
+    setCreateStep(1);
     setNewChannelName('');
     setNewChannelNiche('');
     setIsCustomNiche(false);
@@ -119,7 +121,10 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <Dialog open={createDialogOpen} onOpenChange={(open) => {
+            setCreateDialogOpen(open);
+            if (!open) setCreateStep(1);
+          }}>
             <DialogTrigger asChild>
               <Button size="lg" className="rounded-full px-8 shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 relative overflow-hidden group">
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
@@ -127,70 +132,86 @@ export default function Dashboard() {
                 <span className="relative z-10">Novo Canal</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 shadow-2xl">
+            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 shadow-2xl transition-all duration-300">
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold">Criar Novo Canal</DialogTitle>
+                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+                  {createStep === 1 ? '1. Estrutura do Canal' : '2. Cérebro da IA (Opcional)'}
+                </DialogTitle>
                 <DialogDescription>
-                  Inicie sua jornada no YouTube. Configure a base do seu robô produtor.
+                  {createStep === 1
+                    ? 'Inicie sua jornada no YouTube. Configure a base do seu robô produtor.'
+                    : 'Ajuste fino do comportamento do roteirista automático.'}
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-6 mt-4">
-                <div className="space-y-2">
-                  <Label htmlFor="channel-name" className="text-white/90">Nome do Canal *</Label>
-                  <Input
-                    id="channel-name"
-                    placeholder="Ex: Curiosidades Terror"
-                    value={newChannelName}
-                    onChange={(e) => setNewChannelName(e.target.value)}
-                    className="bg-background/50 border-white/10 focus:ring-primary/50"
-                  />
-                </div>
+              {createStep === 1 && (
+                <div className="space-y-6 mt-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="space-y-2">
+                    <Label htmlFor="channel-name" className="text-white/90">Nome do Canal *</Label>
+                    <Input
+                      id="channel-name"
+                      placeholder="Ex: Curiosidades Terror"
+                      value={newChannelName}
+                      onChange={(e) => setNewChannelName(e.target.value)}
+                      className="bg-background/50 border-white/10 focus:ring-primary/50"
+                    />
+                  </div>
 
-                <div className="space-y-3">
-                  <Label className="text-white/90">Categoria *</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {nicheOptions.map((niche) => (
+                  <div className="space-y-3">
+                    <Label className="text-white/90">Categoria *</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {nicheOptions.map((niche) => (
+                        <Button
+                          key={niche.value}
+                          type="button"
+                          variant={!isCustomNiche && newChannelNiche === niche.value ? "default" : "outline"}
+                          className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${!isCustomNiche && newChannelNiche === niche.value ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
+                          onClick={() => {
+                            setNewChannelNiche(niche.value);
+                            setIsCustomNiche(false);
+                          }}
+                        >
+                          {niche.label}
+                        </Button>
+                      ))}
                       <Button
-                        key={niche.value}
                         type="button"
-                        variant={!isCustomNiche && newChannelNiche === niche.value ? "default" : "outline"}
-                        className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${!isCustomNiche && newChannelNiche === niche.value ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
+                        variant={isCustomNiche ? "default" : "outline"}
+                        className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${isCustomNiche ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
                         onClick={() => {
-                          setNewChannelNiche(niche.value);
-                          setIsCustomNiche(false);
+                          setNewChannelNiche('');
+                          setIsCustomNiche(true);
                         }}
                       >
-                        {niche.label}
+                        Outro (Personalizado)
                       </Button>
-                    ))}
-                    <Button
-                      type="button"
-                      variant={isCustomNiche ? "default" : "outline"}
-                      className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${isCustomNiche ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
-                      onClick={() => {
-                        setNewChannelNiche('');
-                        setIsCustomNiche(true);
-                      }}
-                    >
-                      Outro (Personalizado)
-                    </Button>
+                    </div>
+                    {isCustomNiche && (
+                      <Input
+                        autoFocus
+                        placeholder="Digite a categoria do seu canal..."
+                        value={newChannelNiche}
+                        onChange={(e) => setNewChannelNiche(e.target.value)}
+                        className="mt-3 bg-background/50 border-white/10 focus:ring-primary/50"
+                      />
+                    )}
                   </div>
-                  {isCustomNiche && (
-                    <Input
-                      autoFocus
-                      placeholder="Digite a categoria do seu canal..."
-                      value={newChannelNiche}
-                      onChange={(e) => setNewChannelNiche(e.target.value)}
-                      className="mt-3 bg-background/50 border-white/10 focus:ring-primary/50"
-                    />
-                  )}
                 </div>
+              )}
 
-                {/* Optional Setup variables for AI */}
-                <div className="space-y-4 pt-4 border-t border-white/5">
-                  <h4 className="text-sm font-medium text-white/80">Estratégia do Agente de Roteiro (Opcional)</h4>
-                  <div className="space-y-2">
+              {createStep === 2 && (
+                <div className="space-y-4 mt-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-start gap-3">
+                    <div className="p-2 bg-primary/20 rounded-full mt-0.5">
+                      <Wand2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-primary">Predefinição Recomendada (Status Quo)</h4>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">A IA já possui um perfil vencedor treinado para retenção. Você pode clicar em <strong>Criar Canal</strong> diretamente para usar as configs padrões de sucesso ou ajustar os detalhes manuais abaixo.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 mt-4">
                     <Label htmlFor="tone-of-voice" className="text-xs text-muted-foreground">Tom de Voz</Label>
                     <Input
                       id="tone-of-voice"
@@ -217,8 +238,7 @@ export default function Dashboard() {
                         Requer Análise Estrita?
                       </Label>
                       <span className="text-xs text-muted-foreground">
-                        Ative se este nicho violar regras frequentemente (ex: Terror, Drogas).
-                        A IA irá julgar roteiros para evitar "shadowbans".
+                        Evita shadowbans no YT para nichos Dark pesados (Terror, Tragédias).
                       </span>
                     </div>
                     <Switch
@@ -228,24 +248,42 @@ export default function Dashboard() {
                     />
                   </div>
                 </div>
+              )}
 
-                <DialogFooter className="pt-2">
+              <DialogFooter className="pt-6 flex justify-between w-full sm:justify-between items-center mt-2 border-t border-white/5">
+                {createStep === 2 ? (
+                  <>
+                    <Button variant="ghost" onClick={() => setCreateStep(1)} className="text-muted-foreground hover:text-white">
+                      Voltar
+                    </Button>
+                    <Button
+                      onClick={handleAddChannel}
+                      className="h-10 px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                      disabled={createChannel.isPending}
+                    >
+                      {createChannel.isPending ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                      )}
+                      {createChannel.isPending ? 'Criando...' : 'Criar Canal'}
+                    </Button>
+                  </>
+                ) : (
                   <Button
-                    onClick={handleAddChannel}
-                    className="w-full h-11 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-                    disabled={createChannel.isPending}
+                    onClick={() => {
+                      if (!newChannelName || !newChannelNiche) {
+                        toast.error('Preencha os campos obrigatórios primeiro.');
+                        return;
+                      }
+                      setCreateStep(2);
+                    }}
+                    className="w-full h-11 bg-primary hover:bg-primary/90 shadow-lg"
                   >
-                    {createChannel.isPending ? (
-                      <>
-                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Criando Império...
-                      </>
-                    ) : (
-                      'Criar Canal'
-                    )}
+                    Continuar Configuração <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
-                </DialogFooter>
-              </div>
+                )}
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>

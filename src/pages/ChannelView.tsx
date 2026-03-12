@@ -1,73 +1,52 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
 import { useChannels } from "@/hooks/useChannels";
-import { useChannelMetrics } from "@/hooks/useChannelMetrics";
 import { useContents } from "@/hooks/useContents";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
 import { useContentPipeline } from "@/hooks/useContentPipeline";
 import { useYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
+import { useChannelMetrics } from "@/hooks/useChannelMetrics";
+import { useHeadAgent } from "@/hooks/useHeadAgent";
 import { ConnectYouTubeModal } from "@/components/YouTube/ConnectYouTubeModal";
+import { CompetitorMonitor } from "@/components/Strategy/CompetitorMonitor";
+import { GrowthGraph } from "@/components/ui/growth-graph";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CompetitorMonitor } from "@/components/Strategy/CompetitorMonitor";
-import { GrowthGraph } from "@/components/ui/growth-graph";
 import {
-  Users,
-  Play,
-  DollarSign,
-  RefreshCw,
-  Video,
-  BarChart3,
-  Settings,
-  Eye,
-  BrainCircuit,
-  Lightbulb,
-  Check,
-  X,
-  Terminal,
-  Wand2,
-  Zap,
-  Youtube,
-  Calendar,
-  Trash2,
-  Loader2,
-  Sparkles
+  Users, Video, Settings, Eye, Terminal,
+  Wand2, Zap, Youtube, Calendar, Trash2, Loader2, Sparkles,
+  BrainCircuit, Lightbulb, BarChart3, Check, X, DollarSign, Play, RefreshCw,
 } from "lucide-react";
 import { formatNumber } from "@/lib/mock-data";
-import { useHeadAgent } from "@/hooks/useHeadAgent";
-import { AiStrategyCard } from "@/components/ui/ai-strategy-card";
 
 export default function ChannelView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { channels } = useChannels();
   const channel = channels?.find(c => c.id === id);
+
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('all');
   const { data: metricsData, isLoading: metricsLoading } = useChannelMetrics(id, period);
   const { contents, isLoading: contentsLoading } = useContents(id);
   const { ideas, updateIdeaStatus, deleteIdea } = useContentIdeas(id);
   const pipeline = useContentPipeline(id);
-  const { generateStrategy, strategy, isLoading: isAiLoading } = useHeadAgent();
+  const { generateStrategy, isLoading: isAiLoading } = useHeadAgent();
   const { connectWithApify, syncMetrics } = useYouTubeMetrics();
 
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
-  // Auto-sync logic
   useEffect(() => {
     if (channel?.youtube_channel_id) {
       const now = new Date();
       const lastScraped = channel.last_scraped_at ? new Date(channel.last_scraped_at) : new Date(0);
       const hoursSinceLastScrape = (now.getTime() - lastScraped.getTime()) / (1000 * 60 * 60);
-
-      // Auto-sync if more than 24 hours have passed
       if (hoursSinceLastScrape > 24 && !syncMetrics.isPending) {
         syncMetrics.mutate({
           channelId: channel.id,
-          youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : ''
+          youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : '',
         });
       }
     }
@@ -76,9 +55,11 @@ export default function ChannelView() {
   if (!channel) return null;
 
   const hasMetrics = metricsData && (metricsData.dailyViews.length > 0 || channel.last_scraped_at);
+  const totalContents = contents?.length || 0;
+  const doneContents = contents?.filter(c => c.status === 'tts_done' || c.status === 'published').length || 0;
 
   return (
-    <BeamsBackground intensity="medium" className="bg-background">
+    <div className="min-h-screen bg-background text-foreground">
       <DashboardHeader />
 
       <ConnectYouTubeModal
@@ -91,9 +72,8 @@ export default function ChannelView() {
       <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
 
         {/* Channel Header */}
-        <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-card/80 mb-8">
-          {/* Cover Banner */}
-          <div className="h-48 bg-gradient-to-r from-primary/20 via-purple-500/10 to-blue-500/20 relative">
+        <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-card/80 mb-8">
+          <div className="h-32 bg-gradient-to-r from-primary/20 via-purple-500/10 to-blue-500/20 relative">
             {channel.youtube_banner_url ? (
               <img src={channel.youtube_banner_url} alt="Banner" className="w-full h-full object-cover opacity-60" />
             ) : (
@@ -103,7 +83,6 @@ export default function ChannelView() {
 
           <div className="px-8 pb-8">
             <div className="flex flex-col md:flex-row items-start md:items-end gap-6 -mt-12 relative z-10">
-              {/* Avatar */}
               {channel.avatar_url ? (
                 <img
                   src={channel.avatar_url}
@@ -125,11 +104,11 @@ export default function ChannelView() {
                 </h1>
                 <p className="text-muted-foreground">
                   {channel.youtube_username ? `@${channel.youtube_username}` : 'Gerenciado por AutoDark'}
-                  {channel.last_scraped_at && ` • Última sincronização ${new Date(channel.last_scraped_at).toLocaleDateString('pt-BR')} às ${new Date(channel.last_scraped_at).toLocaleTimeString('pt-BR')}`}
+                  {channel.last_scraped_at && ` • Última sinc. ${new Date(channel.last_scraped_at).toLocaleDateString('pt-BR')}`}
                 </p>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 {!channel.youtube_channel_id ? (
                   <Button
                     onClick={() => setIsConnectModalOpen(true)}
@@ -149,20 +128,19 @@ export default function ChannelView() {
                     Sincronizar
                   </Button>
                 )}
-
                 <Button
                   onClick={() => navigate('/production', { state: { channelId: id } })}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 gap-2"
                 >
                   <Video className="w-4 h-4" />
-                  Novo Vídeo (Curto)
+                  Novo Vídeo
                 </Button>
                 <Button
                   onClick={() => navigate(`/channel/${id}/studio`)}
                   className="bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 gap-2"
                 >
                   <Wand2 className="w-4 h-4" />
-                  Studio (Vídeo Longo)
+                  Studio Longo
                 </Button>
                 <Button
                   onClick={() => id && generateStrategy(id)}
@@ -175,15 +153,29 @@ export default function ChannelView() {
               </div>
             </div>
 
-            {/* AI Strategy Result */}
-            <div className="mt-8">
-              <AiStrategyCard strategy={strategy?.strategy} isLoading={isAiLoading} />
+            {/* Quick Stats */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="flex items-center gap-2 text-sm">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-white font-medium">{formatNumber(channel.subscribers || 0)}</span>
+                <span className="text-muted-foreground">inscritos</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Eye className="w-4 h-4 text-blue-400" />
+                <span className="text-white font-medium">{formatNumber(channel.monthly_views || 0)}</span>
+                <span className="text-muted-foreground">views/mês</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Video className="w-4 h-4 text-emerald-400" />
+                <span className="text-white font-medium">{doneContents}/{totalContents}</span>
+                <span className="text-muted-foreground">conteúdos prontos</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <Tabs defaultValue="dashboard" className="space-y-8">
+        {/* Tabs */}
+        <Tabs defaultValue="dashboard" className="space-y-6">
           <TabsList className="bg-card/80 border border-white/10 p-1">
             <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <BarChart3 className="w-4 h-4" /> Dashboard
@@ -208,38 +200,27 @@ export default function ChannelView() {
             </TabsTrigger>
           </TabsList>
 
+          {/* Dashboard Tab */}
           <TabsContent value="dashboard" className="space-y-6 focus-visible:outline-none">
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-primary" /> Visão Geral
               </h2>
               <div className="flex bg-card/50 backdrop-blur-sm border border-white/10 p-1 rounded-xl">
-                <Button
-                  size="sm"
-                  variant={period === '7d' ? 'default' : 'ghost'}
-                  onClick={() => setPeriod('7d')}
-                  className="h-8 px-3 text-xs"
-                >
-                  7 dias
-                </Button>
-                <Button
-                  size="sm"
-                  variant={period === '30d' ? 'default' : 'ghost'}
-                  onClick={() => setPeriod('30d')}
-                  className="h-8 px-3 text-xs"
-                >
-                  30 dias
-                </Button>
-                <Button
-                  size="sm"
-                  variant={period === 'all' ? 'default' : 'ghost'}
-                  onClick={() => setPeriod('all')}
-                  className="h-8 px-3 text-xs"
-                >
-                  Tudo
-                </Button>
+                {(['7d', '30d', 'all'] as const).map((p) => (
+                  <Button
+                    key={p}
+                    size="sm"
+                    variant={period === p ? 'default' : 'ghost'}
+                    onClick={() => setPeriod(p)}
+                    className="h-8 px-3 text-xs"
+                  >
+                    {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : 'Tudo'}
+                  </Button>
+                ))}
               </div>
             </div>
+
             {metricsLoading ? (
               <div className="h-40 flex items-center justify-center">
                 <RefreshCw className="w-8 h-8 animate-spin text-white/20" />
@@ -254,11 +235,9 @@ export default function ChannelView() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-card/80 border-white/10 overflow-hidden group">
+                <Card className="bg-card/80 border-white/10 overflow-hidden">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white/70">
-                      Visualizações
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-white/70">Visualizações</CardTitle>
                     <Eye className="h-4 w-4 text-emerald-500" />
                   </CardHeader>
                   <CardContent>
@@ -269,11 +248,9 @@ export default function ChannelView() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/80 border-white/10 overflow-hidden group">
+                <Card className="bg-card/80 border-white/10 overflow-hidden">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white/70">
-                      Inscritos Estimados
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-white/70">Inscritos Estimados</CardTitle>
                     <Users className="h-4 w-4 text-blue-500" />
                   </CardHeader>
                   <CardContent>
@@ -284,11 +261,9 @@ export default function ChannelView() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/80 border-white/10 overflow-hidden group">
+                <Card className="bg-card/80 border-white/10 overflow-hidden">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-white/70">
-                      Receita Estimada
-                    </CardTitle>
+                    <CardTitle className="text-sm font-medium text-white/70">Receita Estimada</CardTitle>
                     <DollarSign className="h-4 w-4 text-purple-500" />
                   </CardHeader>
                   <CardContent>
@@ -301,8 +276,7 @@ export default function ChannelView() {
               </div>
             )}
 
-            {/* Top Performing Videos */}
-            {metricsData && metricsData.topVideos && metricsData.topVideos.length > 0 && (
+            {metricsData?.topVideos && metricsData.topVideos.length > 0 && (
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-white flex items-center gap-2">
@@ -331,12 +305,9 @@ export default function ChannelView() {
                               <Play className="w-4 h-4 text-white/20" />
                             </div>
                           )}
-                          <div className="absolute inset-0 bg-primary/0 group-hover:bg-primary/10 transition-colors flex items-center justify-center">
-                            <Play className="w-4 h-4 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-white line-clamp-1 group-hover:text-primary transition-colors text-sm sm:text-base">
+                          <h4 className="font-medium text-white line-clamp-1 text-sm sm:text-base">
                             {video.video_title || 'Vídeo Importado'}
                           </h4>
                           <div className="flex items-center gap-3 mt-1">
@@ -352,9 +323,9 @@ export default function ChannelView() {
                         </div>
                         <div className="text-right hidden sm:block">
                           <p className="text-sm font-bold text-emerald-400">
-                            + R$ {((video.estimated_revenue || 0)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            R$ {(video.estimated_revenue || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                           </p>
-                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">Receita Estimada</p>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Receita Est.</p>
                         </div>
                       </CardContent>
                     </Card>
@@ -363,8 +334,6 @@ export default function ChannelView() {
               </div>
             )}
 
-
-            {/* Recent Contents */}
             {contents && contents.length > 0 && (
               <div className="mt-8">
                 <h2 className="text-xl font-bold text-white mb-4">Conteúdos Recentes</h2>
@@ -380,7 +349,10 @@ export default function ChannelView() {
                         <h3 className="font-semibold text-white line-clamp-1 mb-1">{content.title}</h3>
                         <div className="flex items-center justify-between text-sm text-muted-foreground">
                           <span>{content.scheduled_date ? new Date(content.scheduled_date).toLocaleDateString('pt-BR') : '-'}</span>
-                          <span className={content.status === 'published' ? 'text-green-500' : content.status === 'draft' ? 'text-yellow-500' : 'text-blue-500'}>
+                          <span className={
+                            content.status === 'published' ? 'text-green-500' :
+                            content.status === 'draft' ? 'text-yellow-500' : 'text-blue-500'
+                          }>
                             {content.status === 'published' ? 'Publicado' : content.status === 'draft' ? 'Rascunho' : content.status || 'Pendente'}
                           </span>
                         </div>
@@ -392,7 +364,7 @@ export default function ChannelView() {
             )}
           </TabsContent>
 
-          {/* AI Ideas Tab */}
+          {/* Ideias Tab */}
           <TabsContent value="ideas" className="focus-visible:outline-none space-y-4">
             {ideas.length === 0 ? (
               <Card className="bg-card/60 border-dashed border-white/10 p-12 text-center">
@@ -405,19 +377,15 @@ export default function ChannelView() {
                     className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
                   >
                     <BrainCircuit className="w-4 h-4 mr-2" />
-                    Gerar Ideias com Head Agent
+                    Head Agent
                   </Button>
                   <Button
                     onClick={() => pipeline.generateIdeas()}
                     disabled={pipeline.generatingIdeas || !id}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
                   >
-                    {pipeline.generatingIdeas ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    {pipeline.generatingIdeas ? "Gerando Batch..." : "Gerar Batch de Ideias"}
+                    {pipeline.generatingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {pipeline.generatingIdeas ? "Gerando..." : "Gerar Batch de Ideias"}
                   </Button>
                 </div>
               </Card>
@@ -427,14 +395,10 @@ export default function ChannelView() {
                   <Button
                     onClick={() => pipeline.generateIdeas()}
                     disabled={pipeline.generatingIdeas || !id}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
                   >
-                    {pipeline.generatingIdeas ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    {pipeline.generatingIdeas ? "Gerando Batch..." : "Gerar Batch de Ideias"}
+                    {pipeline.generatingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {pipeline.generatingIdeas ? "Gerando..." : "Gerar Batch"}
                   </Button>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -457,11 +421,7 @@ export default function ChannelView() {
                               size="sm"
                               variant="ghost"
                               className="text-white/40 hover:text-red-400 hover:bg-red-500/10 h-8 w-8 p-0"
-                              onClick={() => {
-                                if (window.confirm("Certeza que deseja excluir esta ideia?")) {
-                                  deleteIdea.mutate(idea.id);
-                                }
-                              }}
+                              onClick={() => deleteIdea.mutate(idea.id)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -470,8 +430,8 @@ export default function ChannelView() {
                         <div className="flex items-center gap-2 mt-4">
                           <Badge variant="secondary" className={
                             idea.status === 'approved' ? 'bg-green-500/20 text-green-400' :
-                              idea.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                                'bg-yellow-500/20 text-yellow-400'
+                            idea.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                            'bg-yellow-500/20 text-yellow-400'
                           }>
                             {idea.status === 'approved' ? 'Aprovada' : idea.status === 'rejected' ? 'Rejeitada' : 'Pendente'}
                           </Badge>
@@ -504,6 +464,7 @@ export default function ChannelView() {
             )}
           </TabsContent>
 
+          {/* Conteúdos Tab */}
           <TabsContent value="videos" className="focus-visible:outline-none space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -514,7 +475,7 @@ export default function ChannelView() {
                   onClick={() => navigate('/production', { state: { channelId: id } })}
                   className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors border border-primary/20"
                 >
-                  <Video className="w-3.5 h-3.5" /> Novo Vídeo Curto
+                  <Video className="w-3.5 h-3.5" /> Novo Vídeo
                 </button>
                 <button
                   onClick={() => navigate(`/channel/${id}/studio`)}
@@ -532,7 +493,6 @@ export default function ChannelView() {
             ) : contents && contents.length > 0 ? (
               <div className="space-y-3">
                 {contents.map(content => {
-                  // Determine type based on fields set by each production flow
                   const isShortVideo = !!content.audio_path || !!content.hook;
                   const isStudio = !!content.script && !content.audio_path;
                   const typeLabel = isShortVideo ? '🎙️ Vídeo Curto' : isStudio ? '📝 Estúdio' : '📁 Conteúdo';
@@ -562,8 +522,8 @@ export default function ChannelView() {
                               <p className="text-xs text-muted-foreground mt-1 line-clamp-1">📌 {content.topic}</p>
                             )}
                             <div className="flex items-center gap-3 mt-2 text-[11px] text-white/30">
-                              {content.audio_path && <span className="flex items-center gap-1 text-purple-400/70">🎵 Áudio gerado</span>}
-                              {content.script && <span className="flex items-center gap-1">📄 {Math.round(content.script.length / 5)} palavras</span>}
+                              {content.audio_path && <span className="text-purple-400/70">🎵 Áudio gerado</span>}
+                              {content.script && <span>📄 {Math.round(content.script.length / 5)} palavras</span>}
                               {content.audio_duration && <span>⏱ {Math.round(content.audio_duration)}s</span>}
                               <span className="ml-auto">{new Date(content.created_at).toLocaleDateString('pt-BR')}</span>
                             </div>
@@ -578,12 +538,12 @@ export default function ChannelView() {
               <Card className="bg-card/20 backdrop-blur border-dashed border-white/10 p-12 text-center">
                 <Video className="w-10 h-10 text-white/10 mx-auto mb-3" />
                 <p className="text-muted-foreground text-sm mb-4">Nenhum conteúdo ainda.</p>
-                <p className="text-xs text-white/30">Use <strong className="text-primary">Novo Vídeo (Curto)</strong> ou <strong className="text-emerald-400">Studio (Vídeo Longo)</strong> para criar conteúdo.</p>
+                <p className="text-xs text-white/30">Use <strong className="text-primary">Novo Vídeo</strong> ou <strong className="text-emerald-400">Studio Longo</strong> para criar conteúdo.</p>
               </Card>
             )}
           </TabsContent>
 
-
+          {/* Concorrentes Tab */}
           <TabsContent value="competitors" className="space-y-6 focus-visible:outline-none">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -593,6 +553,7 @@ export default function ChannelView() {
             {id && <CompetitorMonitor channelId={id} />}
           </TabsContent>
 
+          {/* Settings Tab */}
           <TabsContent value="settings" className="focus-visible:outline-none">
             <Card className="bg-card/80 border-white/10 p-8">
               <h2 className="text-xl font-bold text-white mb-6">Informações do Canal</h2>
@@ -607,12 +568,8 @@ export default function ChannelView() {
                     <span className="text-white ml-2">{channel.niche}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Inscritos:</span>
-                    <span className="text-white ml-2">{formatNumber(channel.subscribers || 0)}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Views Mensais:</span>
-                    <span className="text-white ml-2">{formatNumber(channel.monthly_views || 0)}</span>
+                    <span className="text-muted-foreground">Status:</span>
+                    <Badge variant="outline" className="ml-2 text-emerald-400 border-emerald-400/30">{channel.health || 'green'}</Badge>
                   </div>
                 </div>
                 <div className="space-y-3">
@@ -620,27 +577,21 @@ export default function ChannelView() {
                     <span className="text-muted-foreground">YouTube ID:</span>
                     <span className="text-white ml-2">{channel.youtube_channel_id || 'Não conectado'}</span>
                   </div>
-
                   <div>
                     <span className="text-muted-foreground">Total Vídeos:</span>
                     <span className="text-white ml-2">{channel.youtube_total_videos || 0}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Total Views:</span>
-                    <span className="text-white ml-2">{formatNumber(channel.youtube_total_views || 0)}</span>
+                    <span className="text-muted-foreground">Criado:</span>
+                    <span className="text-white ml-2">{new Date(channel.created_at).toLocaleDateString('pt-BR')}</span>
                   </div>
                 </div>
               </div>
-              {channel.youtube_description && (
-                <div className="mt-6">
-                  <span className="text-muted-foreground text-sm">Descrição:</span>
-                  <p className="text-white/80 text-sm mt-1">{channel.youtube_description}</p>
-                </div>
-              )}
             </Card>
           </TabsContent>
         </Tabs>
+
       </main>
-    </BeamsBackground >
+    </div>
   );
 }
