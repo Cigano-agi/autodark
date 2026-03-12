@@ -6,15 +6,14 @@ import { useChannels } from "@/hooks/useChannels";
 import { useChannelMetrics } from "@/hooks/useChannelMetrics";
 import { useContents } from "@/hooks/useContents";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
-import { useContentPipeline } from "@/hooks/useContentPipeline";
 import { useYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
 import { ConnectYouTubeModal } from "@/components/YouTube/ConnectYouTubeModal";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { CompetitorMonitor } from "@/components/Strategy/CompetitorMonitor";
 import { GrowthGraph } from "@/components/ui/growth-graph";
+import { ContentPipeline } from "@/components/ContentPipeline";
 import {
   Users,
   Play,
@@ -32,10 +31,7 @@ import {
   Wand2,
   Zap,
   Youtube,
-  Calendar,
-  Trash2,
-  Loader2,
-  Sparkles
+  Calendar
 } from "lucide-react";
 import { formatNumber } from "@/lib/mock-data";
 import { useHeadAgent } from "@/hooks/useHeadAgent";
@@ -49,8 +45,7 @@ export default function ChannelView() {
   const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('all');
   const { data: metricsData, isLoading: metricsLoading } = useChannelMetrics(id, period);
   const { contents, isLoading: contentsLoading } = useContents(id);
-  const { ideas, updateIdeaStatus, deleteIdea } = useContentIdeas(id);
-  const pipeline = useContentPipeline(id);
+  const { ideas, updateIdeaStatus } = useContentIdeas(id);
   const { generateStrategy, strategy, isLoading: isAiLoading } = useHeadAgent();
   const { connectWithApify, syncMetrics } = useYouTubeMetrics();
 
@@ -91,7 +86,7 @@ export default function ChannelView() {
       <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
 
         {/* Channel Header */}
-        <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-card/80 mb-8">
+        <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-card/30 backdrop-blur-xl mb-8">
           {/* Cover Banner */}
           <div className="h-48 bg-gradient-to-r from-primary/20 via-purple-500/10 to-blue-500/20 relative">
             {channel.youtube_banner_url ? (
@@ -151,6 +146,14 @@ export default function ChannelView() {
                 )}
 
                 <Button
+                  onClick={() => navigate(`/channel/${id}/prompts`)}
+                  variant="outline"
+                  className="bg-black/20 text-white hover:bg-black/40 border-white/10 gap-2"
+                >
+                  <Terminal className="w-4 h-4" />
+                  Prompts
+                </Button>
+                <Button
                   onClick={() => navigate('/production', { state: { channelId: id } })}
                   className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 gap-2"
                 >
@@ -184,25 +187,19 @@ export default function ChannelView() {
 
         {/* Main Content */}
         <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className="bg-card/80 border border-white/10 p-1">
+          <TabsList className="bg-card/30 backdrop-blur border border-white/10 p-1">
             <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <BarChart3 className="w-4 h-4" /> Dashboard
             </TabsTrigger>
             <TabsTrigger value="ideas" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Lightbulb className="w-4 h-4" /> Ideias AI ({ideas.length})
             </TabsTrigger>
+            <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-indigo-600 data-[state=active]:text-white">
+              <Zap className="w-4 h-4" /> Pipeline
+            </TabsTrigger>
             <TabsTrigger value="videos" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Video className="w-4 h-4" /> Conteúdos
             </TabsTrigger>
-            <TabsTrigger value="competitors" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Users className="w-4 h-4" /> Concorrentes
-            </TabsTrigger>
-            <button
-              onClick={() => navigate(`/channel/${id}/prompts`)}
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 gap-2 text-muted-foreground hover:text-white"
-            >
-              <Terminal className="w-4 h-4" /> Prompts
-            </button>
             <TabsTrigger value="settings" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Settings className="w-4 h-4" /> Configurações
             </TabsTrigger>
@@ -254,7 +251,7 @@ export default function ChannelView() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="bg-card/80 border-white/10 overflow-hidden group">
+                <Card className="bg-card/30 backdrop-blur border-white/10 overflow-hidden group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-white/70">
                       Visualizações
@@ -269,7 +266,7 @@ export default function ChannelView() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/80 border-white/10 overflow-hidden group">
+                <Card className="bg-card/30 backdrop-blur border-white/10 overflow-hidden group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-white/70">
                       Inscritos Estimados
@@ -284,7 +281,7 @@ export default function ChannelView() {
                   </CardContent>
                 </Card>
 
-                <Card className="bg-card/80 border-white/10 overflow-hidden group">
+                <Card className="bg-card/30 backdrop-blur border-white/10 overflow-hidden group">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-white/70">
                       Receita Estimada
@@ -395,206 +392,112 @@ export default function ChannelView() {
           {/* AI Ideas Tab */}
           <TabsContent value="ideas" className="focus-visible:outline-none space-y-4">
             {ideas.length === 0 ? (
-              <Card className="bg-card/60 border-dashed border-white/10 p-12 text-center">
+              <Card className="bg-card/20 backdrop-blur border-dashed border-white/10 p-12 text-center">
                 <Lightbulb className="w-12 h-12 text-white/20 mx-auto mb-4" />
                 <p className="text-muted-foreground mb-4">Nenhuma ideia gerada ainda.</p>
-                <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                  <Button
-                    onClick={() => id && generateStrategy(id)}
-                    disabled={isAiLoading}
-                    className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
-                  >
-                    <BrainCircuit className="w-4 h-4 mr-2" />
-                    Gerar Ideias com Head Agent
-                  </Button>
-                  <Button
-                    onClick={() => pipeline.generateIdeas()}
-                    disabled={pipeline.generatingIdeas || !id}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
-                  >
-                    {pipeline.generatingIdeas ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    {pipeline.generatingIdeas ? "Gerando Batch..." : "Gerar Batch de Ideias"}
-                  </Button>
-                </div>
+                <Button
+                  onClick={() => id && generateStrategy(id)}
+                  disabled={isAiLoading}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+                >
+                  <BrainCircuit className="w-4 h-4 mr-2" />
+                  Gerar Ideias com Head Agent
+                </Button>
               </Card>
             ) : (
-              <div className="space-y-4">
-                <div className="flex justify-end">
-                  <Button
-                    onClick={() => pipeline.generateIdeas()}
-                    disabled={pipeline.generatingIdeas || !id}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
-                  >
-                    {pipeline.generatingIdeas ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    {pipeline.generatingIdeas ? "Gerando Batch..." : "Gerar Batch de Ideias"}
-                  </Button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {ideas.map(idea => (
-                    <Card key={idea.id} className="bg-card/30 backdrop-blur border-white/10 hover:border-primary/30 transition-all">
-                      <CardContent className="p-6">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-white mb-2">{idea.title}</h3>
-                            {idea.concept && <p className="text-sm text-muted-foreground mb-2">{idea.concept}</p>}
-                            {idea.reasoning && <p className="text-xs text-white/40 italic">{idea.reasoning}</p>}
-                          </div>
-                          <div className="flex flex-col items-end gap-2 shrink-0">
-                            {idea.score && (
-                              <Badge variant="secondary" className="bg-primary/20 text-primary">
-                                {idea.score}/100
-                              </Badge>
-                            )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {ideas.map(idea => (
+                  <Card key={idea.id} className="bg-card/30 backdrop-blur border-white/10 hover:border-primary/30 transition-all">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-white mb-2">{idea.title}</h3>
+                          {idea.concept && <p className="text-sm text-muted-foreground mb-2">{idea.concept}</p>}
+                          {idea.reasoning && <p className="text-xs text-white/40 italic">{idea.reasoning}</p>}
+                        </div>
+                        {idea.score && (
+                          <Badge variant="secondary" className="bg-primary/20 text-primary shrink-0">
+                            {idea.score}/100
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 mt-4">
+                        <Badge variant="secondary" className={
+                          idea.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                            idea.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                              'bg-yellow-500/20 text-yellow-400'
+                        }>
+                          {idea.status === 'approved' ? 'Aprovada' : idea.status === 'rejected' ? 'Rejeitada' : 'Pendente'}
+                        </Badge>
+                        {idea.status === 'pending' && (
+                          <div className="flex gap-1 ml-auto">
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="text-white/40 hover:text-red-400 hover:bg-red-500/10 h-8 w-8 p-0"
-                              onClick={() => {
-                                if (window.confirm("Certeza que deseja excluir esta ideia?")) {
-                                  deleteIdea.mutate(idea.id);
-                                }
-                              }}
+                              className="h-8 w-8 p-0 text-green-400 hover:text-green-300 hover:bg-green-500/10"
+                              onClick={() => updateIdeaStatus.mutate({ ideaId: idea.id, status: 'approved' })}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Check className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              onClick={() => updateIdeaStatus.mutate({ ideaId: idea.id, status: 'rejected' })}
+                            >
+                              <X className="w-4 h-4" />
                             </Button>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-4">
-                          <Badge variant="secondary" className={
-                            idea.status === 'approved' ? 'bg-green-500/20 text-green-400' :
-                              idea.status === 'rejected' ? 'bg-red-500/20 text-red-400' :
-                                'bg-yellow-500/20 text-yellow-400'
-                          }>
-                            {idea.status === 'approved' ? 'Aprovada' : idea.status === 'rejected' ? 'Rejeitada' : 'Pendente'}
-                          </Badge>
-                          {idea.status === 'pending' && (
-                            <div className="flex gap-1 ml-auto">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-green-400 hover:text-green-300 hover:bg-green-500/10"
-                                onClick={() => updateIdeaStatus.mutate({ ideaId: idea.id, status: 'approved' })}
-                              >
-                                <Check className="w-4 h-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                                onClick={() => updateIdeaStatus.mutate({ ideaId: idea.id, status: 'rejected' })}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </TabsContent>
 
-          <TabsContent value="videos" className="focus-visible:outline-none space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                <Video className="w-5 h-5 text-primary" /> Conteúdos Produzidos
-              </h2>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => navigate('/production', { state: { channelId: id } })}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors border border-primary/20"
-                >
-                  <Video className="w-3.5 h-3.5" /> Novo Vídeo Curto
-                </button>
-                <button
-                  onClick={() => navigate(`/channel/${id}/studio`)}
-                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors border border-emerald-500/20"
-                >
-                  <Wand2 className="w-3.5 h-3.5" /> Studio Longo
-                </button>
-              </div>
-            </div>
+          {/* Pipeline Tab - N8N Inspired */}
+          <TabsContent value="pipeline" className="focus-visible:outline-none">
+            <ContentPipeline channelId={id} />
+          </TabsContent>
 
+          <TabsContent value="videos" className="focus-visible:outline-none">
             {contentsLoading ? (
               <div className="h-40 flex items-center justify-center">
                 <RefreshCw className="w-8 h-8 animate-spin text-white/20" />
               </div>
             ) : contents && contents.length > 0 ? (
               <div className="space-y-3">
-                {contents.map(content => {
-                  // Determine type based on fields set by each production flow
-                  const isShortVideo = !!content.audio_path || !!content.hook;
-                  const isStudio = !!content.script && !content.audio_path;
-                  const typeLabel = isShortVideo ? '🎙️ Vídeo Curto' : isStudio ? '📝 Estúdio' : '📁 Conteúdo';
-                  const typeBg = isShortVideo
-                    ? 'bg-primary/20 text-primary border-primary/20'
-                    : isStudio
-                    ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                    : 'bg-white/10 text-white/50 border-white/10';
-
-                  return (
-                    <Card key={content.id} className="bg-card/30 backdrop-blur border-white/10 hover:border-white/20 transition-all">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <Badge className={`text-[10px] border ${typeBg}`}>{typeLabel}</Badge>
-                              <Badge variant="secondary" className={
-                                content.status === 'published' ? 'bg-green-500/20 text-green-400' :
-                                content.status === 'draft' ? 'bg-yellow-500/20 text-yellow-400' :
-                                'bg-blue-500/20 text-blue-400'
-                              }>
-                                {content.status === 'published' ? 'Publicado' : content.status === 'draft' ? 'Rascunho' : content.status || 'Pendente'}
-                              </Badge>
-                            </div>
-                            <h3 className="font-medium text-white text-sm leading-tight">{content.title}</h3>
-                            {content.topic && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">📌 {content.topic}</p>
-                            )}
-                            <div className="flex items-center gap-3 mt-2 text-[11px] text-white/30">
-                              {content.audio_path && <span className="flex items-center gap-1 text-purple-400/70">🎵 Áudio gerado</span>}
-                              {content.script && <span className="flex items-center gap-1">📄 {Math.round(content.script.length / 5)} palavras</span>}
-                              {content.audio_duration && <span>⏱ {Math.round(content.audio_duration)}s</span>}
-                              <span className="ml-auto">{new Date(content.created_at).toLocaleDateString('pt-BR')}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+                {contents.map(content => (
+                  <Card key={content.id} className="bg-card/30 backdrop-blur border-white/10">
+                    <CardContent className="p-4 flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium text-white">{content.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {content.scheduled_date ? new Date(content.scheduled_date).toLocaleDateString('pt-BR') : 'Sem data'}
+                        </p>
+                      </div>
+                      <Badge variant="secondary" className={
+                        content.status === 'published' ? 'bg-green-500/20 text-green-400' :
+                          content.status === 'draft' ? 'bg-yellow-500/20 text-yellow-400' :
+                            'bg-blue-500/20 text-blue-400'
+                      }>
+                        {content.status === 'published' ? 'Publicado' : content.status === 'draft' ? 'Rascunho' : content.status || 'Pendente'}
+                      </Badge>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             ) : (
               <Card className="bg-card/20 backdrop-blur border-dashed border-white/10 p-12 text-center">
-                <Video className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm mb-4">Nenhum conteúdo ainda.</p>
-                <p className="text-xs text-white/30">Use <strong className="text-primary">Novo Vídeo (Curto)</strong> ou <strong className="text-emerald-400">Studio (Vídeo Longo)</strong> para criar conteúdo.</p>
+                <p className="text-muted-foreground">Nenhum conteúdo ainda. Use o scraper para importar ou crie um novo vídeo.</p>
               </Card>
             )}
           </TabsContent>
 
-
-          <TabsContent value="competitors" className="space-y-6 focus-visible:outline-none">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <Users className="w-5 h-5 text-primary" /> Concorrentes
-              </h2>
-            </div>
-            {id && <CompetitorMonitor channelId={id} />}
-          </TabsContent>
-
           <TabsContent value="settings" className="focus-visible:outline-none">
-            <Card className="bg-card/80 border-white/10 p-8">
+            <Card className="bg-card/30 backdrop-blur border-white/10 p-8">
               <h2 className="text-xl font-bold text-white mb-6">Informações do Canal</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div className="space-y-3">

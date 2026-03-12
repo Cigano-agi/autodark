@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useToast } from './use-toast';
+import { toast } from 'sonner';
 
 export interface Blueprint {
   id: string;
@@ -28,7 +28,6 @@ export interface UpdateBlueprintData {
 export function useBlueprint(channelId: string | undefined) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const blueprintQuery = useQuery({
     queryKey: ['blueprint', channelId],
@@ -63,17 +62,10 @@ export function useBlueprint(channelId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blueprint', channelId] });
-      toast({
-        title: 'Blueprint salvo!',
-        description: 'As configurações do canal foram atualizadas.',
-      });
+      toast.success('Blueprint salvo! As configurações do canal foram atualizadas.');
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao salvar blueprint',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao salvar blueprint: ${error.message}`);
     },
   });
 

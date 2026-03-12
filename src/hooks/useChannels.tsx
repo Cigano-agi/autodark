@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useToast } from './use-toast';
+import { toast } from 'sonner';
 
 export interface Channel {
   id: string;
@@ -50,7 +50,6 @@ export interface UpdateChannelData {
 export function useChannels() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const channelsQuery = useQuery({
     queryKey: ['channels', user?.id],
@@ -58,6 +57,7 @@ export function useChannels() {
       const { data, error } = await supabase
         .from('channels')
         .select('*')
+        .eq('user_id', user!.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -95,17 +95,10 @@ export function useChannels() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
-      toast({
-        title: 'Canal criado!',
-        description: 'Seu novo canal foi adicionado com sucesso.',
-      });
+      toast.success('Canal criado! Seu novo canal foi adicionado com sucesso.');
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao criar canal',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao criar canal: ${error.message}`);
     },
   });
 
@@ -128,26 +121,24 @@ export function useChannels() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
-      toast({
-        title: 'Canal atualizado!',
-        description: 'As informações do canal foram atualizadas.',
-      });
+      toast.success('Canal atualizado! As informações do canal foram atualizadas.');
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao atualizar canal',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao atualizar canal: ${error.message}`);
     },
   });
 
   const deleteChannel = useMutation({
     mutationFn: async (channelId: string) => {
-      // Delete related data first (cascade)
-      await supabase.from('channel_metrics').delete().eq('channel_id', channelId);
-      await supabase.from('channel_contents').delete().eq('channel_id', channelId);
-      await supabase.from('channel_blueprints').delete().eq('channel_id', channelId);
+      // Delete related data first (cascade with error checking)
+      const dependentTables = ['channel_metrics', 'channel_contents', 'channel_blueprints'] as const;
+      for (const table of dependentTables) {
+        const { error } = await supabase.from(table).delete().eq('channel_id', channelId);
+        if (error) {
+          console.error(`Erro ao limpar ${table}:`, error);
+          throw new Error(`Falha ao excluir dados de ${table}: ${error.message}`);
+        }
+      }
 
       const { error } = await supabase
         .from('channels')
@@ -158,17 +149,10 @@ export function useChannels() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
-      toast({
-        title: 'Canal removido',
-        description: 'O canal foi excluído com sucesso.',
-      });
+      toast.success('Canal removido. O canal foi excluído com sucesso.');
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao excluir canal',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao excluir canal: ${error.message}`);
     },
   });
 

@@ -1,8 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, TrendingUp, Eye } from "lucide-react";
+import { Search, TrendingUp } from "lucide-react";
 import { NicheResearch } from "@/components/Strategy/NicheResearch";
 import { TrendMonitor } from "@/components/Strategy/TrendMonitor";
-import { CompetitorMonitor } from "@/components/Strategy/CompetitorMonitor";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
 
@@ -15,7 +14,7 @@ export default function StrategyDashboard() {
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight text-white">Estratégia</h1>
                         <p className="text-muted-foreground mt-2">
-                            Pesquisa de nichos, tendências e monitoramento de concorrentes.
+                            Pesquisa de nichos e tendências.
                         </p>
                     </div>
 
@@ -27,9 +26,6 @@ export default function StrategyDashboard() {
                             <TabsTrigger value="trends" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                                 <TrendingUp className="w-4 h-4" /> Tendências
                             </TabsTrigger>
-                            <TabsTrigger value="competitors" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                                <Eye className="w-4 h-4" /> Concorrentes
-                            </TabsTrigger>
                         </TabsList>
 
                         <TabsContent value="research" className="space-y-4 focus-visible:outline-none bg-card/10 backdrop-blur-md rounded-xl p-6 border border-white/5">
@@ -38,10 +34,6 @@ export default function StrategyDashboard() {
 
                         <TabsContent value="trends" className="space-y-4 focus-visible:outline-none bg-card/10 backdrop-blur-md rounded-xl p-6 border border-white/5">
                             <TrendMonitor />
-                        </TabsContent>
-
-                        <TabsContent value="competitors" className="space-y-4 focus-visible:outline-none bg-card/10 backdrop-blur-md rounded-xl p-6 border border-white/5">
-                            <CompetitorMonitor />
                         </TabsContent>
 
                     </Tabs>

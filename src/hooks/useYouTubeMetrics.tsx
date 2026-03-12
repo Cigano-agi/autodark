@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface ScrapeResult {
   success: boolean;
@@ -17,7 +17,6 @@ interface ScrapeResult {
 }
 
 export function useYouTubeMetrics() {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Connect YouTube channel via Apify scraper
@@ -44,17 +43,11 @@ export function useYouTubeMetrics() {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channel'] });
       queryClient.invalidateQueries({ queryKey: ['contents'] });
-      toast({
-        title: 'YouTube conectado!',
-        description: `${data.data?.channel_name}: ${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.videos_imported} vídeos importados`,
-      });
+      queryClient.invalidateQueries({ queryKey: ['channel-metrics'] });
+      toast.success(`YouTube conectado! ${data.data?.channel_name}: ${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.videos_imported} vídeos importados`);
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao conectar YouTube',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao conectar YouTube: ${error.message}`);
     },
   });
 
@@ -95,17 +88,11 @@ export function useYouTubeMetrics() {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channel'] });
       queryClient.invalidateQueries({ queryKey: ['contents'] });
-      toast({
-        title: 'Métricas atualizadas!',
-        description: `${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.monthly_views.toLocaleString()} views/mês`,
-      });
+      queryClient.invalidateQueries({ queryKey: ['channel-metrics'] });
+      toast.success(`Métricas atualizadas! ${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.monthly_views.toLocaleString()} views/mês`);
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao sincronizar',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao sincronizar: ${error.message}`);
     },
   });
 
@@ -128,17 +115,10 @@ export function useYouTubeMetrics() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['channels'] });
       queryClient.invalidateQueries({ queryKey: ['channel'] });
-      toast({
-        title: 'YouTube desconectado',
-        description: 'A vinculação foi removida.',
-      });
+      toast.success('YouTube desconectado. A vinculação foi removida.');
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao desconectar',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao desconectar: ${error.message}`);
     },
   });
 

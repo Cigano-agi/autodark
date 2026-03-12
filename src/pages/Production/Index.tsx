@@ -1,48 +1,114 @@
-
 import { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom"; // Added useLocation, useNavigate
+import { useLocation, useNavigate } from "react-router-dom";
 import { useChannels } from "@/hooks/useChannels";
 import { useBlueprint } from "@/hooks/useBlueprint";
+import { useContentIdeas } from "@/hooks/useContentIdeas";
+import { useChannelPrompts } from "@/hooks/useChannelPrompts";
+import { useContents } from "@/hooks/useContents";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wand2, Play, Image as ImageIcon, FileText, CheckCircle, Zap, ArrowRight } from "lucide-react";
+import { Loader2, Wand2, Play, Image as ImageIcon, FileText, CheckCircle, Zap, ArrowRight, Lightbulb } from "lucide-react";
 import { toast } from "sonner";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
 import { KieGenerator } from "@/components/ui/kie-generator";
 
-// Mock AI functions
-const generateScriptMock = async (topic: string) => {
-    return new Promise<string>((resolve) => {
-        setTimeout(() => {
-            resolve(`
-# Roteiro: ${topic}
+const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
+const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
 
-[ABERTURA]
-(Cena rápida, música tensa)
-Você sabia que ${topic} esconde um segredo que ninguém te contou?
+// ─── Claude API helper ────────────────────────────────────────────────────────
 
-[CORPO]
-1. O início de tudo...
-2. A reviravolta chocante...
-3. O que os especialistas dizem...
+const callClaude = async (systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> => {
+    const isDev = window.location.hostname === "localhost" || 
+                  window.location.hostname === "127.0.0.1" || 
+                  window.location.hostname.startsWith("192.168.") ||
+                  window.location.hostname.startsWith("10.");
 
-[ENCERRAMENTO]
-Se gostou, deixe o like e se inscreva. Até a próxima!
-      `.trim());
-        }, 2000);
+    // Tentar AI33 Primeiro
+    try {
+        const urlAi33 = isDev 
+            ? "/api-ai/v1/chat/completions" 
+            : "https://api.ai33.pro/v1/chat/completions";
+
+        if (!AI33_API_KEY) throw new Error("AI33_API_KEY missing");
+
+        const response = await fetch(urlAi33, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${AI33_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: "gpt-4o-mini",
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt }
+                ],
+                temperature: 0.7,
+                ...(requireJson ? { response_format: { type: "json_object" } } : {})
+            }),
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            return data.choices?.[0]?.message?.content || "";
+        }
+
+        // Se falhou por créditos/auth (401), tentamos o Fallback se existir
+        if (response.status === 401 && OPENROUTER_API_KEY) {
+            console.warn("[Production] AI33 falhou (401). Tentando Fallback OpenRouter...");
+            return await callOpenRouter(systemPrompt, userPrompt, requireJson);
+        }
+
+        const errText = await response.text();
+        throw new Error(`AI33 Error ${response.status}: ${errText.slice(0, 100)}`);
+
+    } catch (err: any) {
+        if (OPENROUTER_API_KEY && (err.message?.includes("401") || err.message?.includes("AI33"))) {
+             return await callOpenRouter(systemPrompt, userPrompt, requireJson);
+        }
+        throw err;
+    }
+};
+
+const callOpenRouter = async (systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> => {
+    console.log("[Production] Usando OpenRouter...");
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "HTTP-Referer": window.location.origin,
+            "X-Title": "AutoDark Production"
+        },
+        body: JSON.stringify({
+            model: "openai/gpt-4o-mini",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            ...(requireJson ? { response_format: { type: "json_object" } } : {})
+        })
     });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`OpenRouter Error ${response.status}: ${err}`);
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || "";
 };
 
-const generateAudioMock = async () => {
-    return new Promise<void>((resolve) => setTimeout(resolve, 2000));
-};
-
-const generateThumbMock = async () => {
-    return new Promise<void>((resolve) => setTimeout(resolve, 2000));
+const extractJson = (text: string) => {
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("JSON não encontrado na resposta");
+    return JSON.parse(match[0]);
 };
 
 export default function ProductionWizard() {
@@ -51,87 +117,107 @@ export default function ProductionWizard() {
     const navigate = useNavigate();
     const [selectedChannelId, setSelectedChannelId] = useState<string>(location.state?.channelId || "");
     const { blueprint } = useBlueprint(selectedChannelId);
+    const { ideas } = useContentIdeas(selectedChannelId || undefined);
+    const { createContent } = useContents(selectedChannelId || undefined);
 
     const [step, setStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [statusMessage, setStatusMessage] = useState("");
 
     // Generation States
+    const [idea, setIdea] = useState("");
+    const [title, setTitle] = useState("");
+    const [summary, setSummary] = useState("");
     const [script, setScript] = useState("");
-    const [audioReady, setAudioReady] = useState(false);
-    const [thumbReady, setThumbReady] = useState(false);
+    const [thumbPrompt, setThumbPrompt] = useState("");
 
     const handleChannelSelect = (id: string) => {
         setSelectedChannelId(id);
-        // Reset states when changing channel
         setStep(1);
+        setIdea("");
+        setTitle("");
+        setSummary("");
         setScript("");
-        setAudioReady(false);
-        setThumbReady(false);
+        setThumbPrompt("");
     };
 
-    const [statusMessage, setStatusMessage] = useState("");
+    const setStatus = (msg: string) => setStatusMessage(msg);
 
-    const simulateProgress = async (messages: string[]) => {
-        for (const msg of messages) {
-            setStatusMessage(msg);
-            await new Promise(r => setTimeout(r, 800));
+    const handleGenerateTitleSummary = async () => {
+        if (!idea.trim()) { toast.error("Digite uma ideia primeiro."); return; }
+        setLoading(true);
+        try {
+            setStatus("Analisando ideia...");
+            const raw = await callClaude(
+                "Você é um especialista em YouTube. Retorne APENAS um objeto JSON com as chaves 'title' e 'summary'.",
+                `Tópico: "${blueprint?.topic || "geral"}"\nIdeia: "${idea}"\nFormato: {"title": "Título épico", "summary": "Por que viraliza..."}`,
+                true
+            );
+            const parsed = extractJson(raw);
+            setTitle(parsed.title);
+            setSummary(parsed.summary);
+            setStep(2);
+            toast.success("Título gerado!");
+        } catch (e: any) {
+            toast.error(e.message || "Erro ao gerar título.");
+        } finally {
+            setLoading(false);
+            setStatus("");
         }
-        setStatusMessage("");
     };
 
     const handleGenerateScript = async () => {
-        if (!blueprint?.topic) {
-            toast.error("Este canal não tem um tópico definido no Blueprint.");
-            return;
-        }
         setLoading(true);
         try {
-            await simulateProgress([
-                "Analisando tendências do nicho...",
-                "Estruturando roteiro viral...",
-                "Criando ganchos de retenção...",
-                "Finalizando script..."
-            ]);
-            const result = await generateScriptMock(blueprint.topic);
-            setScript(result);
-            setStep(2);
-            toast.success("Roteiro gerado!");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleGenerateAudio = async () => {
-        setLoading(true);
-        try {
-            await simulateProgress([
-                `Carregando voz: ${blueprint?.voice_name || "Padrão"}...`,
-                "Sintetizando fala...",
-                "Ajustando entonação e ritmo...",
-                "Aplicando filtros de áudio..."
-            ]);
-            await generateAudioMock();
-            setAudioReady(true);
+            setStatus("Escrevendo roteiro viral...");
+            const raw = await callClaude(
+                "Você é um roteirista de YouTube. Escreva um roteiro narrativo completo.",
+                `Crie um roteiro para:\nTítulo: ${title}\nContexto: ${summary}\nTópico: ${blueprint?.topic}`
+            );
+            setScript(raw);
             setStep(3);
-            toast.success("Áudio gerado!");
+            toast.success("Roteiro gerado!");
+        } catch (e) {
+            toast.error("Erro ao gerar roteiro.");
         } finally {
             setLoading(false);
+            setStatus("");
         }
     };
 
     const handleGenerateThumb = async () => {
         setLoading(true);
         try {
-            await simulateProgress([
-                "Analisando contexto do vídeo...",
-                "Gerando composição visual...",
-                "Ajustando contraste e saturação...",
-                "Renderizando imagem 4K..."
-            ]);
-            await generateThumbMock();
-            setThumbReady(true);
+            setStatus("Criando conceito visual...");
+            const raw = await callClaude(
+                "Você é um especialista em thumbnails.",
+                `Crie um prompt para gerar a thumbnail do vídeo: ${title}`
+            );
+            setThumbPrompt(raw);
             setStep(4);
-            toast.success("Thumbnail gerada!");
+            toast.success("Conceito de thumbnail criado!");
+        } catch (e) {
+            toast.error("Erro ao gerar thumbnail.");
+        } finally {
+            setLoading(false);
+            setStatus("");
+        }
+    };
+
+    const handleFinalize = async () => {
+        if (!selectedChannelId) return;
+        setLoading(true);
+        try {
+            await createContent.mutateAsync({
+                title,
+                hook: summary,
+                script: `## Thumbnail\n${thumbPrompt}\n\n## Roteiro\n${script}`,
+                status: "draft"
+            });
+            toast.success("Vídeo enviado para produção! 🚀");
+            setTimeout(() => navigate(`/channel/${selectedChannelId}`), 1000);
+        } catch (e) {
+            toast.error("Erro ao salvar conteúdo.");
         } finally {
             setLoading(false);
         }
@@ -205,75 +291,62 @@ export default function ProductionWizard() {
                         {/* Right Panel: Wizard Steps */}
                         <div className="md:col-span-2 space-y-6">
 
-                            {/* Step 1: Script */}
+                            {/* Step 1: Idea & Title */}
                             <Card className={`transition-all duration-300 bg-card/30 backdrop-blur border-white/10 ${step === 1 ? 'ring-2 ring-primary border-transparent' : ''}`}>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2 text-white">
-                                        <FileText className="w-5 h-5 text-blue-500" /> 1. Roteiro (Script)
+                                        <Lightbulb className="w-5 h-5 text-yellow-500" /> 1. Ideia e Título
                                     </CardTitle>
                                 </CardHeader>
-                                <CardContent>
-                                    {!script ? (
-                                        <div className="text-center py-8">
-                                            <p className="text-muted-foreground mb-4">
-                                                Clique para gerar um roteiro baseado no tópico <strong>{blueprint?.topic || "..."}</strong>
-                                            </p>
-                                            <Button
-                                                onClick={handleGenerateScript}
-                                                disabled={!selectedChannelId || loading}
-                                                className="w-full sm:w-auto gap-2"
-                                            >
-                                                {loading && step === 1 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                                                Gerar Roteiro com IA
-                                            </Button>
-                                        </div>
+                                <CardContent className="space-y-4">
+                                    <div className="space-y-2">
+                                        <Label className="text-white">Sua Ideia</Label>
+                                        <Textarea
+                                            value={idea}
+                                            onChange={e => setIdea(e.target.value)}
+                                            placeholder="Sobre o que será o vídeo?"
+                                            disabled={step > 1}
+                                            className="bg-black/40 border-white/10 text-white min-h-[100px]"
+                                        />
+                                    </div>
+                                    {step === 1 ? (
+                                        <Button
+                                            onClick={handleGenerateTitleSummary}
+                                            disabled={!selectedChannelId || !idea.trim() || loading}
+                                            className="w-full gap-2"
+                                        >
+                                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                            Iniciar
+                                        </Button>
                                     ) : (
-                                        <div className="space-y-4">
-                                            <Textarea value={script} readOnly className="h-[200px] font-mono text-sm bg-black/40 border-white/10 text-white" />
-                                            <div className="flex justify-end">
-                                                <span className="text-xs text-green-500 flex items-center gap-1">
-                                                    <CheckCircle className="w-3 h-3" /> Gerado com sucesso
-                                                </span>
-                                            </div>
+                                        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-2">
+                                            <p className="text-sm font-bold text-white">Título: {title}</p>
+                                            <p className="text-xs text-muted-foreground">{summary}</p>
                                         </div>
                                     )}
                                 </CardContent>
                             </Card>
 
-                            {/* Step 2: Audio */}
+                            {/* Step 2: Script */}
                             {step >= 2 && (
                                 <Card className={`transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 bg-card/30 backdrop-blur border-white/10 ${step === 2 ? 'ring-2 ring-primary border-transparent' : ''}`}>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2 text-white">
-                                            <Play className="w-5 h-5 text-purple-500" /> 2. Narração (Audio)
+                                            <FileText className="w-5 h-5 text-blue-500" /> 2. Roteiro (Script)
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        {!audioReady ? (
-                                            <div className="flex flex-col items-center gap-4 py-4">
-                                                <Button
-                                                    onClick={handleGenerateAudio}
-                                                    disabled={loading}
-                                                    variant="secondary"
-                                                    className="w-full gap-2"
-                                                >
-                                                    {loading && step === 2 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                                                    Gerar Narração ({blueprint?.voice_name || "Padrão"})
-                                                </Button>
-                                            </div>
+                                        {!script ? (
+                                            <Button
+                                                onClick={handleGenerateScript}
+                                                disabled={loading}
+                                                className="w-full gap-2"
+                                            >
+                                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                                Gerar Roteiro com IA
+                                            </Button>
                                         ) : (
-                                            <div className="p-4 bg-secondary/50 rounded-lg flex items-center justify-between border border-border">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                                                        <Play className="w-5 h-5 text-primary ml-1" />
-                                                    </div>
-                                                    <div className="text-sm">
-                                                        <p className="font-medium text-white">Audio_Gerado_v1.mp3</p>
-                                                        <p className="text-xs text-muted-foreground">02:14 • 4.2 MB</p>
-                                                    </div>
-                                                </div>
-                                                <CheckCircle className="w-5 h-5 text-green-500" />
-                                            </div>
+                                            <Textarea value={script} readOnly className="h-[200px] font-mono text-xs bg-black/40 border-white/10 text-white" />
                                         )}
                                     </CardContent>
                                 </Card>
@@ -288,26 +361,19 @@ export default function ProductionWizard() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        {!thumbReady ? (
-                                            <div className="flex flex-col items-center gap-4 py-4">
-                                                <Button
-                                                    onClick={handleGenerateThumb}
-                                                    disabled={loading}
-                                                    variant="secondary"
-                                                    className="w-full gap-2"
-                                                >
-                                                    {loading && step === 3 ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                                                    Gerar Thumbnail
-                                                </Button>
-                                            </div>
+                                        {!thumbPrompt ? (
+                                            <Button
+                                                onClick={handleGenerateThumb}
+                                                disabled={loading}
+                                                variant="secondary"
+                                                className="w-full gap-2"
+                                            >
+                                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                                                Gerar Conceito de Thumbnail
+                                            </Button>
                                         ) : (
-                                            <div className="relative aspect-video rounded-lg overflow-hidden bg-black/50 border border-border group">
-                                                <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                                                    [IMAGEM GERADA PELA IA]
-                                                </div>
-                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-4">
-                                                    <p className="text-white font-medium text-sm">Thumbnail_Final.png</p>
-                                                </div>
+                                            <div className="p-4 bg-black/40 border border-white/10 rounded-lg text-xs text-muted-foreground font-mono">
+                                                {thumbPrompt}
                                             </div>
                                         )}
                                     </CardContent>
@@ -319,13 +385,12 @@ export default function ProductionWizard() {
                                 <div className="flex justify-end animate-in fade-in slide-in-from-bottom-4">
                                     <Button
                                         size="lg"
-                                        onClick={() => {
-                                            toast.success("Vídeo enviado para produção! 🚀");
-                                            setTimeout(() => navigate(`/channel/${selectedChannelId}`), 1000);
-                                        }}
-                                        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20"
+                                        onClick={handleFinalize}
+                                        disabled={loading}
+                                        className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white shadow-lg shadow-green-900/20 gap-2"
                                     >
-                                        Enviar para Aprovação Final <ArrowRight className="ml-2 w-5 h-5" />
+                                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+                                        Enviar para Aprovação Final
                                     </Button>
                                 </div>
                             )}

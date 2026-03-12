@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useToast } from './use-toast';
+import { toast } from 'sonner';
 
 export interface Content {
   id: string;
@@ -42,7 +42,6 @@ export interface CreateContentData {
 export function useContents(channelId: string | undefined) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const contentsQuery = useQuery({
     queryKey: ['contents', channelId],
@@ -88,17 +87,10 @@ export function useContents(channelId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contents', channelId] });
-      toast({
-        title: 'Conteúdo criado!',
-        description: 'Novo vídeo adicionado à lista.',
-      });
+      toast.success('Conteúdo criado! Novo vídeo adicionado à lista.');
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao criar conteúdo',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao criar conteúdo: ${error.message}`);
     },
   });
 
@@ -118,11 +110,7 @@ export function useContents(channelId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ['contents', channelId] });
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao atualizar conteúdo',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao atualizar conteúdo: ${error.message}`);
     },
   });
 
@@ -137,17 +125,10 @@ export function useContents(channelId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contents', channelId] });
-      toast({
-        title: 'Conteúdo removido',
-        description: 'O vídeo foi excluído da lista.',
-      });
+      toast.success('Conteúdo removido. O vídeo foi excluído da lista.');
     },
     onError: (error) => {
-      toast({
-        title: 'Erro ao excluir conteúdo',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast.error(`Erro ao excluir conteúdo: ${error.message}`);
     },
   });
 

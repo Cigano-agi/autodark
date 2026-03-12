@@ -1,12 +1,16 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "http://localhost:5173";
+
 export const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
     "Access-Control-Allow-Headers":
         "authorization, x-client-info, apikey, content-type",
 };
 
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY") || "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";
+const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+if (!OPENROUTER_API_KEY) throw new Error("OPENROUTER_API_KEY não configurado nas variáveis de ambiente");
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 
 serve(async (req) => {

@@ -1,7 +1,4 @@
 project_id = "yyaysbsqunumitluleey"
 
-[functions.sync-youtube-metrics]
-verify_jwt = false
-
 [functions.scrape-youtube-channel]
 verify_jwt = false

@@ -20,75 +20,7 @@ import {
     BellOff
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-interface CompetitorChannel {
-    id: string;
-    name: string;
-    handle: string;
-    niche: string;
-    subscribers: number;
-    avgViews: number;
-    uploadFrequency: string;
-    lastVideo: string;
-    lastVideoDate: string;
-    growth: string;
-    tracking: boolean;
-}
-
-const MOCK_COMPETITORS: CompetitorChannel[] = [
-    {
-        id: '1',
-        name: 'Fatos Desconhecidos',
-        handle: '@fatosdesconhecidos',
-        niche: 'Curiosidades',
-        subscribers: 15200000,
-        avgViews: 450000,
-        uploadFrequency: '3x/semana',
-        lastVideo: 'Os 10 SEGREDOS que a NASA esconde',
-        lastVideoDate: '2 dias atrás',
-        growth: '+2.3%',
-        tracking: true
-    },
-    {
-        id: '2',
-        name: 'Você Sabia?',
-        handle: '@volonesabia',
-        niche: 'Curiosidades',
-        subscribers: 45000000,
-        avgViews: 1200000,
-        uploadFrequency: '5x/semana',
-        lastVideo: 'E se a Lua SUMISSE?',
-        lastVideoDate: '1 dia atrás',
-        growth: '+1.8%',
-        tracking: true
-    },
-    {
-        id: '3',
-        name: 'Estoicismo Na Veia',
-        handle: '@estoicismonaveia',
-        niche: 'Filosofia',
-        subscribers: 890000,
-        avgViews: 85000,
-        uploadFrequency: '2x/semana',
-        lastVideo: 'Marco Aurélio - O Imperador Filósofo',
-        lastVideoDate: '3 dias atrás',
-        growth: '+5.2%',
-        tracking: false
-    },
-    {
-        id: '4',
-        name: 'Casos Criminais',
-        handle: '@casoscriminais',
-        niche: 'True Crime',
-        subscribers: 2300000,
-        avgViews: 320000,
-        uploadFrequency: '2x/semana',
-        lastVideo: 'O Caso que NUNCA foi resolvido',
-        lastVideoDate: '5 dias atrás',
-        growth: '+3.1%',
-        tracking: true
-    },
-];
+import { useCompetitors } from '@/hooks/useCompetitors';
 
 function formatNumber(num: number): string {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
@@ -96,58 +28,42 @@ function formatNumber(num: number): string {
     return num.toString();
 }
 
-export function CompetitorMonitor() {
-    const [competitors, setCompetitors] = useState<CompetitorChannel[]>(MOCK_COMPETITORS);
+export function CompetitorMonitor({ channelId }: { channelId?: string }) {
+    const { competitors, isLoading, addCompetitor, toggleTracking, removeCompetitor } = useCompetitors(channelId);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [newChannelUrl, setNewChannelUrl] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newHandle, setNewHandle] = useState('');
 
     const handleAddChannel = async () => {
-        if (!newChannelUrl) {
-            toast.error('Insira a URL do canal');
+        if (!newChannelUrl && (!newName || !newHandle)) {
+            toast.error('Preencha as informações do canal');
             return;
         }
 
-        setLoading(true);
-        // Simular busca
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        // Se o usuário colou URL no mock ele preenchia, vamos adaptar:
+        const nameToSave = newName || 'Novo Canal';
+        const handleToSave = newHandle || newChannelUrl.split('@')[1] || newChannelUrl || '@novocanal';
 
-        const newChannel: CompetitorChannel = {
-            id: Date.now().toString(),
-            name: 'Novo Canal Adicionado',
-            handle: '@novocanal',
-            niche: 'Desconhecido',
-            subscribers: Math.floor(Math.random() * 1000000),
-            avgViews: Math.floor(Math.random() * 100000),
-            uploadFrequency: '?',
-            lastVideo: 'Carregando...',
-            lastVideoDate: 'Agora',
-            growth: '+0%',
-            tracking: true
-        };
+        await addCompetitor.mutateAsync({
+            name: nameToSave,
+            handle: handleToSave.startsWith('@') ? handleToSave : `@${handleToSave}`,
+            youtube_url: newChannelUrl || undefined,
+        });
 
-        setCompetitors([newChannel, ...competitors]);
+        setNewName('');
+        setNewHandle('');
         setNewChannelUrl('');
         setDialogOpen(false);
-        setLoading(false);
-        toast.success('Canal adicionado à Whitelist!');
     };
 
-    const toggleTracking = (id: string) => {
-        setCompetitors(competitors.map(c =>
-            c.id === id ? { ...c, tracking: !c.tracking } : c
-        ));
-        const channel = competitors.find(c => c.id === id);
-        if (channel) {
-            toast.success(channel.tracking ? 'Alertas desativados' : 'Alertas ativados');
-        }
+    const handleToggleTracking = (id: string, current: boolean) => {
+        toggleTracking.mutate({ id, tracking: !current });
     };
 
-    const removeChannel = (id: string) => {
-        setCompetitors(competitors.filter(c => c.id !== id));
-        toast.success('Canal removido da Whitelist');
+    const handleRemoveChannel = (id: string) => {
+        removeCompetitor.mutate(id);
     };
-
     const trackedCount = competitors.filter(c => c.tracking).length;
 
     return (
@@ -161,6 +77,7 @@ export function CompetitorMonitor() {
                     </h2>
                     <p className="text-muted-foreground mt-1">
                         Acompanhe canais de referência e receba alertas de oportunidade.
+                        {!channelId && " (Selecione um canal para ver a lista de concorrentes dele)"}
                     </p>
                 </div>
 
@@ -187,8 +104,24 @@ export function CompetitorMonitor() {
                                     onChange={(e) => setNewChannelUrl(e.target.value)}
                                 />
                             </div>
-                            <Button onClick={handleAddChannel} className="w-full" disabled={loading}>
-                                {loading ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Youtube className="w-4 h-4 mr-2" />}
+                            <div className="space-y-2">
+                                <Label>Nome</Label>
+                                <Input
+                                    placeholder="Nome do Canal"
+                                    value={newName}
+                                    onChange={(e) => setNewName(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Handle/Arroba</Label>
+                                <Input
+                                    placeholder="@canal"
+                                    value={newHandle}
+                                    onChange={(e) => setNewHandle(e.target.value)}
+                                />
+                            </div>
+                            <Button onClick={handleAddChannel} className="w-full" disabled={addCompetitor.isPending}>
+                                {addCompetitor.isPending ? <RefreshCw className="w-4 h-4 animate-spin mr-2" /> : <Youtube className="w-4 h-4 mr-2" />}
                                 Buscar e Adicionar
                             </Button>
                         </div>
@@ -242,6 +175,11 @@ export function CompetitorMonitor() {
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
+                    {isLoading ? (
+                        <div className="flex justify-center p-8">
+                            <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                    ) : (
                     <Table>
                         <TableHeader>
                             <TableRow className="hover:bg-transparent">
@@ -300,7 +238,7 @@ export function CompetitorMonitor() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8"
-                                                onClick={() => toggleTracking(channel.id)}
+                                                onClick={() => handleToggleTracking(channel.id, channel.tracking)}
                                             >
                                                 {channel.tracking ? (
                                                     <Bell className="w-4 h-4 text-green-500" />
@@ -322,7 +260,7 @@ export function CompetitorMonitor() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => removeChannel(channel.id)}
+                                                onClick={() => handleRemoveChannel(channel.id)}
                                             >
                                                 <Trash2 className="w-4 h-4 text-destructive" />
                                             </Button>
@@ -332,6 +270,7 @@ export function CompetitorMonitor() {
                             ))}
                         </TableBody>
                     </Table>
+                    )}
                 </CardContent>
             </Card>
 
