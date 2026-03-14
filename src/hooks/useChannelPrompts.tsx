@@ -26,8 +26,8 @@ export function useChannelPrompts(channelId: string | undefined) {
         queryFn: async () => {
             if (!channelId) return [];
 
-            const { data, error } = await supabase
-                .from('channel_prompts')
+            const { data, error } = await (supabase
+                .from as any)('channel_prompts')
                 .select('*')
                 .eq('channel_id', channelId)
                 .order('created_at', { ascending: false });
