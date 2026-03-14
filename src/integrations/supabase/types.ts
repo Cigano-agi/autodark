@@ -94,6 +94,62 @@ export type Database = {
           },
         ]
       }
+      channel_competitors: {
+        Row: {
+          avg_views: number | null
+          channel_id: string
+          created_at: string | null
+          growth: string | null
+          handle: string
+          id: string
+          last_video: string | null
+          name: string
+          niche: string | null
+          subscribers: number | null
+          tracking: boolean | null
+          upload_frequency: string | null
+          youtube_url: string | null
+        }
+        Insert: {
+          avg_views?: number | null
+          channel_id: string
+          created_at?: string | null
+          growth?: string | null
+          handle: string
+          id?: string
+          last_video?: string | null
+          name: string
+          niche?: string | null
+          subscribers?: number | null
+          tracking?: boolean | null
+          upload_frequency?: string | null
+          youtube_url?: string | null
+        }
+        Update: {
+          avg_views?: number | null
+          channel_id?: string
+          created_at?: string | null
+          growth?: string | null
+          handle?: string
+          id?: string
+          last_video?: string | null
+          name?: string
+          niche?: string | null
+          subscribers?: number | null
+          tracking?: boolean | null
+          upload_frequency?: string | null
+          youtube_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_competitors_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_contents: {
         Row: {
           channel_id: string
