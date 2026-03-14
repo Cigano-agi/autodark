@@ -75,7 +75,7 @@ export default function ChannelView() {
 
   if (!channel) return null;
 
-  const hasMetrics = metricsData && (metricsData.dailyViews.length > 0 || channel.last_scraped_at);
+  const hasMetrics = metricsData && (metricsData.dailyViews.length > 0 || (channel as any).last_scraped_at);
 
   return (
     <BeamsBackground intensity="medium" className="bg-background">
