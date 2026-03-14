@@ -65,8 +65,8 @@ export function useChannelPrompts(channelId: string | undefined) {
 
     const updatePrompt = useMutation({
         mutationFn: async ({ id, updates }: { id: string; updates: Partial<CreateChannelPromptData> }) => {
-            const { data, error } = await supabase
-                .from('channel_prompts')
+            const { data, error } = await (supabase
+                .from as any)('channel_prompts')
                 .update(updates)
                 .eq('id', id)
                 .select()
