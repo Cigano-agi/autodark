@@ -248,7 +248,7 @@ export default function LongVideoStudio() {
                             <h2 className="text-2xl font-bold flex items-center gap-2">
                                 <FileAudio className="w-5 h-5 text-primary" /> Roteiro Interativo
                             </h2>
-                            {channel?.requires_review && (
+                            {(channel as any)?.requires_review && (
                                 <Button size="sm" variant={rulesLog ? "secondary" : "destructive"} onClick={handleAnalyzeRules} disabled={analyzingRules}>
                                     {analyzingRules ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldAlert className="w-4 h-4 mr-2" />}
                                     {rulesLog ? "Re-analisar Políticas" : "Analisar Regras (YT)"}

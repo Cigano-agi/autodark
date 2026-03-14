@@ -125,7 +125,7 @@ export default function ChannelView() {
                 </h1>
                 <p className="text-muted-foreground">
                   {channel.youtube_username ? `@${channel.youtube_username}` : 'Gerenciado por AutoDark'}
-                  {channel.last_scraped_at && ` • Última sincronização ${new Date(channel.last_scraped_at).toLocaleDateString('pt-BR')} às ${new Date(channel.last_scraped_at).toLocaleTimeString('pt-BR')}`}
+                  {(channel as any).last_scraped_at && ` • Última sincronização ${new Date((channel as any).last_scraped_at).toLocaleDateString('pt-BR')} às ${new Date((channel as any).last_scraped_at).toLocaleTimeString('pt-BR')}`}
                 </p>
               </div>
 
