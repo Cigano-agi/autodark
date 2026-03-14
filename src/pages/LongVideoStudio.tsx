@@ -192,7 +192,7 @@ export default function LongVideoStudio() {
                 <p className="text-muted-foreground mt-2 text-lg">
                     Crie roteiros em blocos dinâmicos. Personalize narrações e imagens cena a cena.
                 </p>
-                {channel?.requires_review && (
+                {(channel as any)?.requires_review && (
                     <Badge variant="destructive" className="mt-3 font-medium bg-red-500/20 text-red-500 hover:bg-red-500/30 border-red-500/30">
                         <ShieldAlert className="w-3 h-3 mr-1" /> Nicho Estrito: Use o validador do YouTube após gerar o roteiro.
                     </Badge>
