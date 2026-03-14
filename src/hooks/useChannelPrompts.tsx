@@ -42,8 +42,8 @@ export function useChannelPrompts(channelId: string | undefined) {
         mutationFn: async (promptData: CreateChannelPromptData) => {
             if (!channelId) throw new Error('Channel ID required');
 
-            const { data, error } = await supabase
-                .from('channel_prompts')
+            const { data, error } = await (supabase
+                .from as any)('channel_prompts')
                 .insert({
                     ...promptData,
                     channel_id: channelId,
