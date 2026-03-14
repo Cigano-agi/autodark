@@ -60,7 +60,7 @@ export default function ChannelView() {
   useEffect(() => {
     if (channel?.youtube_channel_id) {
       const now = new Date();
-      const lastScraped = channel.last_scraped_at ? new Date(channel.last_scraped_at) : new Date(0);
+      const lastScraped = (channel as any).last_scraped_at ? new Date((channel as any).last_scraped_at) : new Date(0);
       const hoursSinceLastScrape = (now.getTime() - lastScraped.getTime()) / (1000 * 60 * 60);
 
       // Auto-sync if more than 24 hours have passed
