@@ -71,7 +71,7 @@ export default function ChannelView() {
         });
       }
     }
-  }, [channel?.id, channel?.last_scraped_at]);
+  }, [channel?.id, (channel as any)?.last_scraped_at]);
 
   if (!channel) return null;
 
