@@ -23,8 +23,8 @@ export function useContentIdeas(channelId: string | undefined) {
         queryFn: async () => {
             if (!channelId) return [];
 
-            const { data, error } = await supabase
-                .from('content_ideas')
+            const { data, error } = await (supabase
+                .from as any)('content_ideas')
                 .select('*')
                 .eq('channel_id', channelId)
                 .order('created_at', { ascending: false });
