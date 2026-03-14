@@ -74,7 +74,6 @@ export function useChannels() {
           name: channelData.name,
           niche: channelData.niche,
           niche_color: channelData.niche_color || 'bg-muted text-muted-foreground',
-          requires_review: channelData.requires_review || false,
         })
         .select()
         .single();

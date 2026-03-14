@@ -187,6 +187,7 @@ export type Database = {
           name: string
           niche: string
           niche_color: string | null
+          requires_review: boolean | null
           subscribers: number | null
           updated_at: string
           user_id: string
@@ -211,6 +212,7 @@ export type Database = {
           name: string
           niche: string
           niche_color?: string | null
+          requires_review?: boolean | null
           subscribers?: number | null
           updated_at?: string
           user_id: string
@@ -235,6 +237,7 @@ export type Database = {
           name?: string
           niche?: string
           niche_color?: string | null
+          requires_review?: boolean | null
           subscribers?: number | null
           updated_at?: string
           user_id?: string
