@@ -14,57 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_pools: {
+        Row: {
+          api_key: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_used_at: string | null
+          service: string
+          usage_count: number | null
+        }
+        Insert: {
+          api_key: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          service: string
+          usage_count?: number | null
+        }
+        Update: {
+          api_key?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_used_at?: string | null
+          service?: string
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       channel_blueprints: {
         Row: {
           channel_id: string
-          char_limit: number | null
           created_at: string
-          cta: string | null
           id: string
-          persona_prompt: string | null
-          reference: string | null
           script_rules: string | null
-          target_audience: string | null
+          target_duration: number | null
           topic: string | null
           updated_at: string
           upload_frequency: string | null
-          videos_per_batch: number | null
           visual_style: string | null
           voice_id: string | null
           voice_name: string | null
         }
         Insert: {
           channel_id: string
-          char_limit?: number | null
           created_at?: string
-          cta?: string | null
           id?: string
-          persona_prompt?: string | null
-          reference?: string | null
           script_rules?: string | null
-          target_audience?: string | null
+          target_duration?: number | null
           topic?: string | null
           updated_at?: string
           upload_frequency?: string | null
-          videos_per_batch?: number | null
           visual_style?: string | null
           voice_id?: string | null
           voice_name?: string | null
         }
         Update: {
           channel_id?: string
-          char_limit?: number | null
           created_at?: string
-          cta?: string | null
           id?: string
-          persona_prompt?: string | null
-          reference?: string | null
           script_rules?: string | null
-          target_audience?: string | null
+          target_duration?: number | null
           topic?: string | null
           updated_at?: string
           upload_frequency?: string | null
-          videos_per_batch?: number | null
           visual_style?: string | null
           voice_id?: string | null
           voice_name?: string | null
@@ -81,66 +96,30 @@ export type Database = {
       }
       channel_contents: {
         Row: {
-          angle: string | null
-          audio_duration: number | null
-          audio_path: string | null
           channel_id: string
-          character: string | null
           created_at: string
-          error_log: string | null
-          hook: string | null
           id: string
-          nicho_slug: string | null
-          reference: string | null
           scheduled_date: string | null
-          script: string | null
-          ssml_cache: string | null
           status: string | null
-          subtitle_path: string | null
           title: string
-          topic: string | null
           updated_at: string
         }
         Insert: {
-          angle?: string | null
-          audio_duration?: number | null
-          audio_path?: string | null
           channel_id: string
-          character?: string | null
           created_at?: string
-          error_log?: string | null
-          hook?: string | null
           id?: string
-          nicho_slug?: string | null
-          reference?: string | null
           scheduled_date?: string | null
-          script?: string | null
-          ssml_cache?: string | null
           status?: string | null
-          subtitle_path?: string | null
           title: string
-          topic?: string | null
           updated_at?: string
         }
         Update: {
-          angle?: string | null
-          audio_duration?: number | null
-          audio_path?: string | null
           channel_id?: string
-          character?: string | null
           created_at?: string
-          error_log?: string | null
-          hook?: string | null
           id?: string
-          nicho_slug?: string | null
-          reference?: string | null
           scheduled_date?: string | null
-          script?: string | null
-          ssml_cache?: string | null
           status?: string | null
-          subtitle_path?: string | null
           title?: string
-          topic?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -197,80 +176,29 @@ export type Database = {
           },
         ]
       }
-      channel_prompts: {
-        Row: {
-          channel_id: string
-          content_type: string
-          created_at: string | null
-          id: string
-          is_active: boolean | null
-          name: string
-          prompt_template: string
-          updated_at: string | null
-          variables: Json | null
-        }
-        Insert: {
-          channel_id: string
-          content_type?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          name: string
-          prompt_template: string
-          updated_at?: string | null
-          variables?: Json | null
-        }
-        Update: {
-          channel_id?: string
-          content_type?: string
-          created_at?: string | null
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          prompt_template?: string
-          updated_at?: string | null
-          variables?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "channel_prompts_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: false
-            referencedRelation: "channels"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       channels: {
         Row: {
           avatar_url: string | null
           created_at: string
           health: string | null
           id: string
-          last_scraped_at: string | null
+          is_active: boolean | null
           monthly_views: number | null
           name: string
           niche: string
           niche_color: string | null
-          requires_review: boolean | null
           subscribers: number | null
           updated_at: string
           user_id: string
-          whatsapp_connected: boolean | null
-          whatsapp_connected_at: string | null
-          whatsapp_instance_id: string | null
-          whatsapp_phone: string | null
           youtube_access_token: string | null
           youtube_banner_url: string | null
           youtube_channel_id: string | null
           youtube_connected_at: string | null
           youtube_description: string | null
-          youtube_id: string | null
           youtube_joined_date: string | null
           youtube_refresh_token: string | null
           youtube_total_videos: number | null
           youtube_total_views: number | null
-          youtube_uploads_playlist_id: string | null
           youtube_username: string | null
         }
         Insert: {
@@ -278,30 +206,23 @@ export type Database = {
           created_at?: string
           health?: string | null
           id?: string
-          last_scraped_at?: string | null
+          is_active?: boolean | null
           monthly_views?: number | null
           name: string
           niche: string
           niche_color?: string | null
-          requires_review?: boolean | null
           subscribers?: number | null
           updated_at?: string
           user_id: string
-          whatsapp_connected?: boolean | null
-          whatsapp_connected_at?: string | null
-          whatsapp_instance_id?: string | null
-          whatsapp_phone?: string | null
           youtube_access_token?: string | null
           youtube_banner_url?: string | null
           youtube_channel_id?: string | null
           youtube_connected_at?: string | null
           youtube_description?: string | null
-          youtube_id?: string | null
           youtube_joined_date?: string | null
           youtube_refresh_token?: string | null
           youtube_total_videos?: number | null
           youtube_total_views?: number | null
-          youtube_uploads_playlist_id?: string | null
           youtube_username?: string | null
         }
         Update: {
@@ -309,68 +230,102 @@ export type Database = {
           created_at?: string
           health?: string | null
           id?: string
-          last_scraped_at?: string | null
+          is_active?: boolean | null
           monthly_views?: number | null
           name?: string
           niche?: string
           niche_color?: string | null
-          requires_review?: boolean | null
           subscribers?: number | null
           updated_at?: string
           user_id?: string
-          whatsapp_connected?: boolean | null
-          whatsapp_connected_at?: string | null
-          whatsapp_instance_id?: string | null
-          whatsapp_phone?: string | null
           youtube_access_token?: string | null
           youtube_banner_url?: string | null
           youtube_channel_id?: string | null
           youtube_connected_at?: string | null
           youtube_description?: string | null
-          youtube_id?: string | null
           youtube_joined_date?: string | null
           youtube_refresh_token?: string | null
           youtube_total_videos?: number | null
           youtube_total_views?: number | null
-          youtube_uploads_playlist_id?: string | null
           youtube_username?: string | null
         }
         Relationships: []
       }
-      content_ideas: {
+      execution_locks: {
         Row: {
-          channel_id: string | null
-          concept: string | null
-          created_at: string | null
+          acquired_at: string
+          channel_id: string
+          expires_at: string
           id: string
-          reasoning: string | null
-          score: number | null
-          status: string | null
-          title: string
+          lock_type: string
+          released_at: string | null
+          user_id: string
         }
         Insert: {
-          channel_id?: string | null
-          concept?: string | null
-          created_at?: string | null
+          acquired_at?: string
+          channel_id: string
+          expires_at?: string
           id?: string
-          reasoning?: string | null
-          score?: number | null
-          status?: string | null
-          title: string
+          lock_type: string
+          released_at?: string | null
+          user_id: string
         }
         Update: {
-          channel_id?: string | null
-          concept?: string | null
-          created_at?: string | null
+          acquired_at?: string
+          channel_id?: string
+          expires_at?: string
           id?: string
-          reasoning?: string | null
-          score?: number | null
-          status?: string | null
-          title?: string
+          lock_type?: string
+          released_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "content_ideas_channel_id_fkey"
+            foreignKeyName: "execution_locks_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_queue: {
+        Row: {
+          channel_id: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          payload: Json | null
+          result: Json | null
+          status: Database["public"]["Enums"]["job_status"] | null
+          type: string
+          updated_at: string | null
+        }
+        Insert: {
+          channel_id: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          result?: Json | null
+          status?: Database["public"]["Enums"]["job_status"] | null
+          type: string
+          updated_at?: string | null
+        }
+        Update: {
+          channel_id?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          payload?: Json | null
+          result?: Json | null
+          status?: Database["public"]["Enums"]["job_status"] | null
+          type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_queue_channel_id_fkey"
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "channels"
@@ -383,10 +338,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acquire_execution_lock: {
+        Args: { _channel_id: string; _lock_type: string; _ttl_minutes?: number }
+        Returns: boolean
+      }
       owns_channel: { Args: { _channel_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      job_status: "pending" | "processing" | "completed" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -400,119 +359,121 @@ type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-  | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-  : never = never,
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-    DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
-  ? R
-  : never
+    ? R
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])
-  ? (DefaultSchema["Tables"] &
-    DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
-      Row: infer R
-    }
-  ? R
-  : never
-  : never
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
+      Insert: infer I
+    }
+    ? I
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Insert: infer I
-  }
-  ? I
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-  | keyof DefaultSchema["Tables"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
-    Update: infer U
-  }
-  ? U
-  : never
+      Update: infer U
+    }
+    ? U
+    : never
   : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-  ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
-    Update: infer U
-  }
-  ? U
-  : never
-  : never
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-  | keyof DefaultSchema["Enums"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-  ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
-  : never
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-  | keyof DefaultSchema["CompositeTypes"]
-  | { schema: keyof DatabaseWithoutInternals },
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-  ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-  : never = never,
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
   ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-  ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
-  : never
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      job_status: ["pending", "processing", "completed", "failed"],
+    },
   },
 } as const

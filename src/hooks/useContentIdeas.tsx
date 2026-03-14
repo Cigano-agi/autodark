@@ -23,8 +23,8 @@ export function useContentIdeas(channelId: string | undefined) {
         queryFn: async () => {
             if (!channelId) return [];
 
-            const { data, error } = await supabase
-                .from('content_ideas')
+            const { data, error } = await (supabase
+                .from as any)('content_ideas')
                 .select('*')
                 .eq('channel_id', channelId)
                 .order('created_at', { ascending: false });
@@ -37,8 +37,8 @@ export function useContentIdeas(channelId: string | undefined) {
 
     const updateIdeaStatus = useMutation({
         mutationFn: async ({ ideaId, status }: { ideaId: string; status: string }) => {
-            const { data, error } = await supabase
-                .from('content_ideas')
+            const { data, error } = await (supabase
+                .from as any)('content_ideas')
                 .update({ status })
                 .eq('id', ideaId)
                 .select()
@@ -58,8 +58,8 @@ export function useContentIdeas(channelId: string | undefined) {
 
     const deleteIdea = useMutation({
         mutationFn: async (ideaId: string) => {
-            const { error } = await supabase
-                .from('content_ideas')
+            const { error } = await (supabase
+                .from as any)('content_ideas')
                 .delete()
                 .eq('id', ideaId);
 

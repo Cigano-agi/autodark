@@ -60,7 +60,7 @@ export default function ChannelView() {
   useEffect(() => {
     if (channel?.youtube_channel_id) {
       const now = new Date();
-      const lastScraped = channel.last_scraped_at ? new Date(channel.last_scraped_at) : new Date(0);
+      const lastScraped = (channel as any).last_scraped_at ? new Date((channel as any).last_scraped_at) : new Date(0);
       const hoursSinceLastScrape = (now.getTime() - lastScraped.getTime()) / (1000 * 60 * 60);
 
       // Auto-sync if more than 24 hours have passed
@@ -71,11 +71,11 @@ export default function ChannelView() {
         });
       }
     }
-  }, [channel?.id, channel?.last_scraped_at]);
+  }, [channel?.id, (channel as any)?.last_scraped_at]);
 
   if (!channel) return null;
 
-  const hasMetrics = metricsData && (metricsData.dailyViews.length > 0 || channel.last_scraped_at);
+  const hasMetrics = metricsData && (metricsData.dailyViews.length > 0 || (channel as any).last_scraped_at);
 
   return (
     <BeamsBackground intensity="medium" className="bg-background">
@@ -125,7 +125,7 @@ export default function ChannelView() {
                 </h1>
                 <p className="text-muted-foreground">
                   {channel.youtube_username ? `@${channel.youtube_username}` : 'Gerenciado por AutoDark'}
-                  {channel.last_scraped_at && ` • Última sincronização ${new Date(channel.last_scraped_at).toLocaleDateString('pt-BR')} às ${new Date(channel.last_scraped_at).toLocaleTimeString('pt-BR')}`}
+                  {(channel as any).last_scraped_at && ` • Última sincronização ${new Date((channel as any).last_scraped_at).toLocaleDateString('pt-BR')} às ${new Date((channel as any).last_scraped_at).toLocaleTimeString('pt-BR')}`}
                 </p>
               </div>
 

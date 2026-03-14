@@ -26,8 +26,8 @@ export function useChannelPrompts(channelId: string | undefined) {
         queryFn: async () => {
             if (!channelId) return [];
 
-            const { data, error } = await supabase
-                .from('channel_prompts')
+            const { data, error } = await (supabase
+                .from as any)('channel_prompts')
                 .select('*')
                 .eq('channel_id', channelId)
                 .order('created_at', { ascending: false });
@@ -42,8 +42,8 @@ export function useChannelPrompts(channelId: string | undefined) {
         mutationFn: async (promptData: CreateChannelPromptData) => {
             if (!channelId) throw new Error('Channel ID required');
 
-            const { data, error } = await supabase
-                .from('channel_prompts')
+            const { data, error } = await (supabase
+                .from as any)('channel_prompts')
                 .insert({
                     ...promptData,
                     channel_id: channelId,
@@ -65,8 +65,8 @@ export function useChannelPrompts(channelId: string | undefined) {
 
     const updatePrompt = useMutation({
         mutationFn: async ({ id, updates }: { id: string; updates: Partial<CreateChannelPromptData> }) => {
-            const { data, error } = await supabase
-                .from('channel_prompts')
+            const { data, error } = await (supabase
+                .from as any)('channel_prompts')
                 .update(updates)
                 .eq('id', id)
                 .select()
@@ -86,8 +86,8 @@ export function useChannelPrompts(channelId: string | undefined) {
 
     const deletePrompt = useMutation({
         mutationFn: async (promptId: string) => {
-            const { error } = await supabase
-                .from('channel_prompts')
+            const { error } = await (supabase
+                .from as any)('channel_prompts')
                 .delete()
                 .eq('id', promptId);
 

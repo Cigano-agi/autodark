@@ -192,7 +192,7 @@ export default function LongVideoStudio() {
                 <p className="text-muted-foreground mt-2 text-lg">
                     Crie roteiros em blocos dinâmicos. Personalize narrações e imagens cena a cena.
                 </p>
-                {channel?.requires_review && (
+                {(channel as any)?.requires_review && (
                     <Badge variant="destructive" className="mt-3 font-medium bg-red-500/20 text-red-500 hover:bg-red-500/30 border-red-500/30">
                         <ShieldAlert className="w-3 h-3 mr-1" /> Nicho Estrito: Use o validador do YouTube após gerar o roteiro.
                     </Badge>
@@ -248,7 +248,7 @@ export default function LongVideoStudio() {
                             <h2 className="text-2xl font-bold flex items-center gap-2">
                                 <FileAudio className="w-5 h-5 text-primary" /> Roteiro Interativo
                             </h2>
-                            {channel?.requires_review && (
+                            {(channel as any)?.requires_review && (
                                 <Button size="sm" variant={rulesLog ? "secondary" : "destructive"} onClick={handleAnalyzeRules} disabled={analyzingRules}>
                                     {analyzingRules ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <ShieldAlert className="w-4 h-4 mr-2" />}
                                     {rulesLog ? "Re-analisar Políticas" : "Analisar Regras (YT)"}
