@@ -37,8 +37,8 @@ export function useContentIdeas(channelId: string | undefined) {
 
     const updateIdeaStatus = useMutation({
         mutationFn: async ({ ideaId, status }: { ideaId: string; status: string }) => {
-            const { data, error } = await supabase
-                .from('content_ideas')
+            const { data, error } = await (supabase
+                .from as any)('content_ideas')
                 .update({ status })
                 .eq('id', ideaId)
                 .select()
