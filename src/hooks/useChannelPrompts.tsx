@@ -86,8 +86,8 @@ export function useChannelPrompts(channelId: string | undefined) {
 
     const deletePrompt = useMutation({
         mutationFn: async (promptId: string) => {
-            const { error } = await supabase
-                .from('channel_prompts')
+            const { error } = await (supabase
+                .from as any)('channel_prompts')
                 .delete()
                 .eq('id', promptId);
 

@@ -58,8 +58,8 @@ export function useContentIdeas(channelId: string | undefined) {
 
     const deleteIdea = useMutation({
         mutationFn: async (ideaId: string) => {
-            const { error } = await supabase
-                .from('content_ideas')
+            const { error } = await (supabase
+                .from as any)('content_ideas')
                 .delete()
                 .eq('id', ideaId);
 
