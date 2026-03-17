@@ -130,9 +130,8 @@ export default function ProductionWizard() {
     const [summary, setSummary] = useState("");
     const [script, setScript] = useState("");
     const [thumbPrompt, setThumbPrompt] = useState("");
-    const [thumbImageUrl, setThumbImageUrl] = useState("");
-    const [thumbImageLoaded, setThumbImageLoaded] = useState(false);
-    const [thumbImageError, setThumbImageError] = useState(false);
+    const [ttsPrompt, setTtsPrompt] = useState("");
+    const [brollPrompt, setBrollPrompt] = useState("");
 
     const handleChannelSelect = (id: string) => {
         setSelectedChannelId(id);
@@ -142,9 +141,8 @@ export default function ProductionWizard() {
         setSummary("");
         setScript("");
         setThumbPrompt("");
-        setThumbImageUrl("");
-        setThumbImageLoaded(false);
-        setThumbImageError(false);
+        setTtsPrompt("");
+        setBrollPrompt("");
     };
 
     const setStatus = (msg: string) => setStatusMessage(msg);
@@ -175,14 +173,34 @@ export default function ProductionWizard() {
     const handleGenerateScript = async () => {
         setLoading(true);
         try {
-            setStatus("Escrevendo roteiro viral...");
+            setStatus("Escrevendo roteiro cinematográfico...");
             const raw = await callClaude(
-                "Você é um roteirista de YouTube. Escreva um roteiro narrativo completo.",
-                `Crie um roteiro para:\nTítulo: ${title}\nContexto: ${summary}\nTópico: ${blueprint?.topic}`
+                `You are an elite investigative documentary scriptwriter for YouTube. You write in the "cynical insider" style — investigative journalism, never cheap sensationalism.
+
+MANDATORY RULES (D-005):
+1. Script in ENGLISH, alternating VISUAL and AUDIO blocks per scene
+2. SCENE 01 is always the Hook: number + contradiction + revelation + dramatic pause + promise
+3. "But, Therefore" mandatory every 45 seconds — NEVER "And, Then"
+4. NEVER use "we", "our", "us" — always 3rd person narrator
+5. EVERY factual scene needs an evidence_query (Google search query for B-roll images)
+6. 25-35 scenes total (1 scene ≈ 20-25 seconds of content)
+7. Prefer S-Tier sources (primary documents, official reports) and A-Tier (Reuters/AP)
+8. Mark exactly 2 scenes with [WALL-PUSHER ★] — maximum revelation moments
+9. Second-to-last scene promotes the next video in the series
+10. Final scene: subscribe + notification + comment CTA
+
+FORMAT (repeat for each scene):
+SCENE [NN] — [Scene Title]
+AUDIO: [Narration text — what the voice says]
+VISUAL: [Detailed image description for FLUX AI image generation, cinematic, no faces, no text]
+evidence_query: [Google search query to find B-roll image for this scene]
+
+Output ONLY the raw script text. No JSON. No markdown headers.`,
+                `Title: ${title}\nContext: ${summary}\nChannel topic: ${blueprint?.topic || "investigative documentary"}\nIdea: ${idea.slice(0, 300)}`
             );
             setScript(raw);
             setStep(3);
-            toast.success("Roteiro gerado!");
+            toast.success("Roteiro cinematográfico gerado!");
         } catch (e) {
             toast.error("Erro ao gerar roteiro.");
         } finally {
@@ -191,33 +209,28 @@ export default function ProductionWizard() {
         }
     };
 
-    const handleGenerateThumb = async () => {
+    const handleGeneratePrompts = async () => {
         setLoading(true);
         try {
-            setStatus("Criando conceito visual...");
-            const prompt = await callClaude(
-                "Você é um especialista em thumbnails para YouTube. Crie um prompt em inglês para geração de imagem, detalhando estilo visual, cores, composição e elementos principais. Retorne APENAS o prompt, sem explicações.",
-                `Crie um prompt de imagem para a thumbnail do vídeo: ${title}`
+            setStatus("Gerando prompts de produção...");
+            const raw = await callClaude(
+                `Você é um diretor de produção de vídeos curtos para YouTube.
+Dado o título e roteiro, gere 3 prompts de produção em JSON:
+1. "thumbnail": prompt em inglês para gerador de imagem (Midjourney/Flux/Leonardo). Máximo 120 chars. Visual impactante, sem texto na imagem.
+2. "tts": direção de voz para narrador TTS. Estilo, ritmo, emoção, pausas. Em português.
+3. "broll": 3 prompts de imagem em inglês para cenas B-roll do vídeo, separados por " | ". Visuais cinematográficos.
+Retorne APENAS JSON: {"thumbnail":"...","tts":"...","broll":"..."}`,
+                `Título: ${title}\nRoteiro: ${script.slice(0, 400)}`,
+                true
             );
-            setThumbPrompt(prompt);
-            setThumbImageLoaded(false);
-            setThumbImageError(false);
-
-            setStatus("Gerando imagem da thumbnail...");
-            const encodedPrompt = encodeURIComponent(prompt);
-            const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
-                window.location.hostname.startsWith("192.168.") ||
-                window.location.hostname.startsWith("10.");
-            const pollinationsBase = isLocal
-                ? "/api-pollinations"
-                : "https://image.pollinations.ai";
-            const imageUrl = `${pollinationsBase}/prompt/${encodedPrompt}?width=1280&height=720&model=flux&nologo=true&seed=${Date.now()}`;
-            setThumbImageUrl(imageUrl);
-
+            const parsed = extractJson(raw);
+            setThumbPrompt(parsed.thumbnail?.replace(/^["']+|["']+$/g, "").trim() || "");
+            setTtsPrompt(parsed.tts?.trim() || "");
+            setBrollPrompt(parsed.broll?.trim() || "");
             setStep(4);
-            toast.success("Thumbnail gerada!");
+            toast.success("Prompts gerados!");
         } catch (e) {
-            toast.error("Erro ao gerar thumbnail.");
+            toast.error("Erro ao gerar prompts.");
         } finally {
             setLoading(false);
             setStatus("");
@@ -228,16 +241,45 @@ export default function ProductionWizard() {
         if (!selectedChannelId) return;
         setLoading(true);
         try {
+            // 1. Insert into `topics` table (Python pipeline picks it up)
+            const { data: topicData, error: topicError } = await supabase
+                .from("topics")
+                .insert({
+                    title,
+                    pillar: blueprint?.topic || "general",
+                    status: "scripted",
+                    channel_ref: selectedChannelId,
+                })
+                .select()
+                .single();
+
+            if (topicError) throw new Error(`topics: ${topicError.message}`);
+
+            // 2. Insert into `pipeline_scripts` (approved, ready for Python pipeline)
+            const { error: scriptError } = await supabase
+                .from("pipeline_scripts")
+                .insert({
+                    topic_id: topicData.id,
+                    script_text: script,
+                    status: "approved",
+                    model_used: "gpt-4o-mini",
+                    score: 8.0,
+                });
+
+            if (scriptError) throw new Error(`pipeline_scripts: ${scriptError.message}`);
+
+            // 3. Save to channel_contents (web app dashboard)
             await createContent.mutateAsync({
                 title,
                 hook: summary,
-                script: `## Thumbnail\n${thumbPrompt}\n\n## Roteiro\n${script}`,
+                script: `${script}\n\n---\n## Prompts de Produção\n\n### Thumbnail (Flux/Midjourney)\n${thumbPrompt}\n\n### Direção de Voz (TTS)\n${ttsPrompt}\n\n### Cenas B-Roll\n${brollPrompt}`,
                 status: "draft"
             });
-            toast.success("Vídeo enviado para produção! 🚀");
+
+            toast.success("Roteiro enviado para o pipeline de produção!");
             setTimeout(() => navigate(`/channel/${selectedChannelId}`), 1000);
-        } catch (e) {
-            toast.error("Erro ao salvar conteúdo.");
+        } catch (e: any) {
+            toast.error(`Erro ao salvar: ${e.message}`);
         } finally {
             setLoading(false);
         }
@@ -403,66 +445,91 @@ export default function ProductionWizard() {
                                                 className="w-full gap-2"
                                             >
                                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                                                Gerar Roteiro com IA
+                                                Gerar Roteiro Cinematográfico (D-005)
                                             </Button>
                                         ) : (
-                                            <Textarea value={script} readOnly className="h-[200px] font-mono text-xs bg-black/40 border-white/10 text-white" />
+                                            <div className="space-y-2">
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <span className="bg-primary/20 text-primary px-2 py-0.5 rounded font-mono font-bold">
+                                                        {(script.match(/^SCENE \d+/gm) || []).length} cenas
+                                                    </span>
+                                                    <span>{script.length.toLocaleString()} chars</span>
+                                                    {script.includes('[WALL-PUSHER ★]') && (
+                                                        <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold">
+                                                            {(script.match(/\[WALL-PUSHER ★\]/g) || []).length}× Wall-Pusher ★
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <Textarea value={script} onChange={e => setScript(e.target.value)} className="h-[400px] font-mono text-xs bg-black/40 border-white/10 text-white" />
+                                                {step === 2 && (
+                                                    <Button onClick={handleGeneratePrompts} disabled={loading} className="w-full gap-2 mt-2">
+                                                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                                                        Gerar Prompts de Produção
+                                                    </Button>
+                                                )}
+                                            </div>
                                         )}
                                     </CardContent>
                                 </Card>
                             )}
 
-                            {/* Step 3: Thumbnail */}
+                            {/* Step 3: Prompts de Produção */}
                             {step >= 3 && (
                                 <Card className={`transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 bg-card/30 backdrop-blur border-white/10 ${step === 3 ? 'ring-2 ring-primary border-transparent' : ''}`}>
                                     <CardHeader>
                                         <CardTitle className="flex items-center gap-2 text-white">
-                                            <ImageIcon className="w-5 h-5 text-pink-500" /> 3. Thumbnail
+                                            <Sparkles className="w-5 h-5 text-pink-500" /> 3. Prompts de Produção
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        {!thumbImageUrl ? (
+                                        {!thumbPrompt ? (
                                             <Button
-                                                onClick={handleGenerateThumb}
+                                                onClick={handleGeneratePrompts}
                                                 disabled={loading}
                                                 variant="secondary"
                                                 className="w-full gap-2"
                                             >
                                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                                                Gerar Thumbnail com IA
+                                                Gerar Prompts com IA
                                             </Button>
                                         ) : (
-                                            <div className="space-y-3">
-                                                <div className="relative rounded-lg overflow-hidden border border-white/10 aspect-video bg-black/40 flex items-center justify-center">
-                                                    {!thumbImageLoaded && !thumbImageError && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                                            <Loader2 className="w-6 h-6 animate-spin" />
-                                                            <span className="text-xs">Gerando imagem... pode levar até 30s</span>
-                                                        </div>
-                                                    )}
-                                                    {thumbImageError && (
-                                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
-                                                            <ImageIcon className="w-6 h-6 text-red-400" />
-                                                            <span className="text-xs text-red-400">Falha ao carregar imagem</span>
-                                                        </div>
-                                                    )}
-                                                    <img
-                                                        src={thumbImageUrl}
-                                                        alt="Thumbnail gerada"
-                                                        className={`w-full h-full object-cover transition-opacity duration-300 ${thumbImageLoaded ? 'opacity-100' : 'opacity-0'}`}
-                                                        onLoad={() => setThumbImageLoaded(true)}
-                                                        onError={() => setThumbImageError(true)}
-                                                    />
+                                            <div className="space-y-4">
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs text-pink-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+                                                        <ImageIcon className="w-3 h-3" /> Thumbnail (Flux / Midjourney)
+                                                    </Label>
+                                                    <div className="relative">
+                                                        <Textarea value={thumbPrompt} readOnly rows={2} className="font-mono text-xs bg-black/40 border-white/10 text-white pr-16 resize-none" />
+                                                        <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 text-xs text-muted-foreground hover:text-white" onClick={() => { navigator.clipboard.writeText(thumbPrompt); toast.success("Copiado!"); }}>
+                                                            Copiar
+                                                        </Button>
+                                                    </div>
                                                 </div>
-                                                <Button
-                                                    onClick={handleGenerateThumb}
-                                                    disabled={loading}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="w-full gap-2 border-white/10"
-                                                >
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs text-blue-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+                                                        <Zap className="w-3 h-3" /> Direção de Voz (TTS)
+                                                    </Label>
+                                                    <div className="relative">
+                                                        <Textarea value={ttsPrompt} readOnly rows={2} className="font-mono text-xs bg-black/40 border-white/10 text-white pr-16 resize-none" />
+                                                        <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 text-xs text-muted-foreground hover:text-white" onClick={() => { navigator.clipboard.writeText(ttsPrompt); toast.success("Copiado!"); }}>
+                                                            Copiar
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs text-emerald-400 font-semibold uppercase tracking-wider flex items-center gap-1">
+                                                        <Play className="w-3 h-3" /> Cenas B-Roll
+                                                    </Label>
+                                                    <div className="relative">
+                                                        <Textarea value={brollPrompt} readOnly rows={3} className="font-mono text-xs bg-black/40 border-white/10 text-white pr-16 resize-none" />
+                                                        <Button size="sm" variant="ghost" className="absolute top-1 right-1 h-6 text-xs text-muted-foreground hover:text-white" onClick={() => { navigator.clipboard.writeText(brollPrompt); toast.success("Copiado!"); }}>
+                                                            Copiar
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                                <Button onClick={handleGeneratePrompts} disabled={loading} variant="outline" size="sm" className="w-full gap-2 border-white/10">
                                                     {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
-                                                    Regerar
+                                                    Regerar Prompts
                                                 </Button>
                                             </div>
                                         )}
