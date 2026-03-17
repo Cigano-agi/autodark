@@ -1,0 +1,1153 @@
+{
+  "name": "1. tts",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -384,
+        96
+      ],
+      "id": "f44dd900-4c4b-4471-b041-879dec839ac6",
+      "name": "cron"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "pending_tts"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "tts_failed"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        96
+      ],
+      "id": "39da17e1-340c-45fd-9b22-f298c818f11a",
+      "name": "busca pendentes tts",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function sanitize(str) {\n  return str\n    .replace(/[\"']/g, '')\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .replace(/[^a-zA-Z0-9-_]/g, \"-\")\n    .replace(/-+/g, \"-\")\n    .toLowerCase()\n    .trim();\n}\n\n\n// ============================\n// DICIONÁRIO FONÉTICO DINÂMICO\n// ============================\n\nconst phonemeDict = {\n\n  \"Moisés\": {\n    ipa: \"mo.iˈzɛjs\",\n    alias: \"Moizés\"\n  },\n\n  \"Abraão\": {\n    ipa: \"abɾaˈɐ̃w̃\",\n    alias: \"Abraão\"\n  },\n\n  \"Isaías\": {\n    ipa: \"izaˈi.as\",\n    alias: \"Isaías\"\n  },\n\n  \"Noé\": {\n    ipa: \"noˈɛ\",\n    alias: \"Noé\"\n  },\n\n  \"Jesus\": {\n    ipa: \"ʒeˈzus\",\n    alias: \"Jezus\"\n  }\n\n};\n\n\n// ============================\n// FUNÇÃO QUE APLICA FONEMAS\n// ============================\n\nfunction applyPhonemes(text) {\n\n  for (const word in phonemeDict) {\n\n    const { ipa, alias } = phonemeDict[word];\n\n    const regex = new RegExp(`\\\\b${word}\\\\b`, \"g\");\n\n    // usa phoneme (mais preciso)\n    text = text.replace(\n      regex,\n      `<phoneme alphabet=\"ipa\" ph=\"${ipa}\">${word}</phoneme>`\n    );\n\n    // fallback opcional (se quiser usar alias em vez de IPA)\n    // text = text.replace(regex, `<sub alias=\"${alias}\">${word}</sub>`);\n\n  }\n\n  return text;\n}\n\n\n// ============================\n// LIMPEZA DO TEXTO ORIGINAL\n// ============================\n\nlet rawText = $json.script\n  .replace(/[\"']/g, '')\n  .replace(/\\n+/g, ' ')\n  .trim();\n\n\n// ============================\n// APLICA CORREÇÃO FONÉTICA\n// ============================\n\nrawText = applyPhonemes(rawText);\n\n\n// ============================\n// DIVISÃO EM FRASES\n// ============================\n\nlet sentences = rawText\n  .split(/(?<=[.!?])\\s+(?=[A-ZÀ-Ú])/)\n  .filter(s => s.trim() !== '');\n \n\nlet ssmlText = '';\n\nif (sentences.length > 1) {\n\n  const lastSentence = sentences.pop().trim();\n\n  const body = sentences\n    .map(s => `${s.trim()}.<break time=\"300ms\"/>`)\n    .join(' ');\n\n  ssmlText = `${body} <break time=\"300ms\"/> ${lastSentence}.`;\n\n} else {\n\n  ssmlText = rawText.endsWith('.') ? rawText : rawText + '.';\n\n}\n\n\n// ============================\n// SSML FINAL COM PROSODY\n// ============================\n\nconst ssml = `\n<speak>\n    ${ssmlText}\n</speak>\n`;\n\n\n// ============================\n// STORAGE CONFIG\n// ============================\n\nconst id = $json.id;\nconst nicho = $json.nicho || 'geral';\n\nconst safeNicho = sanitize(nicho);\n\nconst filename = `audio_${id}.mp3`;\nconst storageKey = `tts/${safeNicho}/${filename}`;\n\nreturn [\n  {\n    ssml,\n    id,\n    nicho,\n    safe_nicho: safeNicho,\n    filename,\n    storage_key: storageKey\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        992,
+        -240
+      ],
+      "id": "c6e44198-dea4-4fdc-a3a3-968b9fc2aec4",
+      "name": "prepara texto"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "tts_done"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "subtitle_path",
+              "fieldValue": "={{ $json.fileName }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3104,
+        -144
+      ],
+      "id": "ff74dfd7-6e1e-4eb5-a438-2ee5d615257e",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "audioContent",
+        "binaryPropertyName": "audio",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2064,
+        16
+      ],
+      "id": "efb5a356-8ea8-476f-a0b8-52eaf96831a8",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://texttospeech.googleapis.com/v1/text:synthesize",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "=Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.tts_config }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1824,
+        112
+      ],
+      "id": "6287354d-e168-4bbc-a79a-a3590145ea65",
+      "name": "text-to-speech",
+      "retryOnFail": true,
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['prepara texto'].json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "tts_failed"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1824,
+        352
+      ],
+      "id": "052db2df-fed1-4c81-bbed-3a783734f6cc",
+      "name": "erro tts",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/audio/transcriptions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "file",
+              "inputDataFieldName": "audio"
+            },
+            {
+              "name": "model",
+              "value": "whisper-1"
+            },
+            {
+              "name": "response_format",
+              "value": "srt"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2304,
+        -144
+      ],
+      "id": "1a6c1f03-7497-475e-82c8-4e550f6fd363",
+      "name": "gera legenda",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "srt",
+        "binaryPropertyName": "legenda",
+        "options": {
+          "fileName": "=legenda_{{ $('Limit').item.json.id }}"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.1,
+      "position": [
+        2704,
+        -144
+      ],
+      "id": "6251e3ff-a0d9-4263-88bc-a9996af37edb",
+      "name": "Convert to File1"
+    },
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        0,
+        96
+      ],
+      "id": "0bceb54b-c45b-417b-bc27-1ab4eb8bbae9",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "251cab31-4513-43ea-b257-218b16c0f00b",
+                    "leftValue": "={{ $json.output[0].content[0].text.metadata.nicho_slug }}",
+                    "rightValue": "jazz-with-jezz",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "jazz-with-jezz"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output[0].content[0].text.metadata.nicho_slug }}",
+                    "rightValue": "biblico",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7800ba95-fd77-4d31-8088-cc39984ed9ff"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "biblico"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "50d921e7-2699-4fb1-9fde-001d99bc882a",
+                    "leftValue": "={{ $json.output[0].content[0].text.metadata.nicho_slug }}",
+                    "rightValue": "curiosidades-cientificas-e-psicologicas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "curiosidades-cientificas-e-psicologicas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "07ea2ca1-707e-4634-8475-47b91f026b42",
+                    "leftValue": "={{ $json.output[0].content[0].text.metadata.nicho_slug }}",
+                    "rightValue": "terror",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "terror"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1280,
+        80
+      ],
+      "id": "7c1d9fb5-7093-4b82-b538-c9fedc8fab9e",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7251fd65-ac51-4c17-9b3c-db9facae621c",
+              "name": "tts_config",
+              "value": "={\n  \"input\": {\n    \"ssml\": {{ $json.output[0].content[0].text.ssml.toJsonString() }}\n  },\n  \"voice\": {\n    \"languageCode\": \"pt-BR\",\n    \"name\": \"pt-BR-Chirp3-HD-Algenib\"\n  },\n  \"audioConfig\": {\n    \"audioEncoding\": \"MP3\",\n    \"speakingRate\": 0.95\n  }\n}\n",
+              "type": "object"
+            },
+            {
+              "id": "2e3b725f-e5cd-4674-8210-55f0c9a43dc7",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        208
+      ],
+      "id": "4bbd8080-f588-45ff-a305-ab4dd08ff6b5",
+      "name": "biblico"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7251fd65-ac51-4c17-9b3c-db9facae621c",
+              "name": "tts_config",
+              "value": "={\n  \"input\": {\n    \"ssml\": {{ $('Switch').item.json.output[0].content[0].text.ssml.toJsonString() }}\n  },\n  \"voice\": {\n    \"languageCode\": \"pt-BR\",\n    \"name\": \"{{$json.voices.randomItem()}}\"\n  },\n  \"audioConfig\": {\n    \"audioEncoding\": \"MP3\",\n    \"speakingRate\": 1\n  }\n}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        368
+      ],
+      "id": "8a1d2951-8a02-4b59-912c-8f6d119e34ed",
+      "name": "ciencias"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36806be3-08c0-4260-899d-ae820b5dc545",
+              "name": "voices",
+              "value": "=['pt-BR-Chirp3-HD-Algenib','pt-BR-Chirp3-HD-Autonoe','pt-BR-Chirp3-HD-Enceladus','pt-BR-Chirp3-HD-Gacrux','pt-BR-Chirp3-HD-Sadaltager']",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1264,
+        384
+      ],
+      "id": "4d22a25d-bbc2-4f26-86b0-f437a8e08bfc",
+      "name": "vozes"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system",
+              "content": "={{ $json.prompt }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        80
+      ],
+      "id": "c808b706-08cd-45eb-8ac7-04f2d8040293",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "wHkdPob9JJvP8f1G",
+          "name": "webcam_group"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const child_process = require('child_process');\n\ntry {\n  const base64Data = items[0].json.audioContent;\n  if (!base64Data) throw new Error(\"Campo audioContent vazio\");\n\n  const buffer = Buffer.from(base64Data, 'base64');\n\n  // Adicionamos '-f mp3' para ele não ter dúvida do formato\n  // E usamos o flag '-i pipe:0' com o buffer\n  const result = child_process.spawnSync('ffmpeg', ['-f', 'mp3', '-i', 'pipe:0', '-f', 'null', '-'], {\n    input: buffer,\n  });\n\n  const output = result.stderr.toString();\n\n  // O FFmpeg gera várias linhas de \"time=\", precisamos da ÚLTIMA\n  const matches = [...output.matchAll(/time=(\\d{2}:\\d{2}:\\d{2}\\.\\d+)/g)];\n  \n  if (matches.length > 0) {\n    const lastMatch = matches[matches.length - 1][1];\n    const timeParts = lastMatch.split(':');\n    const seconds = (+timeParts[0]) * 3600 + (+timeParts[1]) * 60 + (+timeParts[2]);\n    \n    return [{\n      json: {\n        duracao: parseFloat(seconds.toFixed(3)),\n        duracao_formatada: lastMatch,\n        tamanho_kb: (buffer.length / 1024).toFixed(2),\n        status: \"Sucesso\"\n      }\n    }];\n  }\n\n  return [{\n    json: {\n      erro: \"Duração não encontrada\",\n      log_ffmpeg: output.substring(output.length - 500) // Pega o final do log onde fica o tempo\n    }\n  }];\n\n} catch (e) {\n  return [{ json: { erro: \"Falha Geral\", mensagem: e.message } }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        192
+      ],
+      "id": "727d39c0-ba48-4421-9d5d-12b538873bf6",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7d6bf034-5fa1-47cb-bb9f-87093931cb85",
+              "name": "audio_duration",
+              "value": "={{ $json.duracao }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2256,
+        192
+      ],
+      "id": "0f84f1ae-1ccc-44d8-865a-8fc1bf2666bc",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2448,
+        112
+      ],
+      "id": "59be4bf5-6a39-42af-b016-8bcbb473d63a",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Pega a string SRT que veio da OpenAI\nlet srt = $input.item.json.data;\n\n// --- AJUSTES DE ESTÉTICA ---\n\n// A. Une o diálogo do \"Levanta-te\" com a narração seguinte (Blocos 3 e 4)\nsrt = srt.replace(/— Levanta-te!\\n\\n\\d+\\n00:00:10,420 --> 00:00:16,860\\n— disse/g, \"— Levanta-te! — disse\");\n\n// B. Une o CTA para ficar em um bloco só (Blocos 9 e 10)\n// Isso garante que o \"Se inscreva\" apareça junto com a pergunta\nsrt = srt.replace(/Quer mensagens como essas todos os dias\\?\\n\\n\\d+\\n00:00:39,740 --> 00:00:40,860\\nSe inscreva no canal!/g, \"Quer mensagens como essas todos os dias?\\nSe inscreva no canal!\");\n\n// C. Limpa espaços duplos ou quebras de linha triplas que a OpenAI às vezes manda\nsrt = srt.trim() + \"\\n\\n\";\n\n// 2. Corrige a numeração (caso a gente tenha unido blocos, a contagem muda)\nlet lines = srt.split('\\n');\nlet newSrt = \"\";\nlet counter = 1;\n\nfor (let i = 0; i < lines.length; i++) {\n    if (lines[i].match(/^\\d+$/)) { // Se a linha for só um número\n        newSrt += counter + \"\\n\";\n        counter++;\n    } else {\n        newSrt += lines[i] + \"\\n\";\n    }\n}\n\nreturn { srt: newSrt };"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2512,
+        -144
+      ],
+      "id": "3b6005ea-5944-4151-a7da-b0b65d283302",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "36806be3-08c0-4260-899d-ae820b5dc545",
+              "name": "voices",
+              "value": "=['en-US-Casual-K','en-US-Chirp3-HD-Despina','en-US-Chirp3-HD-Enceladus','en-US-Chirp3-HD-Gacrux','en-US-Chirp3-HD-Leda']",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        48
+      ],
+      "id": "4f8ab948-51c9-427f-8e33-9c28063a0eff",
+      "name": "vozes1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7251fd65-ac51-4c17-9b3c-db9facae621c",
+              "name": "tts_config",
+              "value": "={\n  \"input\": {\n    \"ssml\": {{ $('Switch').item.json.output[0].content[0].text.ssml.toJsonString() }}\n  },\n  \"voice\": {\n    \"languageCode\": \"en-US\",\n    \"name\": \"{{$json.voices.randomItem()}}\"\n  },\n  \"audioConfig\": {\n    \"audioEncoding\": \"MP3\",\n    \"speakingRate\": 0.9\n  }\n}",
+              "type": "object"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1648,
+        48
+      ],
+      "id": "5b845b6c-e08d-4d1a-b301-936ee0e9bd80",
+      "name": "jazz-w-j"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "52e90db1-ceb4-4bdd-b418-be2dbd6f4898",
+              "leftValue": "={{ $('Limit').item.json.nicho }}",
+              "rightValue": "jazz-with-jezz",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        96
+      ],
+      "id": "6e75631d-e651-498d-bd47-dd1155ef942c",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7cc5f65a-cf92-4fda-bc7c-1e8df91ad5c4",
+              "name": "prompt",
+              "value": "=Objetivo: Você é um Engenheiro de Áudio especializado em Google Cloud Text-to-Speech (TTS). Sua missão é transformar roteiros brutos em arquivos SSML impecáveis, prontos para uma narração natural e profissional.  Suas Instruções de Processamento:  Revisão Linguística:  Corrija erros de gramática, concordância e pontuação.  Não usar caracteres especias, não usar aspas duplas, não usar ponto e vírgula, apenas vírgulas, pontos, pontos de exclamação e interrogação.  Converta números ou siglas para extenso se isso ajudar na fluidez da leitura (ex: \"nº\" vira \"número\").  Analise bem a pontuação, as virgulas devem ser colocadas em pontos onde a frase foi concluida, sinalizando respiro para o tts   Ajuste Fonético Inteligente:  Analise o texto em busca de nomes próprios (bíblicos, estrangeiros ou técnicos) que o TTS possa pronunciar de forma robótica ou errada.  Ação: Use a tag <phoneme alphabet=\"ipa\" ph=\"...\">palavra</phoneme> para garantir a pronúncia correta.  Ação Alternativa: Use <sub alias=\"pronúncia-escrita\">palavra</sub> para correções simples (ex: se o nome é \"Levi\", mas o TTS diz \"Lévi\", use <sub alias=\"Leví\">Levi</sub>).  Formatação de Saída (Obrigatório):  Sua resposta deve ser exclusivamente um objeto JSON estruturado para que o sistema de automação possa processar.  Não adicione introduções, explicações ou \"Aqui está o seu SSML\".  Estrutura do JSON de Saída:  JSON {   \"ssml\": \"<speak> [Conteúdo processado com as tags aqui] </speak>\",   \"metadata\": {     \"word_count\": [número],     \"nicho_slug\": \"[nicho-limpo-e-sanitizado]\"   } }  nicho: {{ $('Limit').item.json.nicho }} roteiro: {{ $('Limit').item.json.script }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        -16
+      ],
+      "id": "0c2050a9-ac3f-4edc-87b4-9a5a418cb367",
+      "name": "ptbr"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "7cc5f65a-cf92-4fda-bc7c-1e8df91ad5c4",
+              "name": "prompt",
+              "value": "=You are an Audio Engineer specialized in Google Cloud Text to Speech.\n\nYour mission is to transform raw scripts into clean and professional SSML files ready for natural voice narration.\n\nObjective: produce a smooth, natural sounding narration optimized for English US speech synthesis.\n\nProcessing Instructions:\n\nLinguistic Review\n\nCorrect grammar, agreement and punctuation according to standard American English.\n\nDo not use special characters.\nDo not use double quotes.\nDo not use semicolons.\n\nOnly use the following punctuation:\n\ncommas\nperiods\nexclamation marks\nquestion marks\n\nConvert numbers or abbreviations to written form when it improves speech fluency.\nExample: No. becomes number.\n\nCarefully analyze punctuation.\nCommas must be placed where a natural breathing pause should occur so the TTS reads the sentence smoothly.\nSemicolon must be replaced by a comma.\n\nIntelligent Phonetic Adjustment\n\nAnalyze the text for proper names such as biblical names, foreign names or technical terms that the TTS might pronounce incorrectly or robotically.\n\nAction: Use the tag\n\n<phoneme alphabet=\"ipa\" ph=\"...\">word</phoneme>\n\nwhen a precise phonetic pronunciation is necessary.\n\nAlternative Action: Use\n\n<sub alias=\"spoken pronunciation\">word</sub>\n\nfor simpler pronunciation fixes.\n\nExample\nIf the name Levi needs emphasis on the correct pronunciation, adjust it accordingly.\n\nOutput Formatting Requirements\n\nYour response must be exclusively a JSON object so the automation system can process it.\n\nDo not add explanations.\nDo not add introductions.\nDo not write phrases like here is your SSML.\n\nOutput JSON Structure:\n\n{\n\"ssml\": \"<speak> processed narration content with SSML tags here </speak>\",\n\"metadata\": {\n\"word_count\": number,\n\"nicho_slug\": \"{{ $('Limit').item.json.nicho }}\"\n}\n}\n\n\nscript: {{ $('Limit').item.json.script }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        704,
+        160
+      ],
+      "id": "61954c56-1ad6-46b4-b59f-a5fdfb0cda1d",
+      "name": "enus"
+    },
+    {
+      "parameters": {
+        "command": "=mkdir -p /home/node/.n8n/render/temp/{{$json.id}}/legenda\nmkdir -p /home/node/.n8n/render/temp/{{$json.id}}/audio"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        208,
+        96
+      ],
+      "id": "1b8eeb19-134a-4134-a163-bb4abd397b4c",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n-files/render/temp/{{ $('Limit').item.json.id }}/legenda/legenda.srt",
+        "dataPropertyName": "legenda",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2880,
+        -144
+      ],
+      "id": "c4292e59-2655-4645-96c3-bdfdd256b3e3",
+      "name": "salva legenda vps"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n-files/render/temp/{{ $('Limit').item.json.id }}/audio/audio.mp3",
+        "dataPropertyName": "audio",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2656,
+        112
+      ],
+      "id": "541d485b-63e7-46ef-94ef-51258e77ec14",
+      "name": "salva audio vps"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "tts_done"
+            },
+            {
+              "fieldId": "audio_path",
+              "fieldValue": "={{ $json.fileName }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            },
+            {
+              "fieldId": "audio_duration",
+              "fieldValue": "={{ $node['Edit Fields'].json.audio_duration }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2880,
+        112
+      ],
+      "id": "9688de71-896a-4761-b476-9a206b8b1017",
+      "name": "Update a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "cron": [
+      {
+        "json": {
+          "timestamp": "2026-03-03T12:30:46.001-03:00",
+          "Readable date": "March 3rd 2026, 12:30:46 pm",
+          "Readable time": "12:30:46 pm",
+          "Day of week": "Tuesday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "03",
+          "Hour": "12",
+          "Minute": "30",
+          "Second": "46",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "cron": {
+      "main": [
+        [
+          {
+            "node": "busca pendentes tts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "busca pendentes tts": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepara texto": {
+      "main": [
+        []
+      ]
+    },
+    "Update a row": {
+      "main": [
+        []
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "gera legenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "text-to-speech": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "erro tts",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "erro tts": {
+      "main": [
+        []
+      ]
+    },
+    "gera legenda": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File1": {
+      "main": [
+        [
+          {
+            "node": "salva legenda vps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "vozes1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "biblico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "vozes",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "vozes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "biblico": {
+      "main": [
+        [
+          {
+            "node": "text-to-speech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ciencias": {
+      "main": [
+        [
+          {
+            "node": "text-to-speech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "vozes": {
+      "main": [
+        [
+          {
+            "node": "ciencias",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "salva audio vps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Convert to File1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "vozes1": {
+      "main": [
+        [
+          {
+            "node": "jazz-w-j",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "jazz-w-j": {
+      "main": [
+        [
+          {
+            "node": "text-to-speech",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "ptbr",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "enus",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ptbr": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "enus": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Command": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "salva audio vps": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "salva legenda vps": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "41ffa1dd-5f00-49e8-bf56-f25348953817",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "vV-WfJ0MVuVor1efoWd_5",
+  "tags": []
+}

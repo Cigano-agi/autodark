@@ -1,0 +1,477 @@
+{
+  "name": "5. up_to_plan",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "id": "9f0aaefe-d613-4de9-a184-457d201006c9",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "pending_publish"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        208,
+        0
+      ],
+      "id": "f90c2aba-4995-4586-9332-9fe6d2b0456e",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "publicar",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "nicho": "={{ $json.nicho }}",
+            "seo_titulo": "={{ $json.seo_title }}",
+            "seo_description": "={{ $json.seo_description }}",
+            "seo_tags": "={{ $json.seo_tags }}",
+            "video url": "={{ $json.video_url }}",
+            "created_at": "={{ $now.format('dd-MM-yyyy HH:mm:ss')}}",
+            "id": "={{ $json.id }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video url",
+              "displayName": "video url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "seo_description",
+              "displayName": "seo_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "seo_tags",
+              "displayName": "seo_tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "publicado",
+              "displayName": "publicado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        400,
+        0
+      ],
+      "id": "38a977b1-78b3-4665-830b-efbdcfc0afe1",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "on_plan"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ],
+      "id": "c29efd64-f644-45b6-b577-e50df2b094f2",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dark_conteudo",
+        "returnAll": true,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "on_plan"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -176
+      ],
+      "id": "eb9eaac8-c366-4efd-96d6-70342b4dcfe7",
+      "name": "Get many rows1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "publicar",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "nicho": "={{ $json.nicho }}",
+            "seo_titulo": "={{ $json.seo_title }}",
+            "seo_description": "={{ $json.seo_description }}",
+            "seo_tags": "={{ $json.seo_tags }}",
+            "video url": "=https://ogdxugobhcgalendztge.supabase.co/storage/v1/object/public/files_dark/{{ $json.nicho }}/videos/final_{{ $json.id }}_bgmusic.mp4",
+            "created_at": "={{ $now.format('dd-MM-yyyy HH:mm:ss')}}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "video url",
+              "displayName": "video url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "seo_description",
+              "displayName": "seo_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "seo_tags",
+              "displayName": "seo_tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "publicado",
+              "displayName": "publicado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        208,
+        -176
+      ],
+      "id": "ace84dec-76d6-4bbd-86e4-60da3d8ccd81",
+      "name": "Append row in sheet1",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-03-07T09:20:55.002-03:00",
+          "Readable date": "March 7th 2026, 9:20:55 am",
+          "Readable time": "9:20:55 am",
+          "Day of week": "Saturday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "07",
+          "Hour": "09",
+          "Minute": "20",
+          "Second": "55",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows1": {
+      "main": [
+        [
+          {
+            "node": "Append row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4951d235-a105-4581-941c-53f258aab7e3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "pPZsKAMK1a0P8xDY",
+  "tags": []
+}

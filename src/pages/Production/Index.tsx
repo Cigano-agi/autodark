@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Wand2, Play, Image as ImageIcon, FileText, CheckCircle, Zap, ArrowRight, Lightbulb } from "lucide-react";
+import { Loader2, Wand2, Play, Image as ImageIcon, FileText, CheckCircle, Zap, ArrowRight, Lightbulb, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { DashboardHeader } from "@/components/ui/dashboard-header";
@@ -130,6 +130,9 @@ export default function ProductionWizard() {
     const [summary, setSummary] = useState("");
     const [script, setScript] = useState("");
     const [thumbPrompt, setThumbPrompt] = useState("");
+    const [thumbImageUrl, setThumbImageUrl] = useState("");
+    const [thumbImageLoaded, setThumbImageLoaded] = useState(false);
+    const [thumbImageError, setThumbImageError] = useState(false);
 
     const handleChannelSelect = (id: string) => {
         setSelectedChannelId(id);
@@ -139,6 +142,9 @@ export default function ProductionWizard() {
         setSummary("");
         setScript("");
         setThumbPrompt("");
+        setThumbImageUrl("");
+        setThumbImageLoaded(false);
+        setThumbImageError(false);
     };
 
     const setStatus = (msg: string) => setStatusMessage(msg);
@@ -189,13 +195,27 @@ export default function ProductionWizard() {
         setLoading(true);
         try {
             setStatus("Criando conceito visual...");
-            const raw = await callClaude(
-                "Você é um especialista em thumbnails.",
-                `Crie um prompt para gerar a thumbnail do vídeo: ${title}`
+            const prompt = await callClaude(
+                "Você é um especialista em thumbnails para YouTube. Crie um prompt em inglês para geração de imagem, detalhando estilo visual, cores, composição e elementos principais. Retorne APENAS o prompt, sem explicações.",
+                `Crie um prompt de imagem para a thumbnail do vídeo: ${title}`
             );
-            setThumbPrompt(raw);
+            setThumbPrompt(prompt);
+            setThumbImageLoaded(false);
+            setThumbImageError(false);
+
+            setStatus("Gerando imagem da thumbnail...");
+            const encodedPrompt = encodeURIComponent(prompt);
+            const isLocal = ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
+                window.location.hostname.startsWith("192.168.") ||
+                window.location.hostname.startsWith("10.");
+            const pollinationsBase = isLocal
+                ? "/api-pollinations"
+                : "https://image.pollinations.ai";
+            const imageUrl = `${pollinationsBase}/prompt/${encodedPrompt}?width=1280&height=720&model=flux&nologo=true&seed=${Date.now()}`;
+            setThumbImageUrl(imageUrl);
+
             setStep(4);
-            toast.success("Conceito de thumbnail criado!");
+            toast.success("Thumbnail gerada!");
         } catch (e) {
             toast.error("Erro ao gerar thumbnail.");
         } finally {
@@ -299,6 +319,46 @@ export default function ProductionWizard() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
+                                    {/* Ideias salvas do canal */}
+                                    {step === 1 && ideas.length > 0 && (
+                                        <div className="space-y-2">
+                                            <Label className="text-white/70 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                                                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                                                Usar ideia salva do canal ({ideas.length})
+                                            </Label>
+                                            <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto pr-1">
+                                                {ideas.map(i => (
+                                                    <button
+                                                        key={i.id}
+                                                        onClick={() => setIdea(`${i.title}${i.concept ? `\n\n${i.concept}` : ''}`)}
+                                                        className={`text-left px-3 py-2.5 rounded-lg border text-sm transition-all group ${
+                                                            idea.startsWith(i.title)
+                                                                ? 'bg-primary/20 border-primary/50 text-white'
+                                                                : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-start justify-between gap-2">
+                                                            <span className="font-medium line-clamp-1">{i.title}</span>
+                                                            {i.score && (
+                                                                <span className="text-[10px] shrink-0 bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold">
+                                                                    {i.score}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        {i.concept && (
+                                                            <p className="text-xs text-white/40 mt-0.5 line-clamp-1">{i.concept}</p>
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-white/20 text-xs">
+                                                <div className="h-px flex-1 bg-white/10" />
+                                                ou escreva manualmente
+                                                <div className="h-px flex-1 bg-white/10" />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div className="space-y-2">
                                         <Label className="text-white">Sua Ideia</Label>
                                         <Textarea
@@ -361,7 +421,7 @@ export default function ProductionWizard() {
                                         </CardTitle>
                                     </CardHeader>
                                     <CardContent>
-                                        {!thumbPrompt ? (
+                                        {!thumbImageUrl ? (
                                             <Button
                                                 onClick={handleGenerateThumb}
                                                 disabled={loading}
@@ -369,11 +429,41 @@ export default function ProductionWizard() {
                                                 className="w-full gap-2"
                                             >
                                                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                                                Gerar Conceito de Thumbnail
+                                                Gerar Thumbnail com IA
                                             </Button>
                                         ) : (
-                                            <div className="p-4 bg-black/40 border border-white/10 rounded-lg text-xs text-muted-foreground font-mono">
-                                                {thumbPrompt}
+                                            <div className="space-y-3">
+                                                <div className="relative rounded-lg overflow-hidden border border-white/10 aspect-video bg-black/40 flex items-center justify-center">
+                                                    {!thumbImageLoaded && !thumbImageError && (
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                            <Loader2 className="w-6 h-6 animate-spin" />
+                                                            <span className="text-xs">Gerando imagem... pode levar até 30s</span>
+                                                        </div>
+                                                    )}
+                                                    {thumbImageError && (
+                                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                                                            <ImageIcon className="w-6 h-6 text-red-400" />
+                                                            <span className="text-xs text-red-400">Falha ao carregar imagem</span>
+                                                        </div>
+                                                    )}
+                                                    <img
+                                                        src={thumbImageUrl}
+                                                        alt="Thumbnail gerada"
+                                                        className={`w-full h-full object-cover transition-opacity duration-300 ${thumbImageLoaded ? 'opacity-100' : 'opacity-0'}`}
+                                                        onLoad={() => setThumbImageLoaded(true)}
+                                                        onError={() => setThumbImageError(true)}
+                                                    />
+                                                </div>
+                                                <Button
+                                                    onClick={handleGenerateThumb}
+                                                    disabled={loading}
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="w-full gap-2 border-white/10"
+                                                >
+                                                    {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />}
+                                                    Regerar
+                                                </Button>
                                             </div>
                                         )}
                                     </CardContent>

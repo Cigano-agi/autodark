@@ -1,0 +1,549 @@
+{
+  "name": "4. SEO generator",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "0bd913f5-1131-454d-96a4-aad8877ffc84",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "keyValue": "video_complete"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        144,
+        0
+      ],
+      "id": "b6bcd40b-e076-4940-a658-da7ae6cef6c9",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um engenheiro de viralização e especialista em SEO de 2026 para YouTube Shorts, Instagram Reels e TikTok.\n\nSua missão é criar metadados que alcancem SCORE 100/100 em ferramentas como Vidiq e TubeBuddy, equilibrando psicologia de retenção com indexação bruta.\n\n━━━━━━━━━━━━━━━━━━━━━━━\nDETECÇÃO DE IDIOMA (OBRIGATÓRIO)\n━━━━━━━━━━━━━━━━━━━━━━━\n\n1. Analise o campo \"roteiro\".\n2. Identifique automaticamente o idioma predominante.\n\nRegras:\n\n• Se o roteiro estiver em PORTUGUÊS → gere todo o conteúdo em PORTUGUÊS  \n• Se o roteiro estiver em INGLÊS → gere todo o conteúdo em INGLÊS  \n• Nunca misture idiomas\n\nIsso inclui obrigatoriamente:\n\n- pcf_identificada\n- seo_title\n- seo_description\n- hashtags\n- seo_tags\n\n━━━━━━━━━━━━━━━━━━━━━━━\nDIRETRIZES DE PONTUAÇÃO VIDIQ (SCORE 100/100)\n━━━━━━━━━━━━━━━━━━━━━━━\n\n1. PALAVRA-CHAVE DE FOCO (PCF)\n\nIdentifique a palavra-chave de maior volume no nicho ou tema fornecido.\n\n2. TRIANGULAÇÃO OBRIGATÓRIA\n\nA PCF deve aparecer:\n\n- Nas primeiras 3 palavras do Título\n- Nas primeiras 10 palavras da Descrição\n- Como a PRIMEIRA Tag da lista\n\n3. REPETIÇÃO SEMÂNTICA\n\nUse pelo menos 3 variações da PCF na descrição e nas tags para aumentar a relevância contextual.\n\n━━━━━━━━━━━━━━━━━━━━━━━\nTÍTULO — OTIMIZAÇÃO NEURAL E SEO\n━━━━━━━━━━━━━━━━━━━━━━━\n\nO título deve ter entre 40 e 70 caracteres.\n\nDeve começar com a PCF ou um termo de alto volume, seguido de um gatilho de curiosidade extrema como:\n\n- informação incompleta\n- revelação\n- erro\n- segredo\n- promessa implícita\n\n━━━━━━━━━━━━━━━━━━━━━━━\nDESCRIÇÃO — RETENÇÃO + DENSIDADE\n━━━━━━━━━━━━━━━━━━━━━━━\n\nAs duas primeiras linhas devem conter a PCF e uma frase que venda o clique, criando uma lacuna de curiosidade.\n\nApós o texto, inclua EXATAMENTE 25 hashtags:\n\n#shortsbrasil  \n#shortfeed  \n#shorts  \n#shortsfeed  \n#shortsviral  \n#shortsvideo  \n\n+ 19 hashtags específicas do nicho.\n\n━━━━━━━━━━━━━━━━━━━━━━━\nTAGS — INDEXAÇÃO DE ALTO VOLUME\n━━━━━━━━━━━━━━━━━━━━━━━\n\nGerar exatamente 20 tags em uma única string separada por vírgulas.\n\nRegras:\n\nA primeira tag DEVE ser a PCF idêntica ao início do título.\n\nAs outras 19 devem variar entre:\n\n- termos amplos (alto volume de busca)\n- termos específicos de cauda longa\n\n━━━━━━━━━━━━━━━━━━━━━━━\nDADOS DE ENTRADA (JSON)\n━━━━━━━━━━━━━━━━━━━━━━━\n\nnicho:\n{{ $('Limit').item.json.nicho }}\n\nroteiro:\n{{ $('Limit').item.json.script }}\n\ntema:\n{{ $('Limit').item.json.topic }}\n\ngancho:\n{{ $('Limit').item.json.hook }}\n\nid:\n{{ $('Limit').item.json.id }}\n\n━━━━━━━━━━━━━━━━━━━━━━━\nFORMATO DE SAÍDA (APENAS JSON)\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{\n\"id\": {{ $('Limit').item.json.id }},\n\"pcf_identificada\": \"A palavra-chave foco usada para o 100/100\",\n\"seo_title\": \"Título com PCF no início\",\n\"seo_description\": \"Texto com PCF + 25 hashtags\",\n\"seo_tags\": \"tag_pcf, tag2, tag3, tag4... (20 total)\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          },
+          "topLogprobs": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1040,
+        16
+      ],
+      "id": "20f4c3e4-e765-4eff-bbde-2dde87a02d66",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "seo_title",
+              "fieldValue": "={{ $json.output[0].content[0].text.seo_title }}"
+            },
+            {
+              "fieldId": "seo_description",
+              "fieldValue": "={{ $json.output[0].content[0].text.seo_description }}"
+            },
+            {
+              "fieldId": "seo_tags",
+              "fieldValue": "={{ $json.output[0].content[0].text.seo_tags }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_publish"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1456,
+        160
+      ],
+      "id": "f9b8e9db-9430-425a-b6f8-a406c6d777ef",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.nicho }}",
+                    "rightValue": "curiosidades-cientificas-e-psicologicas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "60fd0ba8-c480-45b3-9971-4a422b992809"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "curiosidades-cientificas-e-psicologicas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "a47b8667-7857-4fb5-b113-5fd693aa789f",
+                    "leftValue": "={{ $json.nicho }}",
+                    "rightValue": "biblico",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "biblico"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4cb396e6-9474-4259-bec3-24b5a8d069d3",
+                    "leftValue": "={{ $json.nicho }}",
+                    "rightValue": "terror",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "terror"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "8bdc3572-3be1-4555-bea1-8c8a3b41d3bc",
+                    "leftValue": "={{ $json.nicho }}",
+                    "rightValue": "jazz-with-jezz",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "jazz-with-jezz"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        496,
+        -16
+      ],
+      "id": "241ba64f-f437-4b05-83ae-deda2638137d",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eecb1792-40e7-42ae-9ca3-36742c4f8ec7",
+              "name": "prompt",
+              "value": "=CONTEXTO DO CANAL:\n\nEste canal pertence ao nicho de curiosidades científicas sobre o corpo humano e a mente humana, com foco em cenários extremos, consequências reais e limites biológicos e psicológicos.\n\nO objetivo é atrair pessoas interessadas em:\n\n• curiosidades sobre o corpo humano\n• limites do corpo humano\n• o que acontece com o corpo em situações extremas\n• funcionamento do cérebro e da mente\n• sobrevivência e efeitos fisiológicos reais\n• consequências de comportamentos incomuns\n• fatos científicos surpreendentes\n• respostas para perguntas incomuns sobre o corpo e a mente\n\nPriorize palavras-chave como:\n\ncorpo humano, curiosidades do corpo, curiosidades científicas, o que acontece com o corpo, mente humana, cérebro humano, efeitos no corpo, efeitos no cérebro, privação de sono, privação de água, privação de comida, sobrevivência humana, limites do corpo humano, fatos científicos, curiosidades da mente, consequências no corpo, funcionamento do corpo humano\n\nInclua também variações como:\n\no que acontece se você, quantos dias um humano consegue, o que acontece com seu corpo, o que acontece com seu cérebro, quanto tempo o corpo aguenta, efeitos da privação, efeitos extremos no corpo\n\nEvite termos religiosos.\n\nEvite linguagem espiritual ou motivacional.\n\nEvite tom educacional formal ou acadêmico.\n\nEvite linguagem excessivamente técnica ou científica complexa.\n\nO posicionamento do canal é:\n\nrevelação de consequências reais no corpo humano\nexposição dos limites biológicos humanos\nexplicação de efeitos extremos e pouco conhecidos\nrespostas diretas para curiosidades incomuns\nconteúdo que faz o espectador perceber a fragilidade e complexidade do próprio corpo\n\nO conteúdo deve parecer:\n\numa descoberta surpreendente\num fato pouco conhecido\numa consequência inesperada\numa revelação científica fascinante\nalgo que o espectador nunca havia considerado antes\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        -128
+      ],
+      "id": "a6a0489e-5f4d-4eb5-97ec-9344d9718347",
+      "name": "cientifico"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eecb1792-40e7-42ae-9ca3-36742c4f8ec7",
+              "name": "prompt",
+              "value": "=CONTEXTO DO CANAL:\n\nEste canal pertence ao nicho bíblico e espiritual.\n\nO objetivo é atrair pessoas interessadas em:\n\n• histórias bíblicas\n• ensinamentos bíblicos\n• fé em Deus\n• personagens bíblicos\n• milagres\n• mensagens espirituais\n\nPriorize palavras-chave como:\n\nbíblia, Deus, história bíblica, fé, ensinamento bíblico, palavra de Deus, versículo, mensagem bíblica, personagens bíblicos\n\nEvite termos psicológicos modernos.\n\nEvite linguagem secular fria.\n\nO posicionamento do canal é:\n\nmensagem espiritual profunda\nrevelação bíblica significativa\nensinamento transformador\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        16
+      ],
+      "id": "db4da594-f02f-4a8b-b2b4-7e3043b8442c",
+      "name": "biblico"
+    },
+    {
+      "parameters": {
+        "maxItems": 3
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        352,
+        0
+      ],
+      "id": "a953d3d5-6870-4873-9f16-13605047b47e",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eecb1792-40e7-42ae-9ca3-36742c4f8ec7",
+              "name": "prompt",
+              "value": "=CONTEXTO DO CANAL — TRUE CRIME / TERROR REAL\n\nEste canal pertence ao nicho de true crime, mistérios reais e eventos perturbadores que realmente aconteceram.\n\nO conteúdo apresenta casos reais de crimes, desaparecimentos e acontecimentos sombrios, com foco em histórias intrigantes, detalhes incomuns e momentos perturbadores que despertam curiosidade e tensão.\n\nO objetivo é atrair pessoas interessadas em:\n\n• casos reais de crimes\n• histórias de serial killers\n• desaparecimentos misteriosos\n• investigações criminais\n• casos não resolvidos\n• eventos perturbadores da vida real\n• mistérios investigativos\n• histórias reais assustadoras\n• arquivos criminais pouco conhecidos\n• relatos sombrios baseados em fatos\n\nPALAVRAS-CHAVE PRIORITÁRIAS\n\nPriorize palavras-chave como:\n\ntrue crime\ncrime real\ncasos reais\nhistórias de crime\nmistérios reais\ncasos não resolvidos\ninvestigações criminais\ndesaparecimentos misteriosos\nserial killers\narquivos criminais\nhistórias perturbadoras\nmistérios investigativos\n\nInclua também variações como:\n\ncaso real assustador\nhistória real perturbadora\no que realmente aconteceu\nmistério não resolvido\no caso que chocou investigadores\no detalhe que ninguém percebeu\nsegredos de um crime real\nhistória macabra real\n\nEVITAR\n\nEvite:\n\n• histórias fictícias\n• creepypasta\n• terror inventado\n• linguagem sobrenatural ou paranormal\n• linguagem religiosa ou espiritual\n• tom sensacionalista exagerado\n• descrições gráficas de violência\n\nO canal deve sempre deixar claro que os eventos são baseados em casos reais documentados.\n\nPOSICIONAMENTO DO CANAL\n\nO canal se posiciona como:\n\n• explorador de mistérios reais\n• narrador de histórias criminais intrigantes\n• revelador de detalhes perturbadores de casos reais\n• apresentador de eventos sombrios da história real\n• contador de histórias investigativas baseadas em fatos\n\nESTILO DO CONTEÚDO\n\nO conteúdo deve parecer:\n\n• uma história real perturbadora\n• um mistério investigativo intrigante\n• um caso criminal cheio de perguntas\n• um evento real difícil de acreditar\n• um detalhe obscuro de um crime real\n• algo que parece ficção, mas realmente aconteceu\n\nSENSAÇÃO QUE O CONTEÚDO DEVE GERAR\n\nO espectador deve sentir:\n\n• curiosidade intensa\n• tensão narrativa\n• fascínio por mistérios reais\n• inquietação psicológica\n• vontade de descobrir o que realmente aconteceu\n\nO vídeo deve fazer o espectador pensar:\n\n\"Isso realmente aconteceu?\"\n\n\"Como algo assim foi possível?\"\n\n\"O que realmente aconteceu nesse caso?\"",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        160
+      ],
+      "id": "33a71424-9c82-4919-a06e-56be7f097f51",
+      "name": "terror"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=You are a Viral Growth Engineer and a 2026 SEO Specialist for YouTube Shorts, Instagram Reels, and TikTok.\n\nYour mission is to generate metadata capable of achieving a SCORE of 100/100 in tools such as Vidiq and TubeBuddy, balancing retention psychology with raw search indexing.\n\n\n━━━━━━━━━━━━━━━━━━━━━━━\nVIDIQ SCORING GUIDELINES (SCORE 100/100)\n━━━━━━━━━━━━━━━━━━━━━━━\n\n1. FOCUS KEYWORD (FK)\n\nIdentify the highest volume keyword within the provided niche or topic.\n\n2. REQUIRED TRIANGULATION\n\nThe FK must appear:\n\n- Within the first 3 words of the Title\n- Within the first 10 words of the Description\n- As the FIRST tag in the tag list\n\n3. SEMANTIC REPETITION\n\nUse at least 3 variations of the FK within the description and tags to increase contextual relevance.\n\n━━━━━━━━━━━━━━━━━━━━━━━\nTITLE — NEURAL OPTIMIZATION & SEO\n━━━━━━━━━━━━━━━━━━━━━━━\n\nThe title must contain between 40 and 70 characters.\n\nIt must begin with the FK or a high-volume keyword followed by an extreme curiosity trigger such as:\n\n- incomplete information\n- revelation\n- mistake\n- secret\n- hidden truth\n- implied promise\n\n━━━━━━━━━━━━━━━━━━━━━━━\nDESCRIPTION — RETENTION + DENSITY\n━━━━━━━━━━━━━━━━━━━━━━━\n\nThe first two lines must contain the FK and a phrase that sells the click by creating a curiosity gap.\n\nAfter the text, include EXACTLY 25 hashtags:\n\n#shorts  \n#shortfeed  \n#shortsfeed  \n#shortsviral  \n#shortsvideo  \n#viralshorts  \n\n+ 19 niche-specific hashtags.\n\n━━━━━━━━━━━━━━━━━━━━━━━\nTAGS — HIGH VOLUME INDEXING\n━━━━━━━━━━━━━━━━━━━━━━━\n\nGenerate exactly 20 tags in a single comma-separated string.\n\nRules:\n\nThe first tag MUST be the FK identical to the beginning of the title.\n\nThe other 19 tags should vary between:\n\n- broad high-volume keywords\n- long-tail keywords specific to the niche\n\n━━━━━━━━━━━━━━━━━━━━━━━\nINPUT DATA (JSON)\n━━━━━━━━━━━━━━━━━━━━━━━\n\nniche:\n{{ $('Limit').item.json.nicho }}\n\nscript:\n{{ $('Limit').item.json.script }}\n\ntopic:\n{{ $('Limit').item.json.topic }}\n\nhook:\n{{ $('Limit').item.json.hook }}\n\nid:\n{{ $('Limit').item.json.id }}\n\n━━━━━━━━━━━━━━━━━━━━━━━\nOUTPUT FORMAT (JSON ONLY)\n━━━━━━━━━━━━━━━━━━━━━━━\n\n{\n\"id\": {{ $('Limit').item.json.nicho }},\n\"pcf_identificada\": \"Focus keyword used to achieve the 100/100 score\",\n\"seo_title\": \"Title starting with the focus keyword\",\n\"seo_description\": \"Text containing the focus keyword + 25 hashtags\",\n\"seo_tags\": \"focus_keyword, tag2, tag3, tag4... (20 total)\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          },
+          "topLogprobs": 0
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1056,
+        320
+      ],
+      "id": "71ce6192-9d44-43b9-ba5d-cab2f339d365",
+      "name": "Message a model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eecb1792-40e7-42ae-9ca3-36742c4f8ec7",
+              "name": "prompt",
+              "value": "=CONTEXT OF THE CHANNEL\n\nThis channel belongs to the Christian faith and daily prayer niche.\n\nThe main goal is to attract people looking for:\n\n• morning prayers\n• daily prayers\n• messages of faith\n• encouragement through God’s word\n• spiritual strength to start the day\n• connection with God through prayer\n\nPrioritize keywords such as:\n\nmorning prayer\ndaily prayer\nprayer with God\nChristian prayer\npowerful prayer\nprayer to start the day\nGod’s message\nBible verse\nword of God\nfaith in God\nblessing for the day\n\nAvoid modern psychological terminology.\n\nAvoid cold or secular language.\n\nThe channel positioning should always reflect:\n\n• deep spiritual message\n• connection with God\n• faith and hope\n• biblical inspiration\n• encouraging prayer for the day\n\nThe generated content must include:\n\n• YouTube Title optimized for SEO (in English)\n• YouTube Description optimized for SEO (in English)\n• Relevant YouTube Tags (in English)\n\nThe tone must be:\n\n• spiritual\n• hopeful\n• encouraging\n• respectful of Christian faith\n• emotionally engaging for believers starting their day with prayer",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        784,
+        320
+      ],
+      "id": "9e7e30c5-f811-44ff-ace1-0539432e0281",
+      "name": "jazz-w-j"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "cientifico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "biblico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "terror",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "jazz-w-j",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cientifico": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "biblico": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "terror": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "jazz-w-j": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d1f77bac-c17a-4058-abc2-9afe812fb3db",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "zvVpbNwYCmQOd9kc",
+  "tags": []
+}

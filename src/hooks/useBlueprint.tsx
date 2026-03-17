@@ -12,6 +12,14 @@ export interface Blueprint {
   script_rules: string | null;
   visual_style: string | null;
   upload_frequency: string;
+  persona_prompt: string | null;
+  target_audience: string | null;
+  character_description: string | null;
+  style_reference_url: string | null;
+  character_consistency: boolean;
+  scenes_image_ratio: number;
+  scenes_video_ratio: number;
+  custom_music_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,7 +31,26 @@ export interface UpdateBlueprintData {
   script_rules?: string;
   visual_style?: string;
   upload_frequency?: string;
+  persona_prompt?: string;
+  target_audience?: string;
+  character_description?: string;
+  style_reference_url?: string;
+  character_consistency?: boolean;
+  scenes_image_ratio?: number;
+  scenes_video_ratio?: number;
+  custom_music_url?: string;
 }
+
+export const VISUAL_STYLE_OPTIONS = [
+  { value: 'realistic', label: 'Realista' },
+  { value: 'cartoon', label: 'Cartoon / Bonequinho' },
+  { value: 'oil-painting', label: 'Pintura a Óleo' },
+  { value: 'clay', label: 'Clay / Massinha' },
+  { value: 'stick-figure', label: 'Palito com Carinha' },
+  { value: 'mannequin', label: 'Manequim' },
+  { value: 'flash-cartoon', label: 'Flash Cartoon' },
+  { value: 'vector', label: 'Vector / Flat' },
+];
 
 export function useBlueprint(channelId: string | undefined) {
   const { user } = useAuth();

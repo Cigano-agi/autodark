@@ -1,0 +1,1044 @@
+{
+  "name": "3. video_render",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        240,
+        0
+      ],
+      "id": "8750eeff-38e4-4ee5-a1d2-f3f8ab7e6975",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        528,
+        0
+      ],
+      "id": "6fda5202-1459-453e-bd9b-5f7bc82a4f80",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/.n8n/render/renderScenes.js /home/node/.n8n/render/temp/{{ $('Limit').item.json.id }}/payload.json"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        976,
+        0
+      ],
+      "id": "33b45b77-b3da-47ea-bc39-94983621e90e",
+      "name": "render scenes"
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/.n8n/render/concatScenes.js {{ $('Limit').item.json.id }}"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1312,
+        0
+      ],
+      "id": "7e7fd630-5993-4740-987b-ef307d546368",
+      "name": "concat scenes"
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/.n8n/render/final-w-audio.js /home/node/.n8n/render/temp/{{ $('Limit').item.json.id }}/payload.json"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2016,
+        -16
+      ],
+      "id": "0b90a330-b86a-47c1-8afd-fbda3717a175",
+      "name": "final w audio"
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/.n8n/render/add-srt.js /home/node/.n8n/render/temp/{{$('Limit').item.json.id}}/payload.json\n"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2320,
+        -16
+      ],
+      "id": "d62a48f0-2bd0-4be5-a75d-592795f8e167",
+      "name": "add srt"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing_motion"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        832,
+        0
+      ],
+      "id": "fc7e0864-aa6b-4708-8bf6-0a86c068e4b7",
+      "name": "Update a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing_concat"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        0
+      ],
+      "id": "19d66478-b4d5-4eac-8b4b-325254bd5223",
+      "name": "Update a row2",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing_video-audio"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        -16
+      ],
+      "id": "9bfe56b5-a95e-4fe1-8714-0d87778125d0",
+      "name": "Update a row3",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing_srt"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2176,
+        -16
+      ],
+      "id": "e581b0de-ac6f-4fc1-bd04-061248ee0736",
+      "name": "Update a row4",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "processing_bg-music"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2496,
+        -16
+      ],
+      "id": "a840292b-4f19-490e-95a0-b62266559d08",
+      "name": "Update a row5",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "command": "=node /home/node/.n8n/render/add-music-bg.js /home/node/.n8n/render/temp/{{$('Limit').item.json.id}}/payload.json\n"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        2656,
+        -16
+      ],
+      "id": "5503189e-f573-4bf1-9c7a-31b707b71515",
+      "name": "bg-music"
+    },
+    {
+      "parameters": {
+        "fileSelector": "=/home/node/.n8n-files/render/temp/{{ $('Limit').item.json.id }}/final_{{ $('Limit').item.json.id }}_bgmusic.mp4",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2800,
+        -16
+      ],
+      "id": "dd3cd144-d49f-4538-9498-90b3d579fe53",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "command": "=rm -rf  /home/node/.n8n/render/temp/{{$node['Limit'].json.id}}/"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        3776,
+        -32
+      ],
+      "id": "c52c306f-0806-47f8-b286-745be13dcba1",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Limit'].json.id}}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "video_complete"
+            },
+            {
+              "fieldId": "video_url",
+              "fieldValue": "={{ $json.webViewLink }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3600,
+        -32
+      ],
+      "id": "7825a6c9-9229-4661-81d3-c1eb99946655",
+      "name": "Update a row7",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Acessa o stdout do nó anterior\nconst stdoutRaw = $input.item.json.stdout;\n\ntry {\n  // Transforma a string do stdout em um objeto JSON real\n  const result = JSON.parse(stdoutRaw);\n\n  // Retorna os dados limpos para os próximos nós\n  return {\n    videoId: result.videoId,\n    caminho_final: result.path,\n    duracao_segundos: result.duration_seconds,\n    duracao_arredondada: Math.round(result.duration_seconds),\n    total_cenas: result.scenes_count\n  };\n} catch (error) {\n  // Caso o stdout não seja um JSON válido (erro no script anterior)\n  return {\n    erro: \"Falha ao processar JSON do stdout\",\n    raw: stdoutRaw\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        0
+      ],
+      "id": "ac44b50e-23c5-492e-8f8f-94690739b83d",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "44bf1545-3a34-4511-9d86-4f92d4cbae7f",
+              "leftValue": "={{ $json.duracao_segundos }}",
+              "rightValue": "={{ $('Limit').item.json.audio_duration }}",
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1632,
+        0
+      ],
+      "id": "9f4e2734-eea1-4739-b8c4-0244cdb6cfc5",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "video_menor_audio"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        240
+      ],
+      "id": "e3a31ae2-0337-4564-8a71-d3aaa2ae8a79",
+      "name": "Update a row8",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "ready_to_render"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        384,
+        0
+      ],
+      "id": "1a553b8f-4b28-4619-9dc6-6367d2e23eaf",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require(\"fs\");\nconst path = require(\"path\");\n\nconst videoId = $json.id.toString();\n\nif (!videoId) {\n  throw new Error(\"videoId não encontrado no payload\");\n}\n\nconst baseDir = \"/home/node/.n8n/render/temp\";\nconst videoDir = path.join(baseDir, videoId);\nconst payloadPath = path.join(videoDir, \"payload.json\");\n\n// segurança: garantir que a pasta existe\nif (!fs.existsSync(videoDir)) {\n  throw new Error(`Diretório do vídeo não encontrado: ${videoDir}`);\n}\n\n// salvar payload\nfs.writeFileSync(\n  payloadPath,\n  JSON.stringify($json, null, 2),\n  \"utf-8\"\n);\n\nreturn [\n  {\n    json: {\n      ...$json,\n      payloadPath,\n      videoDir\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        0
+      ],
+      "id": "96994cb5-d022-4ed9-b6da-ef64428c244c",
+      "name": "cria  payload"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "biblico",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "d2ef192e-3742-4044-b0f9-a97d46af44a6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "biblico"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "72fa9239-24db-4e6c-9983-c2c464d2f4be",
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "curiosidades-cientificas-e-psicologicas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "darkside"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "34fa5aa8-148c-48c8-8c9e-5b4aa4671f3b",
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "terror",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "terror"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "d54db017-479e-4d1a-8667-2bb662451d6c",
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "jazz-with-jezz",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "jazz-with-jezz"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3008,
+        -48
+      ],
+      "id": "ce78432d-ed68-4d45-8359-550a2304569f",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/u/0/folders/1J07CCWD6gSHRuq0wfWtlPelrnRK8oWuF",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3312,
+        -240
+      ],
+      "id": "21d844f9-08b6-47f2-adc8-583a31851491",
+      "name": "Upload file",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5YV9TTiKxFZ6dfAf",
+          "name": "drive dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/u/0/folders/1AV4bkJw6stj0MELDHB_cafIzpVQNgD3j",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3312,
+        -64
+      ],
+      "id": "b4f20af9-a0ae-4cd7-80da-89819efce2c7",
+      "name": "Upload file1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5YV9TTiKxFZ6dfAf",
+          "name": "drive dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/u/0/folders/1q-bpiSDjwcvOi1yyPRmuSHgAL70PignQ",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3312,
+        96
+      ],
+      "id": "2ffd2efe-3da6-4934-99ec-2ce01435fb34",
+      "name": "Upload file2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5YV9TTiKxFZ6dfAf",
+          "name": "drive dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $json.fileName }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "https://drive.google.com/drive/u/0/folders/1vsduvNZGJzQSP0vNaI5eI3WFnK1ldA4o",
+          "mode": "url"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3312,
+        272
+      ],
+      "id": "7fa8e615-cf46-472f-ad56-34956e64e847",
+      "name": "Upload file3",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5YV9TTiKxFZ6dfAf",
+          "name": "drive dark"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-03-13T10:00:50.006-03:00",
+          "Readable date": "March 13th 2026, 10:00:50 am",
+          "Readable time": "10:00:50 am",
+          "Day of week": "Friday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "13",
+          "Hour": "10",
+          "Minute": "00",
+          "Second": "50",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "cria  payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "render scenes": {
+      "main": [
+        [
+          {
+            "node": "Update a row2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "concat scenes": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "final w audio": {
+      "main": [
+        [
+          {
+            "node": "Update a row4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "add srt": {
+      "main": [
+        [
+          {
+            "node": "Update a row5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "node": "render scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row2": {
+      "main": [
+        [
+          {
+            "node": "concat scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row3": {
+      "main": [
+        [
+          {
+            "node": "final w audio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row4": {
+      "main": [
+        [
+          {
+            "node": "add srt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row5": {
+      "main": [
+        [
+          {
+            "node": "bg-music",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "bg-music": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row7": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Update a row3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update a row8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row8": {
+      "main": [
+        []
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cria  payload": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file3": {
+      "main": [
+        [
+          {
+            "node": "Update a row7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file2": {
+      "main": [
+        [
+          {
+            "node": "Update a row7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file1": {
+      "main": [
+        [
+          {
+            "node": "Update a row7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "Update a row7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "e0e053c8-7a47-4fcd-bbd2-ca5ac8454bc2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "Lj4fk2QK1clj3KQn",
+  "tags": []
+}

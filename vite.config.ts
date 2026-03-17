@@ -17,6 +17,16 @@ export default defineConfig(({ mode }) => ({
         target: 'https://api.ai33.pro',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-ai/, ''),
+      },
+      '/api-pollinations': {
+        target: 'https://image.pollinations.ai',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-pollinations/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['cross-origin-resource-policy'] = 'cross-origin';
+          });
+        },
       }
     }
   },

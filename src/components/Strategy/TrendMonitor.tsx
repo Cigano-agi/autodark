@@ -31,7 +31,7 @@ export function TrendMonitor() {
                                     {trend.category}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                    from {trend.source}
+                                    de {trend.source}
                                 </span>
                             </div>
                             <h4 className="font-semibold text-sm leading-tight group-hover:text-primary">
