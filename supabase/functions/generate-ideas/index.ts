@@ -1,16 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "http://localhost:5173";
-
 const corsHeaders = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
-if (!AI33_API_KEY) throw new Error("AI33_API_KEY não configurado nas variáveis de ambiente");
-const AI33_URL = "https://api.ai33.pro/v1/chat/completions";
 
 Deno.serve(async (req) => {
     if (req.method === "OPTIONS") {
@@ -18,6 +12,23 @@ Deno.serve(async (req) => {
     }
 
     try {
+        const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
+        const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
+        const apiKey = AI33_API_KEY || OPENROUTER_API_KEY;
+        const apiUrl = AI33_API_KEY
+            ? "https://api.ai33.pro/v1/chat/completions"
+            : "https://openrouter.ai/api/v1/chat/completions";
+
+        if (!apiKey) {
+            return new Response(JSON.stringify({
+                error: "Nenhuma chave de API configurada. Configure AI33_API_KEY ou OPENROUTER_API_KEY nas variáveis de ambiente do Supabase.",
+            }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 200,
+            });
+        }
+
         const supabaseClient = createClient(
             Deno.env.get("SUPABASE_URL") ?? "",
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -87,10 +98,10 @@ FORMATO DE SAÍDA (JSON PURO):
   ]
 }`;
 
-        const aiResponse = await fetch(AI33_URL, {
+        const aiResponse = await fetch(apiUrl, {
             method: "POST",
             headers: {
-                "Authorization": `Bearer ${AI33_API_KEY}`,
+                "Authorization": `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({

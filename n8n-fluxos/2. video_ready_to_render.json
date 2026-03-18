@@ -1,0 +1,1432 @@
+{
+  "name": "2. video_ready_to_render",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1104,
+        176
+      ],
+      "id": "21389f8c-0257-4f2a-91ff-9e34505bad6f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um diretor criativo especialista em vídeos curtos virais (formato 9:16) com foco extremo em retenção mobile. Sua função é transformar legendas em uma sequência visual cinematográfica envolvente.\n\nEntradas:\nVocê receberá legendas já segmentadas. Cada legenda contém:\n\nindex\nstart\nend\ntext\n\nObjetivo:\n\nNúmero de cenas: entre 3 e 8 (ajustável).\n\nAgrupar semanticamente as legendas em cenas visuais. Cada cena deve:\n\nconter um array subtitles com as legendas correspondentes;\n\nter progressão visual, complexidade ou impacto emocional;\n\nmaximizar curiosidade e retenção para público mobile.\n\nRegras de Agrupamento:\n\nTodas as legendas devem ser usadas exatamente uma vez.\n\nNão inventar ou modificar legendas.\n\nA primeira cena deve gerar curiosidade imediata.\n\n\nEstilo Visual\n\n{{ $json.prompt }}\n\nFormato de Saída JSON:\n\n{\n\"scenes\": [\n{\n\"scene\": 1,\n\"visual\": \"{descriptive visual text generated from the subtitles}\",\n\"emotion\": \"{emotion or feeling conveyed by the scene}\",\n\"type\": \"{scene type, e.g., 3d, microscopico, macro, abstrato}\",\n\"priority\": \"{numeric priority value, e.g., 3-5}\",\n\"keywords\": [\"{keyword1}\", \"{keyword2}\", \"{keyword3}\", \"{keywordN}\"],\n\"subtitles\": [\n{ \"index\": \"{index}\", \"start\": \"{start}\", \"end\": \"{end}\", \"text\": \"{text}\" }\n]\n}\n]\n}\n\nRegras Finais:\n\nTodas as legendas devem ser usadas exatamente uma vez;\n\nAs últimas 2 legendas devem estar exclusivamente na última cena;\n\nO último bloco deve conter apenas o cta (duas últimas legendas)\n\nNão repetir ou inventar legendas;\n\nNão incluir explicações ou texto adicional;\n\nTODO CONTEUDO EXCETO A LEGENDA DEVE SER RETORNADO OBRIGATORIAMENTE EM INGLES;\n\nJSON deve ser válido e exclusivo, pronto para processamento por IA;\n\nMáxima retenção mobile é prioridade.\n\nLEGENDAS:\n{{ JSON.stringify($json.subtitles, null, 2) }}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        1024,
+        112
+      ],
+      "id": "1b476c59-5618-4681-886c-0c05957256a9",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -752,
+        176
+      ],
+      "id": "8c44a9f8-339b-402c-9be6-d693e21f92d8",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Extrai o conteúdo bruto (navegando pela estrutura complexa do payload)\nconst output = $json.output?.[0] || {};\nconst content = output.content?.[0] || {};\nconst raw = content.text || {};\n\nlet parsed;\n\n// 2. Trata se o 'text' vier como String ou Objeto\nif (typeof raw === \"string\") {\n  try {\n    parsed = JSON.parse(raw);\n  } catch (e) {\n    parsed = { scenes: [] };\n  }\n} else {\n  parsed = raw;\n}\n\n// 3. Garante que scenes seja um array\nlet scenes = Array.isArray(parsed.scenes) ? parsed.scenes : [];\n\n// 4. A MÁGICA: Localiza a última cena e altera o type\nif (scenes.length > 0) {\n  const lastIndex = scenes.length - 1;\n  scenes[lastIndex].type = \"vinheta\";\n}\n\n// 5. Retorna o objeto formatado para o n8n\nreturn [\n  {\n    json: {\n      scenes\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1296,
+        112
+      ],
+      "id": "ace482a5-da81-460e-8343-c00c75d0a614",
+      "name": "normalize"
+    },
+    {
+      "parameters": {
+        "jsCode": "const srtRaw = $json.data;\n\nif (!srtRaw) {\n  throw new Error(\"SRT content not found\");\n}\n\n// Função para converter HH:MM:SS,mmm → segundos\nfunction timeToSeconds(time) {\n  const [hms, ms] = time.split(\",\");\n  const [h, m, s] = hms.split(\":\").map(Number);\n\n  return h * 3600 + m * 60 + s + Number(ms) / 1000;\n}\n\n// Divide blocos por linhas vazias\nconst blocks = srtRaw.trim().split(\"\\n\\n\");\n\nconst parsed = blocks.map(block => {\n  const lines = block.split(\"\\n\");\n\n  const index = Number(lines[0]);\n  const [startRaw, endRaw] = lines[1].split(\" --> \");\n\n  const text = lines.slice(2).join(\" \").trim();\n\n  const start = timeToSeconds(startRaw);\n  const end = timeToSeconds(endRaw);\n\n  return {\n    index,\n    start,\n    end,\n    duration: +(end - start).toFixed(3),\n    text\n  };\n});\n\n// Duração total do vídeo\nconst totalDuration = parsed.length\n  ? parsed[parsed.length - 1].end\n  : 0;\n\nreturn [\n  {\n    json: {\n      totalDuration,\n      subtitles: parsed\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        336
+      ],
+      "id": "16aa7d25-eda3-4336-b6bc-9fab5ce1da74",
+      "name": "parse srt"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "scenes",
+        "include": "selectedOtherFields",
+        "fieldsToInclude": "id, totalDuration",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1440,
+        112
+      ],
+      "id": "04cda7db-6ce3-42f7-aeb4-def27d16bac7",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Pega a scene do item atual\nconst scene = $json.scenes || {};\n\n// =============================\n// 1️⃣ NORMALIZAÇÃO DE TEMPO\n// =============================\nconst subtitles = scene.subtitles || [];\nconst start = subtitles.length ? Number(subtitles[0].start) : 0;\nconst end = subtitles.length\n  ? Number(subtitles[subtitles.length - 1].end)\n  : start;\nconst duration = +(end - start).toFixed(3);\n\n// =============================\n// 2️⃣ SANITIZAÇÃO DO VISUAL\n// =============================\nlet visual = scene.visual || \"\";\nvisual = visual.replace(/'[^']*'/g, \"\");\nvisual = visual.replace(\n  /labeled|label|signs?|text|written|words?|typography|letters?|numbers?/gi,\n  \"\"\n);\nvisual = visual.replace(/\\s+/g, \" \").trim();\n\n// =============================\n// 3️⃣ CONTEXTO SEMÂNTICO\n// =============================\nconst emotion = scene.emotion || \"\";\nconst keywords = Array.isArray(scene.keywords) ? scene.keywords.join(\", \") : \"\";\n\n// =============================\n// 4️⃣ BASE STYLE GLOBAL\n// =============================\nconst baseStyle = `\nvertical 9:16\nno text\nno letters\nno words\nno watermark\nno logo\n`;\n\n// =============================\n// 5️⃣ PROMPT FINAL OTIMIZADO\n// =============================\nconst prompt = `\n${visual},\n\nemotion: ${emotion},\ncontext: ${keywords},\n\n${baseStyle}\n`.trim();\n\n// =============================\n// 6️⃣ OUTPUT FINAL\n// =============================\nreturn {\n  json: {\n    scene: scene.scene ?? null,\n    start,\n    end,\n    duration,\n    visual: scene.visual ?? \"\",\n    emotion,\n    keywords: scene.keywords || [],\n    prompt,\n    type:scene.type\n  }\n};\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        112
+      ],
+      "id": "b842a296-ced4-4bf0-9598-528c49577a28",
+      "name": "gera prompt"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image",
+        "sendHeaders": true,
+        "specifyHeaders": "=json",
+        "headerParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonHeaders": "={\n  \"Authorization\": \"Bearer sk-LFIX8V9kauzDP4fGaZEi15Knl0meXxXdZXZkvUrsreCiqG37\",\n  \"Content-Type\": \"application/json\",\n  \"Accept\": \"application/json\"\n}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"text_prompts\": [\n    {\n      \"text\": {{$json.prompt.toJsonString()}},\n      \"weight\": 1\n    }\n  ],\n  \"cfg_scale\": 6,\n  \"height\": 1344,\n  \"width\": 768,\n  \"samples\": 1,\n  \"steps\": 12\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        1968,
+        -16
+      ],
+      "id": "cfdd9144-f32a-4bd3-ba17-12cb896472f4",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2144,
+        80
+      ],
+      "id": "88d86c7c-64d1-414c-8512-8f741f7715f7",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item) => {\n  const base64 = item.json.artifacts[0].base64;\n\n  const scene = item.json.scene;\n  const emotion = item.json.emotion || \"scene\";\n  const start = item.json.start;\n  const duration = item.json.duration;\n\n  return {\n    json: {\n      scene,\n      start,\n      duration,\n      emotion,\n      prompt: item.json.prompt\n    },\n    binary: {\n      image: {\n        data: base64,\n        mimeType: \"image/png\",\n        fileName: `scene_${scene}.png`\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        192
+      ],
+      "id": "06a3fe0d-3cff-4de4-bf32-a27c23b9cefd",
+      "name": "renomeia binario scenes"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map((item, i) => {\n  const base = {\n    index: i, // index sequencial\n    scene: item.json.scene,\n    start: item.json.start,\n    end: item.json.end  ,\n    duration: item.json.duration,\n    source: item.json.source || \"ai\",\n    meta: {\n      emotion: item.json.emotion,\n      prompt: item.json.prompt\n    },\n    asset: {\n      type: \"image\",\n      // para stock ou binary, src será ajustado abaixo\n      src: item.json.asset?.src || item.json.src || \"\"\n    },\n    motion: item.json.asset?.motion || { from: 1, to: 1, style: \"none\" } // garante motion padrão se não houver\n  };\n\n  // Se for IA (tem binary)\n  if (item.binary && item.binary.image) {\n    return {\n      json: {\n        ...base,\n        asset: {\n          ...base.asset,\n          src: \"binary://image\"\n        }\n      },\n      binary: item.binary\n    };\n  }\n\n  // Se for stock\n  return { json: base };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3424,
+        128
+      ],
+      "id": "b9282daf-6c46-4c4a-84de-f46cba774059",
+      "name": "normaliza dados"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2864,
+        96
+      ],
+      "id": "183f7af5-3ba2-4c16-9f30-fe9024e389b2",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "74422f0c-3e7d-477f-af0e-13c2734929ec",
+              "name": "scene_path",
+              "value": "={{ $json.fileName }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2608,
+        192
+      ],
+      "id": "1f47bbd4-59a7-44f6-a183-817f3994c4b8",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Limit'].json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "scenes",
+              "fieldValue": "={{$json.scenes}}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ready_to_render"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3728,
+        128
+      ],
+      "id": "9f6149f5-8ee3-41db-bd39-ebc6eeedabdd",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [\n  {\n    json: {\n      scenes: items.map(item => item.json)\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3568,
+        128
+      ],
+      "id": "10da6e6c-f6d1-46dc-b5f6-ee754ff4c9cc",
+      "name": "agrupa scenes"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4f836627-6709-41d5-894f-a95644bad644",
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "terror",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "terror"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "curiosidades-cientificas-e-psicologicas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "0f2d394c-0ad2-4d71-b8c3-80f14c44ecd6"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "dark side"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "26f176f9-f7aa-4e4d-9869-f81250547442",
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "jazz-with-jezz",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "jazz-with-jezz"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "0e9bab12-eaa7-4dc2-ba25-377776eb498c",
+                    "leftValue": "={{ $node['Limit'].json.nicho }}",
+                    "rightValue": "biblico",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "sob o olhar dele"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        160,
+        32
+      ],
+      "id": "7887cc71-0502-4761-b2b9-07dd2dc3907f",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        864,
+        112
+      ],
+      "id": "86bb34b8-4330-40a5-a838-3b297837699b",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "content": "Você é um diretor criativo especialista em vídeos curtos virais com foco extremo em retenção mobile (formato 9:16).\n\nSua especialidade é transformar legendas em uma sequência visual cinematográfica altamente envolvente, independente do nicho (ciência, curiosidades, histórias, terror, negócios, motivacional, filosofia, fatos, storytelling ou entretenimento).\n\nVocê receberá legendas já segmentadas. Cada legenda contém:\n\nindex\n\nstart\n\nend\n\ntext\n\nSua tarefa é agrupar semanticamente essas legendas em entre 6 e 8 cenas visuais altamente impactantes.\n\nCada cena DEVE conter o array \"subtitles\" com as legendas correspondentes àquela cena.\n\nOBJETIVO PRINCIPAL: criar uma progressão visual clara, dinâmica e cinematográfica que acompanhe perfeitamente o conteúdo emocional e narrativo das legendas.\n\nO visual deve amplificar curiosidade, tensão, emoção ou impacto conforme o conteúdo evolui.\n\nIMPORTANTE: As imagens serão geradas por IA. Portanto, as descrições devem ser claras, visuais e geráveis por modelos de geração de imagem ou vídeo.\n\nREGRAS CRÍTICAS:\n\nGere entre 6 e 8 cenas.\n\nA cena 1 deve causar impacto imediato nos primeiros 2 segundos com visual extremamente intrigante, inesperado, misterioso ou impressionante.\n\nCada cena deve agrupar legendas com significado relacionado.\n\nCada cena DEVE conter o campo \"subtitles\" com os objetos de legenda originais usados naquela cena.\n\nNÃO modificar os campos das legendas.\n\nNÃO inventar legendas.\n\nUse apenas as legendas fornecidas.\n\nAs cenas devem evoluir em intensidade emocional, curiosidade, tensão ou impacto visual.\n\nEvite visuais genéricos ou comuns.\n\nCada cena deve parecer um momento forte de um filme.\n\nNÃO incluir texto, letras, números, símbolos, interfaces, gráficos com texto, ou qualquer elemento textual visível na imagem.\n\nNÃO mencionar palavras, frases, captions, typography, labels ou overlays.\n\nAs imagens devem ser puramente visuais e cinematográficas.\n\nAs descrições devem funcionar bem com geração por IA.\n\nRETORNE \"visual\", \"emotion\" e \"keywords\" em INGLÊS.\n\nO campo \"type\" deve estar em PORTUGUÊS.\n\nRETORNE EXCLUSIVAMENTE um JSON válido.\n\nNão inclua explicações.\n\nNão use markdown.\n\nNão escreva nada fora do JSON.\n\nFormato EXATO esperado:\n\n{\n\"id\": {{ $('Limit').item.json.id }},\n\"scenes\": [\n{\n\"scene\": 1,\n\"visual\": \"clear cinematic visual description with no text elements\",\n\"emotion\": \"dominant emotional tone\",\n\"type\": \"cinematografico | animacao | abstrato | infografico | realista | 3d | microscopico | ilustracao | macro\",\n\"priority\": 3,\n\"keywords\": [\"keyword1\", \"keyword2\", \"keyword3\"],\n\"subtitles\": [\n{\n\"index\": {{ $json.subtitles[0].index }},\n\"start\": {{ $json.subtitles[0].start }},\n\"end\": {{ $json.subtitles[0].end }},\n\"text\": \"{{ $json.subtitles[0].text }}\"\n}\n]\n}\n]\n}\n\nREGRAS OBRIGATÓRIAS:\n\nGere entre 6 e 8 cenas.\n\nA cena 1 deve ser altamente impactante e gerar curiosidade imediata.\n\nNão incluir texto em nenhuma imagem.\n\nNão repetir ideias visuais.\n\nVarie o campo \"type\" quando fizer sentido.\n\n\"visual\" deve ser curto, objetivo e altamente visual.\n\n\"emotion\" deve refletir a emoção dominante da cena.\n\n\"priority\" deve variar entre 3 e 5.\n\nKeywords devem estar em INGLÊS.\n\nCada cena deve conter o campo \"subtitles\" com as legendas correspondentes.\n\nTodas as legendas devem ser usadas exatamente uma vez.\n\nNão duplicar legendas.\n\nNão omitir legendas.\n\nPense em retenção extrema para público mobile.\n\nCada cena deve maximizar curiosidade, emoção ou impacto visual.\n\nLEGENDAS:\n{{ JSON.stringify($json.subtitles, null, 2) }}\n",
+        "height": 368
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        -448
+      ],
+      "typeVersion": 1,
+      "id": "8233a1d7-32de-471b-bda6-2a025ac17711",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "4e49cff4-8eac-4641-89d8-926650f1ac8e",
+              "name": "prompt",
+              "value": "=Estética Visual – Sob o Olhar Dele\n\nAtmosfera: luminosa, acolhedora, alegre e inspiradora\n\nIluminação: suave, radiante, com foco em brilho e aura que simbolize graça ou milagre\n\nCores: tons vibrantes e quentes, como amarelo, dourado, laranja, azul celeste, branco\n\nElementos visuais:\n\nPersonagens bíblicos animados (2d) em situações simbólicas de fé e alegria\n\nCenários simbólicos, naturais ou celestiais, transmitindo paz e esperança\n\nElementos visuais que remetam a milagres, bênçãos ou transformação positiva\n\nSensação/emoção transmitida: fé, gratidão, esperança, alegria, inspiração, paz\n\nPerspectiva: 2D , estilizada, plana ou semi-plana\n\nEvitar: visual abstrato, surrealista, cores escuras ou sombrias, realismo, 3D, rostos",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        176
+      ],
+      "id": "c159b956-14b6-444c-b477-bf27b5297f49",
+      "name": "biblico"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "698e07a2-37cb-46ec-be0f-0c9a53285782",
+              "name": "prompt",
+              "value": "=Estética Visual \n\nAtmosfera: misteriosa, alienígena, desconcertante e cientificamente impossível\n\nEstilo: renderização 3D hiper-realista ou estilizada, com aparência física plausível, porém surreal\n\nIluminação\n\n• iluminação dramática e direcional\n• alto contraste com sombras profundas\n• brilhos localizados que destacam estruturas específicas\n• luz volumétrica visível em partículas, névoa ou meios translúcidos\n• emissões sutis vindas de objetos, tecidos ou estruturas\n\nCores\n\nBase predominante:\n\n• preto profundo\n• azul escuro\n• roxo\n• verde escuro\n• cinza frio\n\nCores de destaque (pontuais e contrastantes):\n\n• ciano elétrico\n• azul neon\n• roxo intenso\n• verde tóxico\n• vermelho profundo\n• branco emissivo\n\nAs cores devem sugerir energia, atividade biológica, fenômeno físico ou ambiente não natural.\n\nElementos Visuais Prioritários\n\nEstruturas biológicas em 3D\n\n• neurônios gigantes flutuando\n• sinapses disparando energia\n• DNA se fragmentando ou se reorganizando\n• tecidos orgânicos suspensos no espaço\n• células ampliadas em escala impossível\n\nFenômenos físicos e científicos\n\n• distorções gravitacionais\n• objetos sendo comprimidos ou esticados\n• matéria fragmentando\n• partículas suspensas ou orbitando\n• campos invisíveis deformando o espaço\n\nElementos conceituais e abstratos baseados em ciência\n\n• estruturas impossíveis\n• objetos isolados no vazio\n• formas simétricas ou não naturais\n• geometrias alienígenas ou matemáticas\n• superfícies líquidas ou metálicas se comportando de forma anormal\n\nAmbiente\n\n• vazio profundo\n• espaço escuro infinito\n• ambientes científicos surreais\n• superfícies inexistentes ou impossíveis\n• ausência de contexto cotidiano\n\nO ambiente deve parecer fora da realidade humana.\n\nComposição e Perspectiva\n\n• macro extremo (escala microscópica)\n• micro ao nível celular ou molecular\n• escala cósmica\n• perspectiva isolada com foco único\n• sensação de profundidade infinita\n\nSensação Transmitida\n\n• descoberta científica proibida\n• estranheza biológica\n• fenômeno impossível, porém real\n• desconforto cognitivo\n• fascínio e inquietação\n• sensação de observar algo que normalmente é invisível\n\nDiretrizes Críticas\n\nPriorizar:\n\n• renderização 3D\n• aparência hiper-realista ou fisicamente plausível\n• fenômenos científicos extremos\n• elementos isolados no vazio\n• energia, partículas ou distorções\n\nEvitar completamente:\n\n• rostos humanos\n• pessoas reconhecíveis\n• texto ou símbolos\n• objetos cotidianos comuns\n• estética motivacional ou genérica\n\n",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        64
+      ],
+      "id": "4a2ab8bd-e2f2-478e-8023-aeef1d2332e1",
+      "name": "darkside"
+    },
+    {
+      "parameters": {
+        "jsCode": "function getMotionByEmotion(emotion) {\n  switch (emotion) {\n    case \"urgency\":\n      return { style: \"zoom\", from: 1.0, to: 1.15 };\n\n    case \"curiosity\":\n      return { style: \"pan\", direction: \"left\", intensity: 0.15 };\n\n    case \"motivation\":\n      return { style: \"zoom\", from: 1.0, to: 1.08 };\n\n    case \"shock\":\n      return { style: \"zoom\", from: 1.0, to: 1.2 };\n\n    case \"inspiration\":\n      return { style: \"pan\", direction: \"right\", intensity: 0.12 };\n\n    default:\n      return null;\n  }\n}\n\n// Motion aleatório seguro\nfunction getRandomMotion() {\n  const styles = [\"zoom\", \"panLeft\", \"panRight\", \"zoomPan\", \"shake\"];\n  const style = styles[Math.floor(Math.random() * styles.length)];\n\n  switch (style) {\n    case \"zoom\":\n      return {\n        style: \"zoom\",\n        from: 1.0,\n        to: 1.1 + Math.random() * 0.1\n      };\n\n    case \"panLeft\":\n      return {\n        style: \"pan\",\n        direction: \"left\",\n        intensity: 0.05 + Math.random() * 0.15\n      };\n\n    case \"panRight\":\n      return {\n        style: \"pan\",\n        direction: \"right\",\n        intensity: 0.05 + Math.random() * 0.15\n      };\n\n    case \"zoomPan\":\n      return {\n        style: \"zoom\",\n        from: 1.0,\n        to: 1.08 + Math.random() * 0.12\n      };\n\n   \n\n    default:\n      return {\n        style: \"zoom\",\n        from: 1.0,\n        to: 1.1\n      };\n  }\n}\n\n// Aplicação\nreturn items.map((item, i) => {\n\n  const isLastScene = i === items.length - 1;\n\n  const emotion = item.json.emotion;\n\n  // 👇 sem motion na última cena (vinheta)\n  const motion = isLastScene\n    ? null\n    : (getMotionByEmotion(emotion) || getRandomMotion());\n\n  return {\n    json: {\n      index: i,\n\n      scene: item.json.scene,\n\n      start: item.json.start,\n\n      duration: item.json.duration,\n      end: item.json.end,\n      asset: {\n        type: \"image\",\n        src: item.json.scene_path,\n        motion: motion // será null na vinheta\n      },\n\n      source: \"ai\",\n\n      isVinheta: isLastScene // 👈 MUITO IMPORTANTE pro render.js\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3264,
+        128
+      ],
+      "id": "8bfdea6e-9f74-4095-9b4e-24bd3f9e6e5f",
+      "name": "motion"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3120,
+        128
+      ],
+      "id": "652f4ea1-741a-4f13-a44b-dc7b2e574ad4",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Limit').item.json.nicho }}",
+                    "rightValue": "curiosidades-cientificas-e-psicologicas",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "dbcc96df-d6ce-423b-bf06-9b628e46c170"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "curiosidades-cientificas-e-psicologicas"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "b86abf88-b9a6-484d-83ff-e8d0ee269b21",
+                    "leftValue": "={{ $('Limit').item.json.nicho }}",
+                    "rightValue": "terror",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "terror"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "5aee48f1-8196-4ba7-aede-85ab5bfd4976",
+                    "leftValue": "={{ $('Limit').item.json.nicho }}",
+                    "rightValue": "jazz-with-jezz",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "jazz-with-jezz"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "9936711e-c331-4fff-8af7-976f91d69460",
+                    "leftValue": "={{ $('Limit').item.json.nicho }}",
+                    "rightValue": "biblico",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "biblico"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1680,
+        320
+      ],
+      "id": "aa292c25-f694-44b7-8e43-149ed692917f",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5a035011-d01f-439b-8bd8-9793b7a27d8d",
+              "name": "scene_path",
+              "value": "/home/node/.n8n-files/render/vinhetas/vinheta-1.mp4",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1968,
+        352
+      ],
+      "id": "ab1a129d-83cb-46c5-9a09-5abf1613af4c",
+      "name": "url"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "5a035011-d01f-439b-8bd8-9793b7a27d8d",
+              "name": "scene_path",
+              "value": "/home/node/.n8n-files/render/vinhetas/vinheta-2.mp4",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1968,
+        512
+      ],
+      "id": "1fa62bf8-4108-4976-9ba4-7de1478fde09",
+      "name": "url1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b67f7109-e855-4e3a-acf0-4cd395996332",
+              "leftValue": "={{ $json.type }}",
+              "rightValue": "vinheta",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1744,
+        112
+      ],
+      "id": "1724c409-1d72-49e3-bf50-c046ee316501",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2272,
+        416
+      ],
+      "id": "94637814-7007-49cb-b9cd-9675366294d1",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a5299b1a-4e9e-48bd-87d0-493fdf55f703",
+              "name": "scene",
+              "value": "={{ $json.scene }}",
+              "type": "number"
+            },
+            {
+              "id": "f6c37e36-42ea-46b8-b1dd-3849289e8f0f",
+              "name": "start",
+              "value": "={{ $json.start }}",
+              "type": "number"
+            },
+            {
+              "id": "be6e76f7-b786-45d0-8d94-9ff60eb3e3fe",
+              "name": "end",
+              "value": "={{ $json.end + 1}} ",
+              "type": "number"
+            },
+            {
+              "id": "bec48a3e-dd39-44bb-afea-66b963bc43b8",
+              "name": "duration",
+              "value": "={{ $json.duration }}",
+              "type": "number"
+            },
+            {
+              "id": "cbc8c556-0450-4ffe-a44b-e30f33f7a020",
+              "name": "type",
+              "value": "={{ $json.type }}",
+              "type": "string"
+            },
+            {
+              "id": "8f08d816-673b-46ff-80f5-6a27292c7d89",
+              "name": "scene_path",
+              "value": "={{ $json.scene_path }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2464,
+        416
+      ],
+      "id": "44153c75-7dee-470c-98e7-740f1f04e999",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $node['Limit'].json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "preparing..."
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -352,
+        176
+      ],
+      "id": "b228bbdd-3690-4aea-8098-45ae4f19ddc6",
+      "name": "Update a row1",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "698e07a2-37cb-46ec-be0f-0c9a53285782",
+              "name": "prompt",
+              "value": "=ESTÉTICA VISUAL\n\nAtmosfera:\nsombria, silenciosa, inquietante e investigativa\n\nA imagem deve parecer uma fotografia real capturada em um documentário de true crime ou reportagem investigativa.\n\nA cena deve transmitir mistério, tensão e sensação de que algo perturbador aconteceu naquele lugar.\n\nESTILO\n\nFotografia hiper-realista\n\nEstética de:\n• documentários criminais\n• reportagens investigativas\n• fotografias jornalísticas\n• cenas de investigação policial\n\nA imagem deve parecer uma fotografia real capturada por câmera.\n\nPROIBIDO:\n\n• renderização 3D\n• CGI\n• arte digital estilizada\n• ilustração\n• animação\n• aparência cinematográfica exagerada\n\nILUMINAÇÃO\n\n• iluminação baixa e dramática\n• sombras profundas\n• luz fria ou neutra\n• iluminação de rua, lâmpadas antigas ou lanternas\n• iluminação parcial que revela apenas parte da cena\n• áreas escuras dominando a composição\n\nA luz deve sugerir mistério e investigação.\n\nCORES\n\nPaleta predominante:\n\n• preto profundo\n• cinza escuro\n• azul escuro\n• verde acinzentado\n• marrom escuro\n• tons frios e desaturados\n\nCores de destaque (mínimas):\n\n• luz amarelada de poste\n• luz branca de lanterna\n• reflexos frios metálicos\n\nEvitar cores vibrantes ou saturadas.\n\nELEMENTOS VISUAIS PRIORITÁRIOS\n\nAmbientes relacionados a casos criminais ou mistérios:\n\n• corredores vazios\n• portas entreabertas\n• escadas escuras\n• quartos abandonados\n• casas antigas\n• motéis isolados\n• ruas vazias à noite\n• estacionamentos desertos\n• florestas escuras\n• estradas desertas\n\nElementos investigativos sutis:\n\n• fita policial desfocada\n• luz de viatura refletindo ao fundo\n• lanternas iluminando o chão\n• objetos deixados para trás\n• janelas abertas em casas vazias\n\nEsses elementos devem sugerir que algo aconteceu, sem mostrar o evento.\n\nAMBIENTE\n\n• locais silenciosos\n• espaços vazios\n• áreas isoladas\n• cenários urbanos ou rurais abandonados\n• interiores mal iluminados\n\nO ambiente deve transmitir sensação de ausência humana e mistério.\n\nCOMPOSIÇÃO\n\n• fotografia documental\n• enquadramento natural\n• perspectiva humana realista\n• profundidade de campo suave\n• foco em um elemento central\n• grande parte da imagem envolta em sombra\n\nA imagem deve parecer capturada no momento da investigação.\n\nSENSAÇÃO TRANSMITIDA\n\n• inquietação\n• mistério\n• suspense\n• sensação de que algo aconteceu ali\n• curiosidade investigativa\n• atmosfera de true crime\n\nA imagem deve ser perturbadora de forma psicológica, não visualmente explícita.\n\nDIRETRIZES CRÍTICAS\n\nPROIBIDO MOSTRAR:\n\n• rostos humanos\n• pessoas identificáveis\n• corpos\n• violência\n• sangue\n• mutilação\n• imagens explícitas\n• cenas perturbadoras gráficas\n• texto\n• letras\n• placas legíveis\n• manchetes de jornal\n\nA imagem deve sugerir um crime ou mistério sem mostrar nada explícito.\n\nPriorizar:\n\n• ambientes vazios\n• sombras\n• iluminação investigativa\n• objetos abandonados\n• cenários silenciosos\n• atmosfera documental realista",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        352,
+        -64
+      ],
+      "id": "5dc8e3a3-c8df-4465-9e43-6e3eeca42da1",
+      "name": "terror"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dark_conteudo",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "tts_done"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -928,
+        176
+      ],
+      "id": "1c4645f2-04f3-474b-8872-dd486b4f07cc",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function sanitizeFileName(name) {\n  return name\n    .normalize(\"NFD\") // separa acentos\n    .replace(/[\\u0300-\\u036f]/g, \"\") // remove acentos\n    .replace(/\\./g, \"\") // remove pontos\n    .replace(/\\s+/g, \"_\") // espaços -> _\n    .replace(/[^a-zA-Z0-9_-]/g, \"\") // remove caracteres estranhos\n    .toLowerCase();\n}\n\nreturn items.map((item) => {\n  const base64 = item.json.artifacts[0].base64;\n\n  const visual = item.json.visual;\n  const nicho = $('Limit').first().json.nicho\n  const safeName = sanitizeFileName(visual);\n\n  return {\n    json: {\n      visual,\n      nicho\n    },\n    binary: {\n      image: {\n        data: base64,\n        mimeType: \"image/png\",\n        fileName: `${safeName}.png`\n      }\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2352,
+        -48
+      ],
+      "id": "d90e00aa-9afd-4bf1-b9aa-9c93b60524f4",
+      "name": "prepara feed"
+    },
+    {
+      "parameters": {
+        "workflowId": {
+          "__rl": true,
+          "value": "z4PEVfGFtA7JdNUm",
+          "mode": "list",
+          "cachedResultUrl": "/workflow/z4PEVfGFtA7JdNUm",
+          "cachedResultName": "feed image bank"
+        },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": true
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      },
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        2528,
+        -48
+      ],
+      "id": "28744668-3d5a-4195-bc31-d0612369c564",
+      "name": "Call 'feed image bank'"
+    },
+    {
+      "parameters": {
+        "fileSelector": "={{ $node['Limit'].json.subtitle_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        336
+      ],
+      "id": "9d4254ef-a84e-4184-9298-d946e037acbd",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        352,
+        336
+      ],
+      "id": "ce042fef-58f8-4950-acee-fa6c5002595f",
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n-files/render/temp/{{ $('Limit').item.json.id }}/scenes/{{ $binary.image.fileName }}",
+        "dataPropertyName": "image",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2464,
+        192
+      ],
+      "id": "3ff3a8dd-91aa-4bc2-855e-1c1fd9cb5d2c",
+      "name": "salva scenes vps"
+    },
+    {
+      "parameters": {
+        "command": "=mkdir -p /home/node/.n8n-files/render/temp/{{$json.id}}/scenes"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        -544,
+        176
+      ],
+      "id": "bdf38b98-bcab-41bd-90fd-14e584b4404a",
+      "name": "Execute Command"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get many rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "normalize",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Execute Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalize": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "parse srt": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "gera prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "gera prompt": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "renomeia binario scenes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "prepara feed",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "renomeia binario scenes": {
+      "main": [
+        [
+          {
+            "node": "salva scenes vps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normaliza dados": {
+      "main": [
+        [
+          {
+            "node": "agrupa scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "agrupa scenes": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "terror",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "darkside",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "biblico",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "biblico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "biblico": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "darkside": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "motion": {
+      "main": [
+        [
+          {
+            "node": "normaliza dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "motion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "url",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "url",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "url",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "url1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "url": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "url1": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ],
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Update a row1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "terror": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepara feed": {
+      "main": [
+        [
+          {
+            "node": "Call 'feed image bank'",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "parse srt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Command": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "salva scenes vps": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "53d4116e-2af1-4a50-9e08-df44e38d3ed7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "GChtRexOQvMxSNnh",
+  "tags": []
+}

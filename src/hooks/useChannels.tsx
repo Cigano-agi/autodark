@@ -17,16 +17,13 @@ export interface Channel {
   youtube_access_token: string | null;
   youtube_refresh_token: string | null;
   youtube_connected_at: string | null;
-  youtube_id: string | null;
-  youtube_uploads_playlist_id: string | null;
   youtube_username: string | null;
   youtube_total_videos: number | null;
   youtube_total_views: number | null;
   youtube_description: string | null;
   youtube_joined_date: string | null;
   youtube_banner_url: string | null;
-  last_scraped_at: string | null;
-  requires_review: boolean;
+  is_active: boolean | null;
 
   created_at: string;
   updated_at: string;
@@ -77,7 +74,6 @@ export function useChannels() {
           name: channelData.name,
           niche: channelData.niche,
           niche_color: channelData.niche_color || 'bg-muted text-muted-foreground',
-          requires_review: channelData.requires_review || false,
         })
         .select()
         .single();

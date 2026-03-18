@@ -1,0 +1,518 @@
+{
+  "name": "0.gerador de ideias mensal",
+  "nodes": [
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um curador de momentos extraordinários da Bíblia. Seu objetivo é gerar {{ $json.videos_per_day }} ideias de vídeos curtos que revelem o poder de Deus e a autoridade de Jesus, focando em milagres e intervenções reais.\n\nDIRETRIZES DE VARIEDADE E IMPACTO:\n\nFuja do Comum: Explore milagres menos citados (ex: Profetas Menores, Livros de Reis, Atos dos Apóstolos). Evite repetir sempre as mesmas 5 histórias infantis.\n\nO Hook (Obrigatório): Deve ser uma frase visual, curta e direta que descreve um fato impossível acontecendo.\n\nExemplo: \"O machado de ferro flutuou nas águas.\" ou \"A sombra dele curava os doentes no caminho.\"\n\nProibido no Hook: As palavras \"Bíblia\" ou \"Escrituras\".\n\nTom Espiritual: O foco é a exaltação da Glória de Deus e a edificação da fé. Não dê conselhos; narre o poder divino.\n\nREGRAS DE FORMATAÇÃO (TTS & ESTRUTURA):\n\nReferência para Fala: Escreva sempre por extenso para o narrador.\n\nExemplo: \"Gênesis, capítulo 1, versículo 1\" (Nunca use \":\" ou abreviações).\n\nVOCE DEVE RETORNAR EXATAMENTE {{ $json.videos_per_day }} videos\n\n\nFORMATO DE SAÍDA (JSON PURO):\n\nJSON\n{\n  \"videos\": [\n    {\n      \"hook\": \"O momento exato do impacto sobrenatural.\",\n      \"topic\": \"Descrição clara do milagre ou intervenção.\",\n      \"character\": \"Nome do personagem central.\",\n      \"reference\": \"[Livro], capítulo [número], versículo [número]\",\n      \"angle\": \"A verdade profunda que esse milagre revela sobre Deus.\",\n      \"nicho\": \"{{ $json.niche }}\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        -160
+      ],
+      "id": "38961e4c-16b5-4185-a4c7-3d84ddd6a11b",
+      "name": "ideia",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "months",
+              "triggerAtHour": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -464,
+        -272
+      ],
+      "id": "3a218f85-38d8-4648-b34f-684dace0d09b",
+      "name": "cron trigger"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"niche\": \"biblico\",\n  \"videos_per_day\": 90\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        -160
+      ],
+      "id": "17dc0609-dbf1-466f-8680-bf5ef7342512",
+      "name": "biblico"
+    },
+    {
+      "parameters": {
+        "tableId": "dark_conteudo",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "nicho",
+              "fieldValue": "={{ $json.nicho }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "ideia"
+            },
+            {
+              "fieldId": "hook",
+              "fieldValue": "={{ $json.hook }}"
+            },
+            {
+              "fieldId": "topic",
+              "fieldValue": "={{ $json.topic }}"
+            },
+            {
+              "fieldId": "reference",
+              "fieldValue": "={{ $json.reference }}"
+            },
+            {
+              "fieldId": "character",
+              "fieldValue": "={{ $json.character }}"
+            },
+            {
+              "fieldId": "angle",
+              "fieldValue": "={{ $json.angle }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        624,
+        -272
+      ],
+      "id": "e2f3f018-f6a7-4943-8273-bd19cd81e2ed",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=voce cria ganchos para um canal do youtube focado em curiosidades cientificas obscuras, bizarras e contraintuitivas sobre o corpo humano, mente, universo, animais, tempo e realidade.\n\nVocê deve criar {{ $json.videos_per_day }} ganchos.\n\nOs ganchos devem despertar curiosidade extrema, parecer algo proibido, perigoso ou impossível, mas baseado em ciência real.\n\nOs ganchos devem ter no maximo 14 palavras\n\nPriorize cenários extremos, hipotéticos ou reais, como:\n\n- limites do corpo humano\n- falhas e comportamentos estranhos do cérebro\n- condições impossíveis de sobrevivência\n- fenômenos absurdos do universo\n- fatos evolutivos bizarros\n- coisas que parecem erro da realidade\n\nEvite curiosidades comuns, óbvias ou já muito conhecidas.\n\nCada gancho deve:\n- ser específico\n- gerar tensão cognitiva imediata\n- fazer o espectador sentir necessidade de descobrir a resposta\n- soar estranho, perturbador ou contraintuitivo\n\nVOCE DEVE RETORNAR EXATAMENTE {{ $json.videos_per_day }} videos\n\nFORMATO DE SAÍDA (JSON puro):\n\n{\n  \"videos\": [\n    {\n      \"hook\": \"\",\n      \"topic\": \"\",\n      \"angle\": \"\",\n      \"nicho\": \"{{ $json.niche }}\"\n    }\n  ]\n}\n"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        80
+      ],
+      "id": "ddd8fc08-1b91-4c04-988f-bfdd9e181745",
+      "name": "ideia1",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// caminho real do array de vídeos\nconst videos =\n  items[0].json.output?.[0]?.content?.[0]?.text?.videos;\n\nif (!Array.isArray(videos)) {\n  throw new Error(\"Array de vídeos não encontrado no output do modelo\");\n}\n\n// transforma cada vídeo em um item do n8n\nreturn videos.map(video => ({\n  json: {\n    hook: video.hook,\n    topic: video.topic,\n    angle: video.angle,\n    character: video.character,\n    reference: video.reference,\n    nicho: video.nicho\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -160
+      ],
+      "id": "967b4afe-8a9b-4e74-8ca4-91ca386d7e09",
+      "name": "normalizar dados"
+    },
+    {
+      "parameters": {
+        "jsCode": "// caminho real do array de vídeos\nconst videos =\n  items[0].json.output?.[0]?.content?.[0]?.text?.videos;\n\nif (!Array.isArray(videos)) {\n  throw new Error(\"Array de vídeos não encontrado no output do modelo\");\n}\n\n// transforma cada vídeo em um item do n8n\nreturn videos.map(video => ({\n  json: {\n    hook: video.hook,\n    topic: video.topic,\n    angle: video.angle,\n    character: video.character,\n    reference: video.reference,\n    nicho: video.nicho\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        80
+      ],
+      "id": "56295175-7c94-408b-b76c-933827d6a51f",
+      "name": "normalizar dados1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"niche\": \"terror\",\n  \"videos_per_day\": 30\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        -368
+      ],
+      "id": "091a98ba-1c57-46f3-9a34-9e638db24d7e",
+      "name": "terror"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você cria ganchos para um canal do YouTube focado em TRUE CRIME e eventos perturbadores que REALMENTE aconteceram.\n\nIMPORTANTE:\nTodos os ganchos devem ser baseados em CASOS REAIS documentados.\n\nVocê deve usar crimes, desaparecimentos, experimentos ou eventos históricos que realmente aconteceram.\n\nVocê deve criar {{ $json.videos_per_day }} ganchos.\n\nCada gancho deve ter no máximo 14 palavras.\n\nOs ganchos devem gerar medo, curiosidade extrema e sensação de mistério real.\n\nPriorize casos como:\n\n- assassinatos reais bizarros\n- desaparecimentos nunca resolvidos\n- crimes com circunstâncias estranhas\n- serial killers incomuns\n- evidências perturbadoras encontradas após crimes\n- gravações, cartas ou mensagens reais ligadas a crimes\n- experimentos humanos controversos\n- eventos históricos sombrios\n\nEvite:\n\n- histórias fictícias\n- creepypasta\n- terror inventado\n- casos genéricos sem identificação\n- curiosidades vagas\n- palavras como dilacerar, mutilar, estuprar ou qualquer outro conteudo que seja pesado a esse ponto, pois o youtube nao entrega.\n\nCada gancho deve:\n\n- parecer o início de uma história perturbadora real\n- gerar tensão imediata\n- provocar curiosidade extrema\n- soar sinistro e intrigante\n- fazer o espectador querer descobrir o que aconteceu\n\nOBRIGATÓRIO:\n\nCada item deve incluir:\n\n- o gancho\n- o nome real do caso ou pessoa\n- o ângulo da história\n- uma referência pesquisável (caso, pessoa, evento ou link)\n\nVOCE DEVE RETORNAR EXATAMENTE {{ $json.videos_per_day }} videos\n\nFORMATO DE SAÍDA (JSON puro):\n\n{\n  \"videos\": [\n    {\n      \"hook\": \"\",\n      \"topic\": \"\",\n      \"angle\": \"\",\n      \"reference\": \"\",\n      \"nicho\": \"{{ $json.niche }}\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        -368
+      ],
+      "id": "d12fc44d-466e-44b6-b6d6-05eb048b611b",
+      "name": "ideia2",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// caminho real do array de vídeos\nconst videos =\n  items[0].json.output?.[0]?.content?.[0]?.text?.videos;\n\nif (!Array.isArray(videos)) {\n  throw new Error(\"Array de vídeos não encontrado no output do modelo\");\n}\n\n// transforma cada vídeo em um item do n8n\nreturn videos.map(video => ({\n  json: {\n    hook: video.hook,\n    topic: video.topic,\n    angle: video.angle,\n    reference: video.reference,\n    nicho: video.nicho\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -368
+      ],
+      "id": "5cd42fed-cca4-4e28-b685-ea587dc9465f",
+      "name": "normalizar dados2"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"niche\": \"curiosidades-cientificas-e-psicologicas\",\n  \"videos_per_day\": 90\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        80
+      ],
+      "id": "c2a5a36d-2240-41b6-901d-11bf90f0d35d",
+      "name": "darkside"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"niche\": \"jazz-with-jezz\",\n  \"videos_per_day\": 10\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -96,
+        -544
+      ],
+      "id": "8f6c487c-3368-4ea5-be9f-99101b2cb3b5",
+      "name": "jazz with j"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4.1-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4.1-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um especialista em criação de conteúdo viral para YouTube Shorts, TikTok e Instagram Reels.\n\nO objetivo é gerar ideias de vídeos curtos para um canal de conteúdo cristão focado em:\n\n• Morning Prayer\n• Daily Prayer\n• Bible encouragement\n• Faith reminders\n• Short inspirational prayers\n\nCONTEXTO DO CANAL:\n\n• Nicho: {{ $json.niche }}\n• Estética do canal: jazz lofi cristão\n• Público principal: cristãos que querem começar o dia com Deus\n• Localização cultural: Estados Unidos\n• Idioma: Inglês\n• Duração dos vídeos: 20 a 40 segundos\n\nOBJETIVO DOS VÍDEOS:\n\nCriar vídeos curtos com alto potencial de viralização usando:\n\n• ganchos emocionais\n• versículos fortes\n• mensagens simples\n• orações curtas\n• conexão espiritual imediata\n\nOs ganchos devem ser fortes o suficiente para fazer a pessoa parar de rolar o feed.\n\n\nREGRAS:\n\n• Os hooks devem ser curtos e impactantes\n• O tema deve ser simples\n• O versículo deve existir na Bíblia\n• Cada ideia deve ter um ângulo narrativo diferente\n\n\n\nQUANTIDADE DE IDEIAS:\n\nGerar exatamente {{ $json.videos_per_day }} ideias.\n\nFORMATO DE SAÍDA (JSON PURO):\n\n{\n  \"videos\": [\n    {\n      \"hook\": \"é o gancho\",\n      \"topic\": \"é o tema\",\n      \"character\": \"Nome do personagem central.\",\n      \"reference\": \"[Livro], capítulo [número], versículo [número]\",\n      \"angle\": \"o angulo do roteiro\",\n      \"nicho\": \"{{ $json.niche }}\",\n      \"translate\": \"tradução do gancho\"\n    }\n  ]\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        48,
+        -544
+      ],
+      "id": "0cbf0a22-7862-4765-bdf8-ee6cdc55665f",
+      "name": "ideia3",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// caminho real do array de vídeos\nconst videos =\n  items[0].json.output?.[0]?.content?.[0]?.text?.videos;\n\nif (!Array.isArray(videos)) {\n  throw new Error(\"Array de vídeos não encontrado no output do modelo\");\n}\n\n// transforma cada vídeo em um item do n8n\nreturn videos.map(video => ({\n  json: {\n    hook: video.hook,\n    topic: video.topic,\n    angle: video.angle,\n    reference: video.reference,\n    nicho: video.nicho,\n    translate: video.translate\n  }\n}));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        -544
+      ],
+      "id": "7e07d012-5911-40b0-a66d-2afe186acb89",
+      "name": "normalizar dados3"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "ideia": {
+      "main": [
+        [
+          {
+            "node": "normalizar dados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cron trigger": {
+      "main": [
+        [
+          {
+            "node": "terror",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "jazz with j",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "biblico",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "darkside",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "biblico": {
+      "main": [
+        [
+          {
+            "node": "ideia",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ideia1": {
+      "main": [
+        [
+          {
+            "node": "normalizar dados1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalizar dados": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalizar dados1": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "terror": {
+      "main": [
+        [
+          {
+            "node": "ideia2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ideia2": {
+      "main": [
+        [
+          {
+            "node": "normalizar dados2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalizar dados2": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "darkside": {
+      "main": [
+        [
+          {
+            "node": "ideia1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "jazz with j": {
+      "main": [
+        [
+          {
+            "node": "ideia3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ideia3": {
+      "main": [
+        [
+          {
+            "node": "normalizar dados3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "normalizar dados3": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "04bef2cb-4ccd-44c2-b291-736874b24d59",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "yveBsqa4v8mZKGJ4",
+  "tags": []
+}

@@ -185,7 +185,7 @@ export function ContentPipeline({ channelId }: ContentPipelineProps) {
                                             disabled={isAudioLoading}
                                         >
                                             {isAudioLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
-                                            Retry
+                                            Tentar novamente
                                         </Button>
                                     )}
 

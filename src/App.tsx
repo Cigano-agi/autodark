@@ -16,6 +16,8 @@ const ChannelPrompts = lazy(() => import("./pages/ChannelPrompts"));
 const LongVideoStudio = lazy(() => import("./pages/LongVideoStudio"));
 const ProductionWizard = lazy(() => import("./pages/Production/Index"));
 const FixAndVerify = lazy(() => import("./pages/FixAndVerify"));
+const PipelinePage = lazy(() => import("./pages/Pipeline/Index"));
+const FoundationPage = lazy(() => import("./pages/Foundation/Index"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +90,8 @@ const AppRoutes = () => (
       <Route path="/channel/:id/studio" element={<ProtectedRoute><LongVideoStudio /></ProtectedRoute>} />
       <Route path="/production" element={<ProtectedRoute><ProductionWizard /></ProtectedRoute>} />
       <Route path="/fix" element={<ProtectedRoute><FixAndVerify /></ProtectedRoute>} />
+      <Route path="/pipeline" element={<ProtectedRoute><PipelinePage /></ProtectedRoute>} />
+      <Route path="/channel/:id/foundation" element={<ProtectedRoute><FoundationPage /></ProtectedRoute>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -305,13 +305,13 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('[scrape] Fatal error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-    console.error(`Status 400 reason: ${errorMessage}`);
+    console.error(`Error reason: ${errorMessage}`);
     return new Response(
       JSON.stringify({
         success: false,
         error: errorMessage,
       }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

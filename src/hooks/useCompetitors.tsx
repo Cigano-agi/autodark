@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
@@ -31,19 +30,19 @@ export function useCompetitors(channelId: string | undefined) {
       if (!channelId) return [];
 
       const { data, error } = await supabase
-        .from('channel_competitors' as any)
+        .from('channel_competitors')
         .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       
-      return (data as any[]).map(c => ({
+      return data.map(c => ({
         ...c,
-        avgViews: c.avg_views,
-        uploadFrequency: c.upload_frequency,
-        lastVideo: c.last_video,
-        lastVideoDate: new Date(c.created_at).toLocaleDateString(), // Mocked as date added for now
+        avgViews: c.avg_views ?? 0,
+        uploadFrequency: c.upload_frequency ?? '?',
+        lastVideo: c.last_video ?? 'N/A',
+        lastVideoDate: new Date(c.created_at).toLocaleDateString(),
         growth: c.growth || '+0%',
       })) as CompetitorChannel[];
     },
@@ -55,19 +54,13 @@ export function useCompetitors(channelId: string | undefined) {
       if (!channelId) throw new Error('Channel ID required');
 
       const { data: newComp, error } = await supabase
-        .from('channel_competitors' as any)
+        .from('channel_competitors')
         .insert({
           channel_id: channelId,
           name: data.name,
           handle: data.handle,
-          youtube_url: data.youtube_url,
-          niche: data.niche,
-          subscribers: 0,
-          avg_views: 0,
-          upload_frequency: '?',
-          last_video: 'Buscando...',
-          growth: '+0%',
-          tracking: true,
+          youtube_url: data.youtube_url || null,
+          niche: data.niche || null,
         })
         .select()
         .single();
@@ -87,7 +80,7 @@ export function useCompetitors(channelId: string | undefined) {
   const toggleTracking = useMutation({
     mutationFn: async ({ id, tracking }: { id: string; tracking: boolean }) => {
       const { data, error } = await supabase
-        .from('channel_competitors' as any)
+        .from('channel_competitors')
         .update({ tracking })
         .eq('id', id)
         .select()
@@ -98,7 +91,7 @@ export function useCompetitors(channelId: string | undefined) {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
-      toast.success((data as any).tracking ? 'Alertas ativados' : 'Alertas desativados');
+      toast.success(data.tracking ? 'Alertas ativados' : 'Alertas desativados');
     },
     onError: (error) => {
       toast.error(`Erro ao atualizar alertas: ${error.message}`);
@@ -108,7 +101,7 @@ export function useCompetitors(channelId: string | undefined) {
   const removeCompetitor = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('channel_competitors' as any)
+        .from('channel_competitors')
         .delete()
         .eq('id', id);
 
@@ -123,6 +116,26 @@ export function useCompetitors(channelId: string | undefined) {
     },
   });
 
+  const syncCompetitors = useMutation({
+    mutationFn: async () => {
+      if (!channelId) throw new Error('Channel ID required');
+
+      const response = await supabase.functions.invoke('sync-youtube-metrics', {
+        body: { channel_id: channelId, action: 'sync-competitors' },
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
+      toast.success(`${data?.data?.updated || 0} concorrentes atualizados!`);
+    },
+    onError: (error: Error) => {
+      toast.error(`Erro ao sincronizar concorrentes: ${error.message}`);
+    },
+  });
+
   return {
     competitors: competitorsQuery.data || [],
     isLoading: competitorsQuery.isLoading,
@@ -130,5 +143,6 @@ export function useCompetitors(channelId: string | undefined) {
     addCompetitor,
     toggleTracking,
     removeCompetitor,
+    syncCompetitors,
   };
 }

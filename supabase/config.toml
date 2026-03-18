@@ -1,4 +1,28 @@
-project_id = "yyaysbsqunumitluleey"
+project_id = "bwitfpvqruwikpuaiurc"
 
 [functions.scrape-youtube-channel]
+verify_jwt = false
+
+[functions.generate-ideas]
+verify_jwt = false
+
+[functions.generate-script]
+verify_jwt = false
+
+[functions.generate-directives]
+verify_jwt = false
+
+[functions.generate-strategy]
+verify_jwt = false
+
+[functions.generate-kie-flow]
+verify_jwt = false
+
+[functions.process-content-audio]
+verify_jwt = false
+
+[functions.generate-kie-flow]
+verify_jwt = false
+
+[functions.chat-completions]
 verify_jwt = false

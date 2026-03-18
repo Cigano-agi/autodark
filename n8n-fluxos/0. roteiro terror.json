@@ -1,0 +1,257 @@
+{
+  "name": "0. roteiro terror",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1232,
+        48
+      ],
+      "id": "18091ca6-9916-4c8f-99c0-146577fdd5f8",
+      "name": "cron trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  return {\n    json: {\n      roteiro: item.json.output[0].content[0].text.roteiro_final,\n      tema:item.json.output[0].content[0].text.tema,\n      gancho: item.json.output[0].content[0].text.gancho,\n      char_used:item.json.output[0].content[0].text.char_used\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        48
+      ],
+      "id": "267bf1c6-9d57-4796-861a-07e49c52fe00",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um roteirista especializado em vídeos curtos de TRUE CRIME e eventos perturbadores que realmente aconteceram.\n\nSeu trabalho é transformar um caso real em uma narrativa curta, intensa e intrigante, otimizada para narração em TTS.\n\nO roteiro deve gerar tensão, curiosidade extrema e sensação de mistério real.\n\nIMPORTANTE:\nO roteiro NÃO deve revelar completamente o desfecho do caso.\nEle deve terminar em um momento de suspense que faça o espectador querer saber o final.\n\nPARÂMETROS TÉCNICOS CRÍTICOS:\n\nLimite Estrito: O campo roteiro_final NUNCA deve ultrapassar 500 caracteres (contando espaços).\n\nInício: Comece EXATAMENTE com o hook: {{$json.hook}}.\n\nCaso Real: A história deve mencionar naturalmente {{$json.topic}}.\n\nReferência Obrigatória: O roteiro deve citar explicitamente a referência {{$json.reference}}.\n\nA referência deve aparecer de forma natural na narrativa exatamente como está escrita.\n\n\n\nFinal:\nO roteiro deve terminar antes da explicação final do caso, deixando um mistério ou pergunta no ar.\n\nEncerramento:\nFinalize com uma frase baseada em {{$json.angle}} e o CTA:\n\n\"Se você quer saber o final dessa história macabra, diga nos comentários.\"\n\nQUALIDADE NARRATIVA (PARA TTS):\n\nFactualidade:\nSiga estritamente os fatos conhecidos do caso {{$json.reference}}.\nNão invente diálogos, personagens ou eventos.\n\nClareza:\nUse frases curtas e diretas.\n\nRitmo de Narração:\nO texto deve ter pausas naturais e leitura fluida para voz de IA.\nNão abrevie Estados Unidos, evite palavras pesadas como \"mutilação, pedofilia, estupro\"\n\nEstrutura narrativa ideal:\n\n1. Hook perturbador\n2. Contexto rápido do caso\n3. Evento estranho ou crime\n4. Descoberta perturbadora\n5. Suspense final sem revelar tudo + CTA\n\nTom:\n\n- sombrio\n- intrigante\n- investigativo\n- documental\n- inquietante\n\nPROCESSO DE ESCRITA:\n\nLeia primeiro o limite máximo de caracteres.\n\nConstrua a narrativa mantendo apenas os fatos essenciais.\n\nSe ultrapassar o limite, reduza adjetivos e frases extras.\n\nNUNCA remova:\n\n- o Hook\n- a referência {{$json.reference}}\n- o CTA final\n\nFORMATO DE SAÍDA (JSON PURO):\n\n{\n\"roteiro_final\": \"Texto completo aqui.\",\n\"tema\": \"{{$json.topic}}\",\n\"char_used\": [número real de caracteres do roteiro_final]\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -688,
+        48
+      ],
+      "id": "f8a773b2-c2c9-49c8-ab88-81518ffa3076",
+      "name": "roteiro",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nicho",
+              "keyValue": "terror"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "ideia"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1024,
+        48
+      ],
+      "id": "6c03c170-8ef3-460a-b7bb-b319306d0364",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 4
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        48
+      ],
+      "id": "bc4d4b8c-d7af-4dc0-8d86-de7066d14714",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "script",
+              "fieldValue": "={{ $json.roteiro }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_tts"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        48
+      ],
+      "id": "b0f2b576-20b6-4209-9c65-f3725997e5ef",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "cron trigger": [
+      {
+        "json": {
+          "timestamp": "2026-03-02T13:03:09.903-03:00",
+          "Readable date": "March 2nd 2026, 1:03:09 pm",
+          "Readable time": "1:03:09 pm",
+          "Day of week": "Monday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "02",
+          "Hour": "13",
+          "Minute": "03",
+          "Second": "09",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "cron trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "roteiro": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "roteiro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "b2ea53ee-f32f-4989-a7ea-89ae91092cf9",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "HybpjpjiNxTBB1cZ",
+  "tags": []
+}
