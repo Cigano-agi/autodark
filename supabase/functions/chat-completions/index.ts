@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "http://localhost:5173";
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -12,12 +11,27 @@ if (!AI33_API_KEY) throw new Error("AI33_API_KEY não configurado nas variáveis
 const AI33_URL = "https://api.ai33.pro/v1/chat/completions";
 
 Deno.serve(async (req) => {
-    // Handle CORS preflight
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
 
     try {
+        // Auth guard
+        const authHeader = req.headers.get("Authorization");
+        const token = authHeader?.replace("Bearer ", "") ?? "";
+        const supabase = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+            { global: { headers: { Authorization: authHeader! } } }
+        );
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (!user || authError) {
+            return new Response(JSON.stringify({ error: "Unauthorized" }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 401,
+            });
+        }
+
         const { systemPrompt, userPrompt, temperature = 0.7, requireJson = false } = await req.json();
         
         if (!systemPrompt || !userPrompt) {

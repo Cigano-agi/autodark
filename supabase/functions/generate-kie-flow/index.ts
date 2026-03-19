@@ -26,15 +26,22 @@ Deno.serve(async (req) => {
     }
 
     try {
+        const authHeader = req.headers.get("Authorization");
         const supabaseClient = createClient(
             Deno.env.get("SUPABASE_URL") ?? "",
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-            {
-                global: {
-                    headers: { Authorization: req.headers.get("Authorization")! },
-                },
-            }
+            { global: { headers: { Authorization: authHeader! } } }
         );
+
+        // Auth guard
+        const token = authHeader?.replace("Bearer ", "") ?? "";
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+        if (!user || authError) {
+            return new Response(JSON.stringify({ status: "error", message: "Unauthorized" }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 401,
+            });
+        }
 
         const { channelId, topic } = await req.json() as KieFlowRequest;
 
@@ -72,10 +79,7 @@ Deno.serve(async (req) => {
         // --- REAL MODE (If API key provided) ---
         console.log(`Starting real Kie.ai generation for topic: ${topic}`);
 
-        // This block is pseudo-code for the anticipated API.
-        // Replace with ACTUAL Kie.ai payloads once documentation is provided.
-        /*
-        const kieResponse = await fetch(`${kieApiUrl}/generate-video`, {
+        const kieResponse = await fetch("https://api.kie.ai/api/v1/flux/kontext/generate", {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -83,21 +87,29 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             prompt: topic,
-            type: 'dark_channel_short',
-            // other params...
+            aspectRatio: "16:9",
+            outputFormat: "jpeg",
+            model: "flux-kontext-pro",
+            enableTranslation: true
           })
         });
     
         if (!kieResponse.ok) {
-            throw new Error(`Kie.ai API Error: ${kieResponse.statusText}`);
+            const err = await kieResponse.text();
+            throw new Error(`Kie.ai API Error (${kieResponse.status}): ${err}`);
         }
     
         const kieResult = await kieResponse.json();
-        */
+        const taskId = kieResult?.data?.taskId;
+
+        if (!taskId) {
+            throw new Error("Kie.ai returned success but no taskId found.");
+        }
 
         return new Response(JSON.stringify({
             status: 'success',
-            message: 'Real Kie.ai API implementation pending format confirmation. Set KIE_API_KEY to null to use Mock.',
+            taskId: taskId,
+            message: 'Task started on Kie.ai. Poll for result using the taskId.',
         }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
             status: 200,

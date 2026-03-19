@@ -98,36 +98,68 @@ FORMATO DE SAÍDA (JSON PURO):
   ]
 }`;
 
-        const aiResponse = await fetch(apiUrl, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                model: "gpt-4o-mini",
-                messages: [
-                    { role: "system", content: systemPrompt },
-                    { role: "user", content: `Gere ${videosPerBatch} ideias de vídeos curtos sobre ${topic}` }
-                ],
-                temperature: 0.85,
-                response_format: { type: "json_object" },
-            }),
-        });
+        const callAI = async (provider: "AI33" | "OpenRouter") => {
+            const key = provider === "AI33" ? AI33_API_KEY : OPENROUTER_API_KEY;
+            const url = provider === "AI33" 
+                ? "https://api.ai33.pro/v1/chat/completions" 
+                : "https://openrouter.ai/api/v1/chat/completions";
+            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-exp:free";
 
-        if (!aiResponse.ok) {
-            const errorText = await aiResponse.text();
-            console.error("AI33 Error:", errorText);
-            throw new Error(`AI API failed: ${aiResponse.statusText}`);
+            if (!key) throw new Error(`${provider} API key not found`);
+
+            const res = await fetch(url, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${key}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    model,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: `Gere ${videosPerBatch} ideias de vídeos curtos sobre ${topic}` }
+                    ],
+                    temperature: 0.85,
+                    response_format: { type: "json_object" },
+                }),
+            });
+
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(`${provider} failed (${res.status}): ${err.slice(0, 100)}`);
+            }
+
+            return await res.json();
+        };
+
+        let aiData;
+        try {
+            if (AI33_API_KEY) {
+                try {
+                    aiData = await callAI("AI33");
+                } catch (e) {
+                    console.warn(`AI33 failed: ${e.message}. Falling back to OpenRouter.`);
+                    if (OPENROUTER_API_KEY) {
+                        aiData = await callAI("OpenRouter");
+                    } else {
+                        throw e;
+                    }
+                }
+            } else if (OPENROUTER_API_KEY) {
+                aiData = await callAI("OpenRouter");
+            } else {
+                throw new Error("No AI keys found");
+            }
+        } catch (e) {
+            throw new Error(`AI generation failed: ${e.message}`);
         }
 
-        const aiData = await aiResponse.json();
         const rawContent = aiData.choices?.[0]?.message?.content || "{}";
         let parsed;
         try {
-            parsed = JSON.parse(rawContent);
+            parsed = typeof rawContent === 'string' ? JSON.parse(rawContent) : rawContent;
         } catch {
-            throw new Error("Failed to parse AI response as JSON");
+            throw new Error("Failed to parse AI response as JSON: " + rawContent);
         }
 
         const videos = parsed.videos;
@@ -146,17 +178,15 @@ FORMATO DE SAÍDA (JSON PURO):
         const contentRows = videos.map((v: any) => ({
             channel_id: channelId,
             title: v.hook,
-            hook: v.hook,
-            topic: v.topic,
-            character: v.character || null,
-            reference: v.reference || null,
-            angle: v.angle || null,
-            nicho_slug: nichoSlug,
-            status: "idea_generated",
+            concept: v.topic,
+            reasoning: v.angle,
+            score: Math.floor(Math.random() * 20) + 80, // High score for AI ideas
+            status: "new",
+            created_at: new Date().toISOString(),
         }));
 
         const { data: inserted, error: insertError } = await supabaseClient
-            .from("channel_contents")
+            .from("content_ideas")
             .insert(contentRows)
             .select();
 

@@ -1,10 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") || "http://localhost:5173";
+import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
 export const corsHeaders = {
-    "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
+    "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers":
         "authorization, x-client-info, apikey, content-type",
 };
@@ -19,6 +18,22 @@ serve(async (req) => {
     }
 
     try {
+        // Auth guard
+        const authHeader = req.headers.get("Authorization");
+        const token = authHeader?.replace("Bearer ", "") ?? "";
+        const supabase = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+            { global: { headers: { Authorization: authHeader! } } }
+        );
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (!user || authError) {
+            return new Response(JSON.stringify({ error: "Unauthorized" }), {
+                headers: { ...corsHeaders, "Content-Type": "application/json" },
+                status: 401,
+            });
+        }
+
         const { topic, channelContext, webhookUrl } = await req.json();
 
         if (!topic) {
@@ -52,13 +67,12 @@ Retorne APENAS um JSON válido.`;
                 "X-Title": "AutoDark Engine",
             },
             body: JSON.stringify({
-                model: "google/gemini-2.5-flash", // Using extremely fast and cheap model via OpenRouter
+                model: "google/gemini-2.5-flash",
                 messages: [
                     { role: "system", content: systemPrompt },
                     { role: "user", content: userPrompt }
                 ],
                 temperature: 0.7,
-                response_format: { type: "json_object" }
             }),
         });
 
@@ -69,9 +83,23 @@ Retorne APENAS um JSON válido.`;
         }
 
         const data = await response.json();
-        const generatedScript = JSON.parse(data.choices[0].message.content);
+        const rawContent: string = data.choices[0].message.content || "";
 
-        return new Response(JSON.stringify({ success: true, script: generatedScript }), {
+        // Strip markdown code fences if model wraps JSON in ```json ... ```
+        const jsonStr = rawContent.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Modelo não retornou JSON válido");
+
+        const generatedScript = JSON.parse(jsonMatch[0]);
+
+        // Handle models that wrap everything under a "script" key
+        const script = generatedScript.script ?? generatedScript;
+
+        if (!Array.isArray(script.scenes)) {
+            throw new Error("Roteiro gerado sem campo 'scenes'. Tente novamente.");
+        }
+
+        return new Response(JSON.stringify({ success: true, script }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
 
