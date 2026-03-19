@@ -1,5 +1,11 @@
 import { callClaude, callImageGeneration, extractJson } from "./llm";
+import { VISUAL_STYLE_PROMPTS } from "@/hooks/useBlueprint";
 import type { VideoChapter, BlueprintData, SceneData } from "./types";
+
+function resolveVisualStyle(raw: string | null | undefined): string {
+  if (!raw) return "cinematic, dark aesthetic, dramatic lighting, high contrast, 4K";
+  return VISUAL_STYLE_PROMPTS[raw] ?? raw;
+}
 
 export async function extractAndGenerateVisuals(
   chapters: VideoChapter[],
@@ -7,7 +13,7 @@ export async function extractAndGenerateVisuals(
   blueprint: BlueprintData | null,
   onProgress?: (done: number, total: number) => void,
 ): Promise<VideoChapter[]> {
-  const style = blueprint?.visual_style || "cinematic, dark aesthetic, dramatic lighting";
+  const style = resolveVisualStyle(blueprint?.visual_style);
   const charHint = blueprint?.character_description ? `Featuring: ${blueprint.character_description}. ` : "";
   const updatedChapters: VideoChapter[] = [];
 

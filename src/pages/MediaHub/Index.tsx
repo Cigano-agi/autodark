@@ -155,6 +155,25 @@ const VOICE_PROVIDERS: VoiceProvider[] = [
     available: false,
     badge: "R$ 9,00/min",
   },
+  {
+    id: "google_chirp",
+    name: "Google Cloud TTS — Chirp3-HD",
+    provider: "Google Cloud",
+    description: "Vozes Chirp3-HD. Melhor pronúncia em pt-BR do mercado. Requer GOOGLE_TTS_API_KEY.",
+    pricePerMin: 0.18,
+    quality: "premium",
+    voices: [
+      { id: "pt-BR-Chirp3-HD-Algenib",   label: "Algenib (masculino)", lang: "pt-BR" },
+      { id: "pt-BR-Chirp3-HD-Autonoe",   label: "Autonoe (feminino)", lang: "pt-BR" },
+      { id: "pt-BR-Chirp3-HD-Enceladus", label: "Enceladus (masculino grave)", lang: "pt-BR" },
+      { id: "pt-BR-Chirp3-HD-Gacrux",    label: "Gacrux (feminino cálido)", lang: "pt-BR" },
+      { id: "pt-BR-Chirp3-HD-Sadaltager",label: "Sadaltager (neutro)", lang: "pt-BR" },
+      { id: "en-US-Chirp3-HD-Despina",   label: "Despina EN (feminino)", lang: "en-US" },
+      { id: "en-US-Chirp3-HD-Gacrux",    label: "Gacrux EN (masculino)", lang: "en-US" },
+    ],
+    available: true,
+    badge: "R$ 0,18/min",
+  },
 ];
 
 // ─── Image Providers ──────────────────────────────────────────────────────────

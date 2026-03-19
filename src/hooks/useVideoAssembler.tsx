@@ -1,87 +1,236 @@
 import { useState, useCallback } from "react";
 
-interface AssemblyScene {
+export interface AssemblyScene {
   imageUrl: string;
   durationSec: number;
   subtitle?: string;
+  emotion?: string;
 }
 
+// ── Motion by emotion (mirrors n8n pipeline getMotionByEmotion) ──────────────
+function getMotion(emotion: string | undefined): { style: string; zoom?: number } {
+  switch (emotion) {
+    case "urgency":     return { style: "zoom", zoom: 1.15 };
+    case "shock":       return { style: "zoom", zoom: 1.20 };
+    case "motivation":  return { style: "zoom", zoom: 1.08 };
+    case "curiosity":   return { style: "panLeft" };
+    case "inspiration": return { style: "panRight" };
+    default:            return { style: "zoom", zoom: 1.08 };
+  }
+}
+
+// ── Draw a single scene image with its motion applied ────────────────────────
+function drawSceneImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  motion: { style: string; zoom?: number },
+  progress: number,           // 0→1 within this scene
+  W: number,
+  H: number,
+) {
+  const scale = Math.min(W / img.naturalWidth, H / img.naturalHeight);
+  // Slightly over-scale so pan/zoom never reveals black edges
+  const overscale = 1.22;
+  const w = img.naturalWidth  * scale * overscale;
+  const h = img.naturalHeight * scale * overscale;
+
+  ctx.fillStyle = "#000";
+  ctx.fillRect(0, 0, W, H);
+
+  if (motion.style === "panLeft") {
+    const maxPan = (w - W) / 2;
+    const panX = (W - w) / 2 + maxPan * progress;
+    ctx.drawImage(img, panX, (H - h) / 2, w, h);
+  } else if (motion.style === "panRight") {
+    const maxPan = (w - W) / 2;
+    const panX = (W - w) / 2 - maxPan * progress;
+    ctx.drawImage(img, panX, (H - h) / 2, w, h);
+  } else {
+    // Zoom in
+    const targetZoom = motion.zoom ?? 1.08;
+    const zoom = 1 + progress * (targetZoom - 1);
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(zoom, zoom);
+    ctx.translate(-W / 2, -H / 2);
+    ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h);
+    ctx.restore();
+  }
+}
+
+// ── Cinematic vignette overlay ────────────────────────────────────────────────
+function drawVignette(ctx: CanvasRenderingContext2D, W: number, H: number) {
+  const grad = ctx.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.85);
+  grad.addColorStop(0, "rgba(0,0,0,0)");
+  grad.addColorStop(1, "rgba(0,0,0,0.55)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+}
+
+// ── Subtitle rendering ────────────────────────────────────────────────────────
+function drawSubtitles(
+  ctx: CanvasRenderingContext2D,
+  subtitle: string,
+  sceneElapsed: number,
+  durationSec: number,
+  W: number,
+  H: number,
+) {
+  const words = subtitle.split(" ").filter(Boolean);
+  const CHUNK = 4; // 4 words per chunk — matches TikTok/Shorts style
+  const chunks: string[] = [];
+  for (let i = 0; i < words.length; i += CHUNK)
+    chunks.push(words.slice(i, i + CHUNK).join(" "));
+
+  const chunkDuration = durationSec / Math.max(chunks.length, 1);
+  const chunkIdx = Math.min(Math.floor(sceneElapsed / chunkDuration), chunks.length - 1);
+  const chunkElapsed = sceneElapsed - chunkIdx * chunkDuration;
+
+  // Fade-in first 0.15s, fade-out last 0.15s of each chunk
+  const fadeIn  = Math.min(chunkElapsed / 0.15, 1);
+  const fadeOut = Math.min((chunkDuration - chunkElapsed) / 0.15, 1);
+  const alpha = Math.min(fadeIn, fadeOut);
+
+  const text = chunks[chunkIdx] || "";
+  if (!text || alpha <= 0) return;
+
+  const FONT_SIZE = 42;
+  ctx.font = `bold ${FONT_SIZE}px "Arial", sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "bottom";
+
+  const y = H - 55;
+  const metrics = ctx.measureText(text);
+  const padX = 24;
+  const padY = 14;
+  const boxW = metrics.width + padX * 2;
+  const boxH = FONT_SIZE + padY * 2;
+  const boxX = W / 2 - boxW / 2;
+  const boxY = y - FONT_SIZE - padY;
+
+  // Semi-transparent background pill
+  ctx.globalAlpha = alpha * 0.72;
+  ctx.fillStyle = "#000";
+  ctx.beginPath();
+  ctx.roundRect(boxX, boxY, boxW, boxH, 10);
+  ctx.fill();
+
+  // Text: white with strong black outline
+  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = "rgba(0,0,0,0.95)";
+  ctx.lineWidth = 6;
+  ctx.lineJoin = "round";
+  ctx.strokeText(text, W / 2, y);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillText(text, W / 2, y);
+
+  ctx.globalAlpha = 1;
+}
+
+// ── Main hook ─────────────────────────────────────────────────────────────────
 export function useVideoAssembler() {
   const [progress, setProgress] = useState(0);
   const [log, setLog] = useState("");
   const [assembling, setAssembling] = useState(false);
 
   const assembleVideo = useCallback(
-    async (scenes: AssemblyScene[], audioBlob: Blob | null): Promise<string> => {
+    async (
+      scenes: AssemblyScene[],
+      audioBlob: Blob | null,
+      bgMusicUrl?: string,       // optional background music (low volume)
+    ): Promise<string> => {
       setAssembling(true);
       setProgress(0);
       setLog("");
 
       try {
-        const WIDTH = 1280;
+        const WIDTH  = 1280;
         const HEIGHT = 720;
-        const FPS = 30;
+        const FPS    = 30;
+        const FADE_SEC = 0.4; // cross-dissolve duration between scenes
 
-        const canvas = document.createElement("canvas");
-        canvas.width = WIDTH;
-        canvas.height = HEIGHT;
-        const ctx = canvas.getContext("2d")!;
-
-        // Load all images first
+        // ── Load all images ─────────────────────────────────────────────────
         setLog("[autodark] Carregando imagens...");
         const images: HTMLImageElement[] = [];
         for (let i = 0; i < scenes.length; i++) {
-          setLog((prev) => prev + `\n[autodark] Carregando cena ${i + 1}/${scenes.length}...`);
+          setLog((p) => p + `\n[autodark] Carregando cena ${i + 1}/${scenes.length}...`);
           const img = new Image();
           img.crossOrigin = "anonymous";
           await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
+            img.onload  = () => resolve();
             img.onerror = () => reject(new Error(`Falha ao carregar imagem da cena ${i + 1}`));
             img.src = scenes[i].imageUrl;
           });
           images.push(img);
         }
 
-        // Setup MediaRecorder with canvas stream + optional audio
+        // ── Canvas & stream ─────────────────────────────────────────────────
+        const canvas = document.createElement("canvas");
+        canvas.width  = WIDTH;
+        canvas.height = HEIGHT;
+        const ctx = canvas.getContext("2d")!;
         const stream = canvas.captureStream(FPS);
 
-        if (audioBlob) {
-          const audioUrl = URL.createObjectURL(audioBlob);
-          const audioEl = new Audio(audioUrl);
-          audioEl.loop = true;
+        // ── Audio: narration + optional BGM ────────────────────────────────
+        if (audioBlob || bgMusicUrl) {
           const audioCtx = new AudioContext();
-          const source = audioCtx.createMediaElementSource(audioEl);
           const dest = audioCtx.createMediaStreamDestination();
-          source.connect(dest);
-          dest.stream.getAudioTracks().forEach((track) => stream.addTrack(track));
-          audioEl.play();
+
+          if (audioBlob) {
+            const narrUrl = URL.createObjectURL(audioBlob);
+            const narrEl  = new Audio(narrUrl);
+            narrEl.loop   = false; // plays once, matches video length
+            const narrSrc  = audioCtx.createMediaElementSource(narrEl);
+            const narrGain = audioCtx.createGain();
+            narrGain.gain.value = 1.0;
+            narrSrc.connect(narrGain).connect(dest);
+            narrEl.play();
+          }
+
+          if (bgMusicUrl) {
+            const bgEl  = new Audio(bgMusicUrl);
+            bgEl.loop   = true;
+            const bgSrc  = audioCtx.createMediaElementSource(bgEl);
+            const bgGain = audioCtx.createGain();
+            bgGain.gain.value = 0.12; // 12% volume — music under narration
+            bgSrc.connect(bgGain).connect(dest);
+            bgEl.play();
+          }
+
+          dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
         }
 
+        // ── MediaRecorder ───────────────────────────────────────────────────
         const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
           ? "video/webm;codecs=vp9"
           : "video/webm";
-        const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 2_500_000 });
-        const chunks: Blob[] = [];
-        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        const recorder = new MediaRecorder(stream, {
+          mimeType,
+          videoBitsPerSecond: 5_000_000, // 5 Mbps — good HD quality
+        });
+        const videoChunks: Blob[] = [];
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) videoChunks.push(e.data); };
 
-        const totalDuration = scenes.reduce((sum, s) => sum + s.durationSec, 0);
+        // Effective total duration accounts for cross-fade overlaps
+        const totalDuration =
+          scenes.reduce((s, sc) => s + sc.durationSec, 0) -
+          (scenes.length - 1) * FADE_SEC;
 
-        setLog((prev) => prev + `\n[autodark] Renderizando ${scenes.length} cenas (${totalDuration}s)...`);
+        setLog((p) => p + `\n[autodark] Renderizando ${scenes.length} cenas (${totalDuration.toFixed(1)}s)...`);
 
         return await new Promise<string>((resolve, reject) => {
           recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: mimeType });
-            const url = URL.createObjectURL(blob);
+            const blob = new Blob(videoChunks, { type: mimeType });
+            const url  = URL.createObjectURL(blob);
             setProgress(100);
-            setLog((prev) => prev + `\n[autodark] Video montado! (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
+            setLog((p) => p + `\n[autodark] Vídeo montado! (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
             resolve(url);
           };
           recorder.onerror = (e) => reject(e);
+          recorder.start(100);
 
-          recorder.start(100); // collect data every 100ms
-
-          let elapsed = 0;
-          let sceneIdx = 0;
+          let elapsed    = 0;
+          let sceneIdx   = 0;
           let sceneElapsed = 0;
 
           const drawFrame = () => {
@@ -90,73 +239,43 @@ export function useVideoAssembler() {
               return;
             }
 
-            // Draw current scene with Ken Burns (subtle zoom over time)
-            const img = images[sceneIdx];
-            const scale = Math.min(WIDTH / img.naturalWidth, HEIGHT / img.naturalHeight);
-            const w = img.naturalWidth * scale;
-            const h = img.naturalHeight * scale;
+            const scene    = scenes[sceneIdx];
+            const motion   = getMotion(scene.emotion);
+            const progress = sceneElapsed / scene.durationSec;
 
-            const zoomProgress = sceneElapsed / scenes[sceneIdx].durationSec;
-            const zoom = 1 + zoomProgress * 0.08;
-            ctx.save();
-            ctx.translate(WIDTH / 2, HEIGHT / 2);
-            ctx.scale(zoom, zoom);
-            ctx.translate(-WIDTH / 2, -HEIGHT / 2);
-            ctx.fillStyle = "#000";
-            ctx.fillRect(0, 0, WIDTH, HEIGHT);
-            ctx.drawImage(img, (WIDTH - w) / 2, (HEIGHT - h) / 2, w, h);
-            ctx.restore();
+            // ── Draw current scene ─────────────────────────────────────────
+            drawSceneImage(ctx, images[sceneIdx], motion, progress, WIDTH, HEIGHT);
 
-            // Scene title overlay (first 2 seconds)
-            if (sceneElapsed < 2) {
-              const alpha = sceneElapsed < 0.5 ? sceneElapsed / 0.5 : sceneElapsed > 1.5 ? (2 - sceneElapsed) / 0.5 : 1;
-              ctx.fillStyle = `rgba(0,0,0,${0.5 * alpha})`;
-              ctx.fillRect(0, HEIGHT - 80, WIDTH, 80);
-              ctx.fillStyle = `rgba(255,140,0,${alpha})`;
-              ctx.font = "bold 28px sans-serif";
-              ctx.textAlign = "center";
-              ctx.fillText(`Cena ${sceneIdx + 1}`, WIDTH / 2, HEIGHT - 35);
+            // ── Cross-dissolve: blend next scene during last FADE_SEC ──────
+            const fadeStart = scene.durationSec - FADE_SEC;
+            if (sceneElapsed >= fadeStart && sceneIdx + 1 < scenes.length) {
+              const fadeAlpha = (sceneElapsed - fadeStart) / FADE_SEC;
+              ctx.globalAlpha = Math.min(fadeAlpha, 1);
+              drawSceneImage(ctx, images[sceneIdx + 1], getMotion(scenes[sceneIdx + 1].emotion), 0, WIDTH, HEIGHT);
+              ctx.globalAlpha = 1;
             }
 
-            // Subtitles (Yellow) — wraps long text into short animated chunks
-            if (scenes[sceneIdx].subtitle) {
-              const fullSub = scenes[sceneIdx].subtitle!;
-              const words = fullSub.split(" ");
-              const CHUNK = 7; // words per subtitle chunk
-              const chunks: string[] = [];
-              for (let w = 0; w < words.length; w += CHUNK) chunks.push(words.slice(w, w + CHUNK).join(" "));
-              const sceneDuration = scenes[sceneIdx].durationSec;
-              const chunkDuration = sceneDuration / Math.max(chunks.length, 1);
-              const chunkIdx = Math.min(Math.floor(sceneElapsed / chunkDuration), chunks.length - 1);
-              const sub = chunks[chunkIdx] || "";
+            // ── Cinematic vignette ─────────────────────────────────────────
+            drawVignette(ctx, WIDTH, HEIGHT);
 
-              if (sub) {
-                ctx.font = "bold 38px sans-serif";
-                ctx.textAlign = "center";
-                ctx.textBaseline = "bottom";
-                const y = HEIGHT - 60;
-                // Background pill for readability
-                const metrics = ctx.measureText(sub);
-                const pad = 20;
-                ctx.fillStyle = "rgba(0,0,0,0.55)";
-                ctx.beginPath();
-                ctx.roundRect(WIDTH / 2 - metrics.width / 2 - pad, y - 50, metrics.width + pad * 2, 58, 8);
-                ctx.fill();
-                // Yellow text with black stroke
-                ctx.strokeStyle = "rgba(0,0,0,0.9)";
-                ctx.lineWidth = 5;
-                ctx.strokeText(sub, WIDTH / 2, y);
-                ctx.fillStyle = "#FFFF00";
-                ctx.fillText(sub, WIDTH / 2, y);
+            // ── Subtitles ──────────────────────────────────────────────────
+            if (scene.subtitle) {
+              // During cross-fade, subtitle of current scene fades out
+              if (sceneElapsed >= fadeStart) {
+                const fadeOut = 1 - (sceneElapsed - fadeStart) / FADE_SEC;
+                ctx.globalAlpha = Math.max(fadeOut, 0);
               }
+              drawSubtitles(ctx, scene.subtitle, sceneElapsed, scene.durationSec, WIDTH, HEIGHT);
+              ctx.globalAlpha = 1;
             }
 
+            // ── Advance time ───────────────────────────────────────────────
             sceneElapsed += 1 / FPS;
-            elapsed += 1 / FPS;
+            elapsed      += 1 / FPS;
+            setProgress(Math.round(Math.min(elapsed / totalDuration, 1) * 100));
 
-            setProgress(Math.round((elapsed / totalDuration) * 100));
-
-            if (sceneElapsed >= scenes[sceneIdx].durationSec) {
+            if (sceneElapsed >= scene.durationSec) {
+              // Account for overlap: next scene starts FADE_SEC before current ends
               sceneIdx++;
               sceneElapsed = 0;
             }
@@ -167,13 +286,13 @@ export function useVideoAssembler() {
           requestAnimationFrame(drawFrame);
         });
       } catch (e) {
-        setLog((prev) => prev + `\n[autodark] ERRO: ${e instanceof Error ? e.message : "Erro desconhecido"}`);
+        setLog((p) => p + `\n[autodark] ERRO: ${e instanceof Error ? e.message : "Erro desconhecido"}`);
         throw e;
       } finally {
         setAssembling(false);
       }
     },
-    []
+    [],
   );
 
   return { assembleVideo, assembling, progress, log };

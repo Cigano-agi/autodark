@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useChannels } from "@/hooks/useChannels";
-import { useBlueprint } from "@/hooks/useBlueprint";
+import { useBlueprint, VISUAL_STYLE_PROMPTS } from "@/hooks/useBlueprint";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
 import { useChannelPrompts } from "@/hooks/useChannelPrompts";
 import { useContents } from "@/hooks/useContents";
@@ -35,6 +35,12 @@ const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.
 const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
 const KIE_API_KEY = (import.meta.env.VITE_KIE_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
 
+// Resolves a visual_style value (preset key or free-text) to an image prompt string
+function resolveVisualStyle(raw: string | null | undefined): string {
+  if (!raw) return "cinematic, dark aesthetic, dramatic lighting, high contrast, 4K";
+  return VISUAL_STYLE_PROMPTS[raw] ?? raw;
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type VideoLanguage = "en" | "es" | "pt-BR";
@@ -54,6 +60,7 @@ interface Scene {
   title: string;
   narration: string;
   visual_prompt: string;
+  emotion?: string;
   imageUrl?: string;
   chapterId?: string;
   durationSec?: number;
@@ -72,6 +79,7 @@ interface HubDefaults {
 const VOICE_PRICES: Record<string, number> = {
   browser: 0,
   openai: 0.45,
+  google_chirp: 0.18,
   fish: 1.80,
   elevenlabs: 9.00,
 };
@@ -347,6 +355,7 @@ export default function ProductionWizard() {
   // ── Step 5: Scenes + Images ──
   const [generatingSceneImage, setGeneratingSceneImage] = useState<Record<string, boolean>>({});
   const [allScenesLoading, setAllScenesLoading] = useState(false);
+  const cancelImagesRef = useRef(false);
 
   // ── Step 6: Thumbnail ──
   const [thumbPrompt, setThumbPrompt] = useState("");
@@ -578,26 +587,44 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
     try {
       const text = stripMarkdown(chapter.script);
 
-      if (hub.voice === "browser") {
+      if (hub.voice === "browser" && !AI33_API_KEY) {
         setChapters(prev => prev.map(ch =>
           ch.id === chapterId ? { ...ch, audioUrl: "browser_tts", audioDurationSec: Math.ceil(text.length / 15) } : ch
         ));
-        toast.success(`TTS browser para "${chapter.title}"`);
+        toast.warning(`TTS browser: vídeo ficará sem áudio (configure AI33_API_KEY para narração real)`);
         return;
       }
 
-      const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-      const ttsUrl = isDev ? "/api-ai/v1/audio/speech" : "https://api.ai33.pro/v1/audio/speech";
-      const res = await fetch(ttsUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-        body: JSON.stringify({
-          model: "tts-1",
-          input: text,
-          voice: hub.voiceId || "alloy",
-          response_format: "mp3",
-        }),
-      });
+      let res: Response;
+
+      if (hub.voice === "google_chirp") {
+        // Route through Edge Function (keeps GOOGLE_TTS_API_KEY server-side)
+        const { data: { session } } = await supabase.auth.getSession();
+        res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-generate-audio`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ text, voice: hub.voiceId, provider: "google" }),
+          }
+        );
+      } else {
+        const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+        const ttsUrl = isDev ? "/api-ai/v1/audio/speech" : "https://api.ai33.pro/v1/audio/speech";
+        res = await fetch(ttsUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
+          body: JSON.stringify({
+            model: "tts-1",
+            input: text,
+            voice: hub.voiceId || "alloy",
+            response_format: "mp3",
+          }),
+        });
+      }
       if (!res.ok) throw new Error(`TTS failed: ${res.status}`);
       const blob = await res.blob();
       const audioUrl = URL.createObjectURL(blob);
@@ -618,7 +645,7 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
     setLoading(true);
     try {
       for (const chapter of chapters) {
-        if (chapter.audioUrl) continue;
+        if (chapter.audioUrl && chapter.audioUrl !== "browser_tts") continue;
         setStatusMessage(`Narrando "${chapter.title}"...`);
         await handleGenerateChapterAudio(chapter.id);
       }
@@ -642,7 +669,7 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
   const handleExtractScenes = async () => {
     setLoading(true);
     try {
-      const style = blueprint?.visual_style || "cinematic, dark aesthetic, dramatic lighting";
+      const style = resolveVisualStyle(blueprint?.visual_style);
       const updatedChapters = [...chapters];
 
       for (let i = 0; i < updatedChapters.length; i++) {
@@ -665,10 +692,13 @@ Para cada cena, retorne JSON:
     {
       "title": "Título curto da cena",
       "narration": "Trecho exato do roteiro que será narrado nesta cena (5-15 segundos de fala)",
-      "visual_prompt": "Prompt detalhado para geração de imagem. Dark aesthetic. ${style}. Cinematic. No text in image."
+      "visual_prompt": "Prompt detalhado para geração de imagem. ${style}. Cinematic. No text, no letters, no watermarks.",
+      "emotion": "urgency | shock | motivation | curiosity | inspiration | neutral"
     }
   ]
-}`,
+}
+
+Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`,
           true
         );
         const parsed = extractJson(raw);
@@ -697,13 +727,24 @@ Para cada cena, retorne JSON:
       const chapter = chapters.find(c => c.id === chapterId);
       if (!chapter) return;
       const scene = chapter.scenes[sceneIdx];
-      const styleHint = blueprint?.visual_style || "cinematic, dark aesthetic, dramatic lighting, high contrast, 4K";
+      const styleHint = resolveVisualStyle(blueprint?.visual_style);
       const charHint = blueprint?.character_description ? ` Featuring: ${blueprint.character_description}.` : "";
       const fullPrompt = `${scene.visual_prompt}.${charHint} Style: ${styleHint}. No text, no letters, no watermarks.`;
-      const url = await callImageGeneration(fullPrompt);
+      const rawUrl = await callImageGeneration(fullPrompt);
+      // Convert external URLs to blob URLs to avoid CORS issues in canvas assembler
+      let imageUrl = rawUrl;
+      if (rawUrl.startsWith("http")) {
+        try {
+          const resp = await fetch(rawUrl);
+          const blob = await resp.blob();
+          imageUrl = URL.createObjectURL(blob);
+        } catch {
+          imageUrl = rawUrl;
+        }
+      }
       setChapters(prev => prev.map(ch =>
         ch.id === chapterId
-          ? { ...ch, scenes: ch.scenes.map((s, i) => i === sceneIdx ? { ...s, imageUrl: url } : s) }
+          ? { ...ch, scenes: ch.scenes.map((s, i) => i === sceneIdx ? { ...s, imageUrl } : s) }
           : ch
       ));
       toast.success(`Imagem gerada!`);
@@ -716,18 +757,34 @@ Para cada cena, retorne JSON:
   };
 
   const handleGenerateAllImages = async () => {
+    cancelImagesRef.current = false;
     setAllScenesLoading(true);
-    setStatusMessage("Gerando imagens...");
-    let count = 0;
-    const total = allScenes.filter(s => !s.imageUrl).length;
+
+    // Coleta todas as cenas pendentes upfront (evita closure stale)
+    const pending: Array<{ chapterId: string; sceneIdx: number }> = [];
     for (const chapter of chapters) {
       for (let i = 0; i < chapter.scenes.length; i++) {
-        if (chapter.scenes[i].imageUrl) continue;
-        count++;
-        setStatusMessage(`Gerando imagem ${count}/${total}...`);
-        await handleGenerateSceneImage(chapter.id, i);
+        if (!chapter.scenes[i].imageUrl) pending.push({ chapterId: chapter.id, sceneIdx: i });
       }
     }
+
+    const total = pending.length;
+    let done = 0;
+    const BATCH = 3; // 3 imagens simultâneas — respeita rate limit da API
+
+    for (let i = 0; i < pending.length; i += BATCH) {
+      if (cancelImagesRef.current) break;
+      const batch = pending.slice(i, i + BATCH);
+      setStatusMessage(`Gerando imagens ${done + 1}–${Math.min(done + batch.length, total)}/${total}...`);
+      await Promise.all(
+        batch.map(({ chapterId, sceneIdx }) =>
+          cancelImagesRef.current ? Promise.resolve() : handleGenerateSceneImage(chapterId, sceneIdx)
+        )
+      );
+      done += batch.length;
+    }
+
+    cancelImagesRef.current = false;
     setAllScenesLoading(false);
     setStatusMessage("");
     if (allScenes.every(s => s.imageUrl)) {
@@ -744,7 +801,7 @@ Para cada cena, retorne JSON:
       setStatusMessage("Criando conceito da thumbnail...");
       const raw = await callClaude(
         "Você é um especialista em thumbnails virais de YouTube. Crie um prompt detalhado para DALL-E 3. O prompt DEVE ser em inglês, cinematográfico.",
-        `Título: ${title}\nResumo: ${hook}\nEstilo visual: ${blueprint?.visual_style || "modern, impactful, high contrast, dark aesthetic"}`
+        `Título: ${title}\nResumo: ${hook}\nEstilo visual: ${resolveVisualStyle(blueprint?.visual_style)}`
       );
       setThumbPrompt(raw);
       toast.success("Conceito criado!");
@@ -790,6 +847,7 @@ Para cada cena, retorne JSON:
             ? Math.min(15, Math.max(4, Math.round((s.narration.length / totalChars) * (fullNarration.length / 2.5))))
             : 6,
           subtitle: s.narration,
+          emotion: s.emotion,
         }));
 
       const url = await assembleVideo(assemblyScenes, combinedBlob);
@@ -1309,14 +1367,25 @@ Para cada cena, retorne JSON:
               </CardHeader>
               <CardContent className="space-y-4">
                 {!allScenesHaveImages && (
-                  <Button
-                    onClick={handleGenerateAllImages}
-                    disabled={allScenesLoading || loading}
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white gap-2"
-                  >
-                    <ImageIcon className="w-4 h-4" />
-                    Gerar Imagens ({scenesWithImages.length}/{allScenes.length})
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleGenerateAllImages}
+                      disabled={allScenesLoading || loading}
+                      className="flex-1 bg-orange-600 hover:bg-orange-700 text-white gap-2"
+                    >
+                      <ImageIcon className="w-4 h-4" />
+                      Gerar Imagens ({scenesWithImages.length}/{allScenes.length})
+                    </Button>
+                    {allScenesLoading && (
+                      <Button
+                        variant="outline"
+                        className="border-red-500/50 text-red-400 hover:bg-red-500/10"
+                        onClick={() => { cancelImagesRef.current = true; }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                 )}
 
                 {/* Scene grid by chapter */}
