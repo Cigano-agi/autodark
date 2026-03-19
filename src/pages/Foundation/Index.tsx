@@ -17,7 +17,7 @@ import {
   useChannelFoundation, useSaveFoundation, useGenerateDirectives,
   FOUNDATION_DEFAULTS, type ChannelFoundation, type SeedChannel,
 } from "@/hooks/useChannelFoundation";
-import { DashboardHeader } from "@/components/ui/dashboard-header";
+
 
 // ─── Block labels ─────────────────────────────────────────────────────────────
 
@@ -34,8 +34,8 @@ const BLOCKS = [
 function FormField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-sm text-zinc-300">{label}</Label>
-      {hint && <p className="text-xs text-zinc-600">{hint}</p>}
+      <Label className="text-sm text-white/80">{label}</Label>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
       {children}
     </div>
   );
@@ -60,9 +60,9 @@ function TagInput({ value, onChange, placeholder }: {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder={placeholder ?? "Digite e pressione Enter"}
-          className="bg-zinc-900 border-zinc-700 text-sm"
+          className="bg-white/5 border-white/10 text-sm"
         />
-        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-zinc-700">
+        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-white/10">
           Adicionar
         </Button>
       </div>
@@ -72,7 +72,7 @@ function TagInput({ value, onChange, placeholder }: {
             <Badge
               key={tag}
               variant="outline"
-              className="text-xs border-zinc-700 text-zinc-300 cursor-pointer hover:border-red-800 hover:text-red-400"
+              className="text-xs border-white/10 text-white/80 cursor-pointer hover:border-red-500/50 hover:text-red-400"
               onClick={() => onChange(value.filter(t => t !== tag))}
             >
               {tag} ×
@@ -91,46 +91,46 @@ function BlockA({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
     <div className="space-y-5">
       <FormField label="1. Nicho principal" hint="ex: geopolítica, finanças, cybersec, true crime">
         <Input value={f.niche} onChange={e => set("niche", e.target.value)}
-          placeholder="geopolítica & guerra econômica" className="bg-zinc-900 border-zinc-700" />
+          placeholder="geopolítica & guerra econômica" className="bg-white/5 border-white/10" />
       </FormField>
 
       <FormField label="2. Insider angle" hint="O canal fala de dentro ou de fora do sistema?">
         <Textarea value={f.insider_angle} onChange={e => set("insider_angle", e.target.value)}
           placeholder="Insider cínico que expõe o que o poder corporativo e o Estado não querem que você saiba"
-          className="bg-zinc-900 border-zinc-700 min-h-[80px]" />
+          className="bg-white/5 border-white/10 min-h-[80px]" />
       </FormField>
 
       <FormField label="3. Inimigo narrativo" hint="Todo canal de sucesso tem um vilão implícito">
         <Input value={f.narrative_enemy} onChange={e => set("narrative_enemy", e.target.value)}
-          placeholder="ex: poder corporativo + Estado capturado" className="bg-zinc-900 border-zinc-700" />
+          placeholder="ex: poder corporativo + Estado capturado" className="bg-white/5 border-white/10" />
       </FormField>
 
       <FormField label="4. Racional do nome do canal" hint="Por que esse nome? Qual promessa carrega?">
         <Textarea value={f.channel_name_rationale} onChange={e => set("channel_name_rationale", e.target.value)}
           placeholder="Veritas = verdade. Gold = ouro como ativo de fuga do sistema."
-          className="bg-zinc-900 border-zinc-700 min-h-[60px]" />
+          className="bg-white/5 border-white/10 min-h-[60px]" />
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
         <FormField label="5a. Paleta de cores">
           <Input value={f.visual_signature.palette}
             onChange={e => set("visual_signature", { ...f.visual_signature, palette: e.target.value })}
-            placeholder="azul-aço, cinza grafite, vermelho sangue" className="bg-zinc-900 border-zinc-700" />
+            placeholder="azul-aço, cinza grafite, vermelho sangue" className="bg-white/5 border-white/10" />
         </FormField>
         <FormField label="5b. Estilo musical">
           <Input value={f.visual_signature.music_style}
             onChange={e => set("visual_signature", { ...f.visual_signature, music_style: e.target.value })}
-            placeholder="dark ambient, tension riser" className="bg-zinc-900 border-zinc-700" />
+            placeholder="dark ambient, tension riser" className="bg-white/5 border-white/10" />
         </FormField>
         <FormField label="5c. Fonte de legendas">
           <Input value={f.visual_signature.font}
             onChange={e => set("visual_signature", { ...f.visual_signature, font: e.target.value })}
-            placeholder="Bold sans-serif, branco com outline preto" className="bg-zinc-900 border-zinc-700" />
+            placeholder="Bold sans-serif, branco com outline preto" className="bg-white/5 border-white/10" />
         </FormField>
         <FormField label="5d. Tom da voz">
           <Input value={f.visual_signature.voice_tone}
             onChange={e => set("visual_signature", { ...f.visual_signature, voice_tone: e.target.value })}
-            placeholder="masculino grave, cínico, pausas dramáticas" className="bg-zinc-900 border-zinc-700" />
+            placeholder="masculino grave, cínico, pausas dramáticas" className="bg-white/5 border-white/10" />
         </FormField>
       </div>
     </div>
@@ -145,12 +145,12 @@ function BlockB({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
       <div className="grid grid-cols-2 gap-4">
         <FormField label="6. Frequência de publicação">
           <Input value={f.publish_frequency} onChange={e => set("publish_frequency", e.target.value)}
-            placeholder="2x_week / daily / 1x_week" className="bg-zinc-900 border-zinc-700" />
+            placeholder="2x_week / daily / 1x_week" className="bg-white/5 border-white/10" />
         </FormField>
         <FormField label="7. Duração alvo (minutos)">
           <Input type="number" value={f.target_duration_min}
             onChange={e => set("target_duration_min", Number(e.target.value))}
-            min={3} max={60} className="bg-zinc-900 border-zinc-700" />
+            min={3} max={60} className="bg-white/5 border-white/10" />
         </FormField>
       </div>
 
@@ -161,7 +161,7 @@ function BlockB({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
 
       <FormField label="9. Idioma primário">
         <Input value={f.primary_language} onChange={e => set("primary_language", e.target.value)}
-          placeholder="en / pt-BR / es" className="bg-zinc-900 border-zinc-700" />
+          placeholder="en / pt-BR / es" className="bg-white/5 border-white/10" />
       </FormField>
 
       <FormField label="10. Modelos de monetização" hint="Pressione Enter para adicionar">
@@ -185,18 +185,18 @@ function BlockC({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
         <FormField label="11a. VRAM GPU (GB)">
           <Input type="number" value={f.hardware_profile.gpu_vram_gb}
             onChange={e => set("hardware_profile", { ...f.hardware_profile, gpu_vram_gb: Number(e.target.value) })}
-            min={2} max={80} className="bg-zinc-900 border-zinc-700" />
+            min={2} max={80} className="bg-white/5 border-white/10" />
         </FormField>
         <FormField label="11b. RAM (GB)">
           <Input type="number" value={f.hardware_profile.ram_gb}
             onChange={e => set("hardware_profile", { ...f.hardware_profile, ram_gb: Number(e.target.value) })}
-            min={8} max={256} className="bg-zinc-900 border-zinc-700" />
+            min={8} max={256} className="bg-white/5 border-white/10" />
         </FormField>
         <FormField label="11c. NVENC disponível">
           <div className="flex items-center gap-2 mt-2">
             <Switch checked={f.hardware_profile.has_nvenc}
               onCheckedChange={v => set("hardware_profile", { ...f.hardware_profile, has_nvenc: v })} />
-            <span className="text-xs text-zinc-500">{f.hardware_profile.has_nvenc ? "Sim" : "Não (libx264)"}</span>
+            <span className="text-xs text-muted-foreground">{f.hardware_profile.has_nvenc ? "Sim" : "Não (libx264)"}</span>
           </div>
         </FormField>
       </div>
@@ -204,7 +204,7 @@ function BlockC({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
       <FormField label="12. Budget mensal de API (USD)">
         <Input type="number" value={f.monthly_api_budget}
           onChange={e => set("monthly_api_budget", Number(e.target.value))}
-          min={0} className="bg-zinc-900 border-zinc-700" />
+          min={0} className="bg-white/5 border-white/10" />
       </FormField>
 
       <FormField label="13. APIs obrigatórias" hint="Clique para selecionar">
@@ -217,7 +217,7 @@ function BlockC({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
                 "cursor-pointer text-xs",
                 f.required_apis.includes(api)
                   ? "border-blue-600 bg-blue-950 text-blue-300"
-                  : "border-zinc-700 text-zinc-500 hover:border-zinc-500"
+                  : "border-white/10 text-muted-foreground hover:border-white/30"
               )}
               onClick={() => {
                 const next = f.required_apis.includes(api)
@@ -235,7 +235,7 @@ function BlockC({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
       <FormField label="14. Clonagem de voz local">
         <div className="flex items-center gap-3">
           <Switch checked={f.voice_cloning} onCheckedChange={v => set("voice_cloning", v)} />
-          <span className="text-xs text-zinc-500">
+          <span className="text-xs text-muted-foreground">
             {f.voice_cloning ? "ChatterboxTTS (necessita reference.wav ≥30s)" : "Edge-TTS ou ElevenLabs"}
           </span>
         </div>
@@ -252,7 +252,7 @@ function BlockC({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
                 "p-2.5 rounded border text-xs transition-colors",
                 f.evidence_strategy === strategy
                   ? "border-blue-600 bg-blue-950 text-blue-300"
-                  : "border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                  : "border-white/10 text-muted-foreground hover:border-white/30"
               )}
             >
               {strategy === "real_images" ? "Imagens reais (Serper)" :
@@ -283,35 +283,35 @@ function BlockD({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
           <div className="grid grid-cols-3 gap-2">
             <Input value={newChannel.channel_id}
               onChange={e => setNewChannel(p => ({ ...p, channel_id: e.target.value }))}
-              placeholder="@VisualPolitik" className="bg-zinc-900 border-zinc-700 text-xs" />
+              placeholder="@VisualPolitik" className="bg-white/5 border-white/10 text-xs" />
             <Input value={newChannel.name}
               onChange={e => setNewChannel(p => ({ ...p, name: e.target.value }))}
-              placeholder="Nome do canal" className="bg-zinc-900 border-zinc-700 text-xs" />
+              placeholder="Nome do canal" className="bg-white/5 border-white/10 text-xs" />
             <div className="flex gap-2">
               <select
                 value={newChannel.pillar}
                 onChange={e => setNewChannel(p => ({ ...p, pillar: e.target.value }))}
-                className="flex-1 bg-zinc-900 border border-zinc-700 rounded text-xs text-zinc-300 px-2"
+                className="flex-1 bg-white/5 border border-white/10 rounded text-xs text-white/80 px-2"
               >
                 <option value="veritas">veritas</option>
                 <option value="gold">gold</option>
               </select>
               <Button type="button" size="sm" variant="outline" onClick={addSeedChannel}
-                className="border-zinc-700 text-xs shrink-0">+</Button>
+                className="border-white/10 text-xs shrink-0">+</Button>
             </div>
           </div>
 
           {f.seed_channels.length > 0 && (
             <div className="space-y-1">
               {f.seed_channels.map((ch, i) => (
-                <div key={i} className="flex items-center justify-between bg-zinc-900 rounded px-3 py-1.5 text-xs">
-                  <span className="text-zinc-300 font-mono">{ch.channel_id}</span>
-                  <span className="text-zinc-500 mx-2">{ch.name}</span>
-                  <Badge variant="outline" className="text-xs border-zinc-700 text-zinc-500 mr-2">{ch.pillar}</Badge>
+                <div key={i} className="flex items-center justify-between bg-card/20 rounded px-3 py-1.5 text-xs">
+                  <span className="text-white/80 font-mono">{ch.channel_id}</span>
+                  <span className="text-muted-foreground mx-2">{ch.name}</span>
+                  <Badge variant="outline" className="text-xs border-white/10 text-muted-foreground mr-2">{ch.pillar}</Badge>
                   <button
                     type="button"
                     onClick={() => set("seed_channels", f.seed_channels.filter((_, idx) => idx !== i))}
-                    className="text-zinc-600 hover:text-red-400"
+                    className="text-muted-foreground hover:text-red-400"
                   >×</button>
                 </div>
               ))}
@@ -329,8 +329,8 @@ function BlockD({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
         <div className="flex items-center gap-3">
           <Input type="number" value={f.z_score_threshold} step={0.1} min={1.0} max={5.0}
             onChange={e => set("z_score_threshold", Number(e.target.value))}
-            className="bg-zinc-900 border-zinc-700 w-32" />
-          <span className="text-xs text-zinc-600">Padrão: 2.5. Menor = mais sensível. Maior = só outliers extremos.</span>
+            className="bg-white/5 border-white/10 w-32" />
+          <span className="text-xs text-muted-foreground">Padrão: 2.5. Menor = mais sensível. Maior = só outliers extremos.</span>
         </div>
       </FormField>
 
@@ -338,7 +338,7 @@ function BlockD({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
         <Textarea value={f.narrative_structure}
           onChange={e => set("narrative_structure", e.target.value)}
           placeholder="But/Therefore obrigatório a cada 45s. 5-Step Hook na cena 01: número + contradição + revelação + pausa + promessa. 2 Wall-Pushers por vídeo..."
-          className="bg-zinc-900 border-zinc-700 min-h-[100px]" />
+          className="bg-white/5 border-white/10 min-h-[100px]" />
       </FormField>
 
       <div className="grid grid-cols-2 gap-4">
@@ -350,7 +350,7 @@ function BlockD({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
         <FormField label="20b. Score mínimo de aprovação">
           <Input type="number" value={f.quality_system.pass_score} min={0} max={10} step={0.5}
             onChange={e => set("quality_system", { ...f.quality_system, pass_score: Number(e.target.value) })}
-            className="bg-zinc-900 border-zinc-700" />
+            className="bg-white/5 border-white/10" />
         </FormField>
       </div>
     </div>
@@ -383,7 +383,7 @@ function BlockE({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
                 "px-3 py-1.5 rounded text-xs border transition-colors",
                 f.publish_schedule.days.includes(day)
                   ? "border-blue-600 bg-blue-950 text-blue-300"
-                  : "border-zinc-700 text-zinc-500 hover:border-zinc-600"
+                  : "border-white/10 text-muted-foreground hover:border-white/30"
               )}
             >
               {DAY_LABELS[day]}
@@ -391,35 +391,35 @@ function BlockE({ f, set }: { f: ChannelFoundation; set: (k: keyof ChannelFounda
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Label className="text-xs text-zinc-500">Horário UTC:</Label>
+          <Label className="text-xs text-muted-foreground">Horário UTC:</Label>
           <Input type="time" value={f.publish_schedule.time_utc}
             onChange={e => set("publish_schedule", { ...f.publish_schedule, time_utc: e.target.value })}
-            className="bg-zinc-900 border-zinc-700 w-32 text-xs" />
+            className="bg-white/5 border-white/10 w-32 text-xs" />
         </div>
       </FormField>
 
       <FormField label="22. Feedback loop" hint="Como o Analytics retroalimenta o sistema?">
         <Textarea value={f.feedback_loop} onChange={e => set("feedback_loop", e.target.value)}
           placeholder="retention_30s → score do hook. CTR < 5% em 48h → reformular thumbnail. Hook Z-score calculado por tipo..."
-          className="bg-zinc-900 border-zinc-700 min-h-[80px]" />
+          className="bg-white/5 border-white/10 min-h-[80px]" />
       </FormField>
 
       <FormField label="23. Plano de escalonamento">
         <Textarea value={f.scaling_plan} onChange={e => set("scaling_plan", e.target.value)}
           placeholder="10k inscritos: +1 vídeo/semana. 100k: segundo idioma (espanhol). 500k: spin-off channel Gold..."
-          className="bg-zinc-900 border-zinc-700 min-h-[80px]" />
+          className="bg-white/5 border-white/10 min-h-[80px]" />
       </FormField>
 
       <FormField label="24. Riscos operacionais e mitigações">
         <Textarea value={f.operational_risks} onChange={e => set("operational_risks", e.target.value)}
           placeholder="Queda de energia: checkpoints por arquivo. Limite de API: rodízio de keys no account_pools. Copyright strike: evidências de domínio público..."
-          className="bg-zinc-900 border-zinc-700 min-h-[80px]" />
+          className="bg-white/5 border-white/10 min-h-[80px]" />
       </FormField>
 
       <FormField label="25. Fosso defensivo" hint="O que esse canal tem que ninguém pode copiar em 30 dias?">
         <Textarea value={f.defensive_moat} onChange={e => set("defensive_moat", e.target.value)}
           placeholder="Feedback loop de retenção treinado em 50+ vídeos + voz clonada única + dossiê forense de evidências com 3 camadas de verificação..."
-          className="bg-zinc-900 border-zinc-700 min-h-[80px]" />
+          className="bg-white/5 border-white/10 min-h-[80px]" />
       </FormField>
     </div>
   );
@@ -447,17 +447,17 @@ function DirectivesViewer({ directives }: { directives: Record<string, string> }
   return (
     <div className="space-y-3">
       {Object.entries(directives).map(([key, value]) => (
-        <Card key={key} className="border-zinc-800 bg-zinc-900/60">
+        <Card key={key} className="border-white/10 bg-card/30 backdrop-blur">
           <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-xs font-medium text-zinc-300">{LABELS[key] ?? key}</CardTitle>
-            <Button variant="ghost" size="icon" className="h-6 w-6 text-zinc-600 hover:text-zinc-300"
+            <CardTitle className="text-xs font-medium text-white/80">{LABELS[key] ?? key}</CardTitle>
+            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-white/80"
               onClick={() => copyTo(key, value)}>
               {copied === key ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
             </Button>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-40">
-              <pre className="text-xs text-zinc-500 whitespace-pre-wrap font-mono leading-relaxed">{value}</pre>
+              <pre className="text-xs text-muted-foreground whitespace-pre-wrap font-mono leading-relaxed">{value}</pre>
             </ScrollArea>
           </CardContent>
         </Card>
@@ -518,19 +518,18 @@ export default function FoundationPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <DashboardHeader />
-      <main className="max-w-3xl mx-auto px-4 py-8">
+      <main className="max-w-3xl mx-auto px-4 pt-28 pb-8">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-zinc-100 flex items-center gap-2">
+          <h1 className="text-xl font-semibold text-white flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-amber-400" />
             Fundação do Canal — 25 Perguntas
           </h1>
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             Define o DNA do canal. Usado para gerar automaticamente todas as diretivas do pipeline.
           </p>
           <div className="mt-3 flex items-center gap-2">
-            <Progress value={(filledBlocks / 5) * 100} className="flex-1 h-1.5 bg-zinc-800" />
-            <span className="text-xs text-zinc-600">{filledBlocks}/5 blocos</span>
+            <Progress value={(filledBlocks / 5) * 100} className="flex-1 h-1.5 bg-white/10" />
+            <span className="text-xs text-muted-foreground">{filledBlocks}/5 blocos</span>
           </div>
         </div>
 
@@ -545,7 +544,7 @@ export default function FoundationPage() {
                 "flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs border whitespace-nowrap transition-colors",
                 block === i
                   ? "border-blue-600 bg-blue-950 text-blue-300"
-                  : "border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-400"
+                  : "border-white/10 text-muted-foreground hover:border-white/10 hover:text-white/60"
               )}
             >
               <span className="font-mono font-bold">{b.id}</span>
@@ -554,12 +553,12 @@ export default function FoundationPage() {
           ))}
         </div>
 
-        <Card className="border-zinc-800 bg-zinc-900/40">
+        <Card className="border-white/10 bg-card/30 backdrop-blur">
           <CardHeader>
-            <CardTitle className="text-base text-zinc-200">
+            <CardTitle className="text-base text-white/90">
               Bloco {BLOCKS[block].id} — {BLOCKS[block].label}
             </CardTitle>
-            <CardDescription className="text-zinc-600 text-xs">
+            <CardDescription className="text-muted-foreground text-xs">
               Perguntas {BLOCKS[block].questions} — {BLOCKS[block].description}
             </CardDescription>
           </CardHeader>
@@ -575,13 +574,13 @@ export default function FoundationPage() {
         {/* Navigation + actions */}
         <div className="mt-4 flex items-center justify-between">
           <Button variant="ghost" size="sm" disabled={block === 0}
-            onClick={() => setBlock(b => b - 1)} className="text-zinc-500">
+            onClick={() => setBlock(b => b - 1)} className="text-muted-foreground">
             <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
           </Button>
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => handleSave()}
-              disabled={saving} className="border-zinc-700 text-zinc-400 text-xs">
+              disabled={saving} className="border-white/10 text-white/60 text-xs">
               {saving ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : null}
               Salvar rascunho
             </Button>
@@ -603,7 +602,7 @@ export default function FoundationPage() {
 
           {block < 4 && (
             <Button variant="ghost" size="sm" onClick={() => setBlock(b => b + 1)}
-              className="text-zinc-500">
+              className="text-muted-foreground">
               Próximo <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
           )}
@@ -612,20 +611,20 @@ export default function FoundationPage() {
         {/* Directives output */}
         {showDirectives && existing?.generated_directives && Object.keys(existing.generated_directives).length > 0 && (
           <>
-            <Separator className="my-8 bg-zinc-800" />
+            <Separator className="my-8 bg-white/10" />
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-sm font-medium text-zinc-300 flex items-center gap-2">
+              <h2 className="text-sm font-medium text-white/80 flex items-center gap-2">
                 <BookOpen className="w-4 h-4 text-amber-400" />
                 Diretivas Geradas
               </h2>
               {existing.directives_generated_at && (
-                <span className="text-xs text-zinc-600">
+                <span className="text-xs text-muted-foreground">
                   {new Date(existing.directives_generated_at).toLocaleString("pt-BR")}
                 </span>
               )}
             </div>
             <DirectivesViewer directives={existing.generated_directives as Record<string, string>} />
-            <p className="mt-4 text-xs text-zinc-600 text-center">
+            <p className="mt-4 text-xs text-muted-foreground text-center">
               Copie cada diretiva para o arquivo correspondente em <code className="font-mono">directives/</code> do pipeline Python.
             </p>
           </>

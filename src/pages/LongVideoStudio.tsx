@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -9,9 +9,10 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
-import { Loader2, Play, Wand2, FileAudio, Video, Save, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate } from "lucide-react";
+import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download } from "lucide-react";
 import { useChannel } from "@/hooks/useChannels";
-import { DashboardHeader } from "@/components/ui/dashboard-header";
+import { useVideoAssembler } from "@/hooks/useVideoAssembler";
+
 
 export default function LongVideoStudio() {
     const { id: channelId } = useParams();
@@ -42,12 +43,15 @@ export default function LongVideoStudio() {
     const [completedVoices, setCompletedVoices] = useState<Record<string, boolean>>({});
     const [audioDataUrls, setAudioDataUrls] = useState<Record<string, string>>({});
 
-    const [renderingVideo, setRenderingVideo] = useState(false);
-    const [renderProgress, setRenderProgress] = useState(0);
-    const [renderLog, setRenderLog] = useState("");
     const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-    const ffmpegRef = useRef<any>(null);
+    // Scene image generation
+    const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
+    const [generatingImage, setGeneratingImage] = useState<Record<string, boolean>>({});
+
+    const { assembleVideo, assembling: renderingVideo, progress: renderProgress, log: renderLog } = useVideoAssembler();
+
+    const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
 
     useEffect(() => {
         if (blueprint) {
@@ -127,71 +131,72 @@ export default function LongVideoStudio() {
         setScriptData({ ...scriptData, scenes: newScenes });
     };
 
-    const loadFFmpeg = async () => {
-        // Lazy import FFmpeg only when needed (avoids 1MB+ WASM on page load)
-        if (!ffmpegRef.current) {
-            const { FFmpeg } = await import("@ffmpeg/ffmpeg");
-            ffmpegRef.current = new FFmpeg();
+    const generateSceneImage = async (sceneId: string, visualPrompt: string) => {
+        if (!AI33_API_KEY) { toast.error("AI33_API_KEY missing"); return; }
+        setGeneratingImage(prev => ({ ...prev, [sceneId]: true }));
+        try {
+            const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+            const url = isDev ? "/api-ai/v1/images/generations" : "https://api.ai33.pro/v1/images/generations";
+            const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
+                body: JSON.stringify({ model: "dall-e-3", prompt: fullPrompt, size: "1792x1024", quality: "standard", n: 1 }),
+            });
+            if (!res.ok) throw new Error(`Image API ${res.status}`);
+            const data = await res.json();
+            const imageUrl = data.data[0].url as string;
+            setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
+            toast.success(`Imagem da cena gerada!`);
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem");
+        } finally {
+            setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
         }
-        const ffmpeg = ffmpegRef.current;
-        if (!ffmpeg.loaded) {
-            const { toBlobURL } = await import("@ffmpeg/util");
-            ffmpeg.on("log", ({ message }: { message: string }) => {
-                setRenderLog((prev) => prev + "\n" + message);
-            });
-            ffmpeg.on("progress", ({ progress }: { progress: number }) => {
-                setRenderProgress(Math.round(progress * 100));
-            });
-
-            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd'
-            await ffmpeg.load({
-                coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-                wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-            });
-        }
-        return ffmpeg;
     };
 
     const handleRenderVideo = async () => {
         if (!scriptData) return;
-        setRenderingVideo(true);
-        setRenderProgress(0);
-        setRenderLog("");
         setVideoUrl(null);
 
+        // Check if we have scene images
+        const scenesWithImages = scriptData.scenes.filter((s: { id: string }) => sceneImages[s.id]);
+        if (scenesWithImages.length === 0) {
+            toast.error("Gere pelo menos uma imagem de cena antes de renderizar.");
+            return;
+        }
+
         try {
-            toast.info('Renderizando Cenas... Juntando áudios e imagens localmente...');
-            const ffmpeg = await loadFFmpeg();
+            toast.info('Renderizando vídeo com imagens + áudio via FFmpeg WASM...');
 
-            const textToDisplay = scriptData.title.replace(/'/g, "");
+            // Build assembly scenes
+            const totalNarration = scriptData.scenes.reduce((sum: number, s: { narration_text: string }) => sum + (s.narration_text?.length || 100), 0);
+            const assemblyScenes = scenesWithImages.map((s: { id: string; narration_text: string; estimated_duration: number }) => ({
+                imageUrl: sceneImages[s.id],
+                durationSec: Math.max(4, s.estimated_duration || Math.round((s.narration_text?.length || 100) / totalNarration * 60)),
+            }));
 
-            // Mock ffmpeg output
-            await ffmpeg.exec([
-                "-f", "lavfi", "-i", "color=c=black:s=1280x720:d=10",
-                "-vf", `drawtext=text='${textToDisplay}':fontcolor=white:fontsize=48:x=(w-text_w)/2:y=(h-text_h)/2`,
-                "-c:v", "libx264",
-                "-t", "10",
-                "output.mp4"
-            ]);
+            // Collect audio blob if available
+            let audioBlob: Blob | null = null;
+            const audioEntries = Object.values(audioDataUrls);
+            if (audioEntries.length > 0) {
+                // Fetch first audio as blob (simplified - ideally concat all)
+                const firstAudioUrl = audioEntries[0];
+                const audioRes = await fetch(firstAudioUrl);
+                audioBlob = await audioRes.blob();
+            }
 
-            const fileData = await ffmpeg.readFile("output.mp4");
-            const data = fileData as Uint8Array;
-            const url = URL.createObjectURL(new Blob([data as any], { type: "video/mp4" }));
-
+            const url = await assembleVideo(assemblyScenes, audioBlob);
             setVideoUrl(url);
-            setRenderProgress(100);
             toast.success('Vídeo renderizado! Seu MP4 está pronto.');
 
-        } catch (e: any) {
-            toast.error(`Erro de Renderização: ${e.message}`);
-        } finally {
-            setRenderingVideo(false);
+        } catch (e: unknown) {
+            toast.error(e instanceof Error ? e.message : "Erro de Renderização");
         }
     };
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <DashboardHeader />
             <div className="container pt-28 pb-12 px-6 max-w-6xl mx-auto space-y-8">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight flex items-center gap-3">
@@ -347,10 +352,19 @@ export default function LongVideoStudio() {
                                                     value={scene.visual_prompt_for_image_ai}
                                                     onChange={(e) => updateScenePrompt(scene.id, e.target.value)}
                                                 />
-                                                <Button size="sm" variant="outline" className="w-full h-8 text-xs border-white/5 hover:bg-white/5 disabled:opacity-50">
-                                                    <Wand2 className="w-3 h-3 mr-2 text-emerald-500" />
-                                                    Gerar Imagem (Stable Diffusion)
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="w-full h-8 text-xs border-white/5 hover:bg-white/5"
+                                                    onClick={() => generateSceneImage(scene.id, scene.visual_prompt_for_image_ai)}
+                                                    disabled={generatingImage[scene.id]}
+                                                >
+                                                    {generatingImage[scene.id] ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Wand2 className="w-3 h-3 mr-2 text-emerald-500" />}
+                                                    {sceneImages[scene.id] ? "Regerar Imagem" : "Gerar Imagem (DALL-E 3)"}
                                                 </Button>
+                                                {sceneImages[scene.id] && (
+                                                    <img src={sceneImages[scene.id]} alt={`Cena ${scene.id}`} className="w-full h-32 object-cover rounded mt-2 border border-white/10" />
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -418,9 +432,16 @@ export default function LongVideoStudio() {
                                     <div className="mt-8 p-1 border border-emerald-500/30 rounded-2xl bg-gradient-to-b from-emerald-500/10 to-transparent shadow-2xl animate-in zoom-in-95 duration-500">
                                         <div className="bg-black/40 rounded-xl p-4 relative backdrop-blur-sm">
                                             <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg border-0">
-                                                ✅ Sucesso! Vídeo Pronto
+                                                Sucesso! Vídeo Pronto
                                             </Badge>
                                             <video src={videoUrl} controls className="w-full rounded-lg mt-2" />
+                                            <a
+                                                href={videoUrl}
+                                                download={`${scriptData?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'video'}.mp4`}
+                                                className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 underline"
+                                            >
+                                                <Download className="w-3 h-3" /> Baixar MP4
+                                            </a>
                                         </div>
                                     </div>
                                 )}

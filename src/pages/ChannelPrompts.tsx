@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { BeamsBackground } from '@/components/ui/beams-background';
-import { DashboardHeader } from '@/components/ui/dashboard-header';
+
 import { useChannels } from '@/hooks/useChannels';
 import { useChannelPrompts } from '@/hooks/useChannelPrompts';
 import { Button } from '@/components/ui/button';
@@ -120,8 +120,6 @@ export default function ChannelPrompts() {
 
     return (
         <BeamsBackground intensity="medium" className="bg-background">
-            <DashboardHeader />
-
             <main className="pt-28 pb-12 px-6 max-w-5xl mx-auto min-h-screen relative z-10 text-foreground">
 
                 {/* Header */}

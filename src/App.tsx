@@ -6,18 +6,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AppLayout } from "@/components/layouts/AppLayout";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
 // Lazy-load pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const ChannelView = lazy(() => import("./pages/ChannelView"));
+const ChannelView = lazy(() => import("./pages/Channel/Index"));
 const ChannelPrompts = lazy(() => import("./pages/ChannelPrompts"));
 const LongVideoStudio = lazy(() => import("./pages/LongVideoStudio"));
 const ProductionWizard = lazy(() => import("./pages/Production/Index"));
-const FixAndVerify = lazy(() => import("./pages/FixAndVerify"));
 const PipelinePage = lazy(() => import("./pages/Pipeline/Index"));
 const FoundationPage = lazy(() => import("./pages/Foundation/Index"));
+const MediaHub = lazy(() => import("./pages/MediaHub/Index"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,11 +35,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LazyFallback />;
   }
 
   if (!user) {
@@ -52,11 +49,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
+    return <LazyFallback />;
   }
 
   if (user) {
@@ -84,14 +77,21 @@ const AppRoutes = () => (
         }
       />
 
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-      <Route path="/channel/:id" element={<ProtectedRoute><ChannelView /></ProtectedRoute>} />
-      <Route path="/channel/:id/prompts" element={<ProtectedRoute><ChannelPrompts /></ProtectedRoute>} />
-      <Route path="/channel/:id/studio" element={<ProtectedRoute><LongVideoStudio /></ProtectedRoute>} />
-      <Route path="/production" element={<ProtectedRoute><ProductionWizard /></ProtectedRoute>} />
-      <Route path="/fix" element={<ProtectedRoute><FixAndVerify /></ProtectedRoute>} />
-      <Route path="/pipeline" element={<ProtectedRoute><PipelinePage /></ProtectedRoute>} />
-      <Route path="/channel/:id/foundation" element={<ProtectedRoute><FoundationPage /></ProtectedRoute>} />
+      {/* All authenticated routes share AppLayout (DashboardHeader + Outlet) */}
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/channel/:id" element={<ChannelView />} />
+        <Route path="/channel/:id/prompts" element={<ChannelPrompts />} />
+        <Route path="/channel/:id/studio" element={<LongVideoStudio />} />
+        <Route path="/channel/:id/production" element={<ProductionWizard />} />
+        <Route path="/channel/:id/foundation" element={<FoundationPage />} />
+        <Route path="/pipeline" element={<PipelinePage />} />
+        <Route path="/hub" element={<MediaHub />} />
+      </Route>
+
+      {/* Legacy redirects */}
+      <Route path="/production" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/fix" element={<Navigate to="/dashboard" replace />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

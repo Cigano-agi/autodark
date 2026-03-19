@@ -11,7 +11,7 @@ export interface Blueprint {
   voice_name: string | null;
   script_rules: string | null;
   visual_style: string | null;
-  upload_frequency: string;
+  upload_frequency: string | null;
   persona_prompt: string | null;
   target_audience: string | null;
   character_description: string | null;
@@ -20,25 +20,33 @@ export interface Blueprint {
   scenes_image_ratio: number;
   scenes_video_ratio: number;
   custom_music_url: string | null;
+  char_limit: number | null;
+  cta: string | null;
+  reference: string | null;
+  videos_per_batch: number | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface UpdateBlueprintData {
-  topic?: string;
-  voice_id?: string;
-  voice_name?: string;
-  script_rules?: string;
-  visual_style?: string;
-  upload_frequency?: string;
-  persona_prompt?: string;
-  target_audience?: string;
-  character_description?: string;
-  style_reference_url?: string;
-  character_consistency?: boolean;
-  scenes_image_ratio?: number;
-  scenes_video_ratio?: number;
-  custom_music_url?: string;
+  topic?: string | null;
+  voice_id?: string | null;
+  voice_name?: string | null;
+  script_rules?: string | null;
+  visual_style?: string | null;
+  upload_frequency?: string | null;
+  persona_prompt?: string | null;
+  target_audience?: string | null;
+  character_description?: string | null;
+  style_reference_url?: string | null;
+  character_consistency?: boolean | null;
+  scenes_image_ratio?: number | null;
+  scenes_video_ratio?: number | null;
+  custom_music_url?: string | null;
+  char_limit?: number | null;
+  cta?: string | null;
+  reference?: string | null;
+  videos_per_batch?: number | null;
 }
 
 export const VISUAL_STYLE_OPTIONS = [

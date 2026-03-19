@@ -1,21 +1,27 @@
 import { motion } from "framer-motion";
-import { Folder, MoreVertical, Play, Users } from "lucide-react";
+import { Folder, MoreVertical, Play, Users, Clock, Clapperboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
 
 interface ChannelFolderProps {
     name: string;
+    niche?: string;
     subscribers?: string;
     videoCount?: number;
     color?: string;
+    pendingReview?: number;
+    inProduction?: number;
     onClick?: () => void;
 }
 
 export function ChannelFolder({
     name,
+    niche = "YOUTUBE AUTOMATION",
     subscribers = "0",
     videoCount = 0,
     color = "blue",
+    pendingReview = 0,
+    inProduction = 0,
     onClick
 }: ChannelFolderProps) {
 
@@ -35,7 +41,7 @@ export function ChannelFolder({
             className="group relative cursor-pointer"
             onClick={onClick}
         >
-            {/* 3D Depth Efffect Layers */}
+            {/* 3D Depth Effect Layers */}
             <div className={cn(
                 "absolute inset-0 translate-y-2 rounded-2xl bg-gradient-to-br opacity-50 blur-lg transition-all duration-500 group-hover:translate-y-4 group-hover:opacity-70",
                 selectedColor.split(' ')[0] // getting just the from-color for blur
@@ -58,9 +64,29 @@ export function ChannelFolder({
                         <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center backdrop-blur-md border border-white/5 group-hover:bg-primary/20 group-hover:border-primary/30 transition-colors">
                             <Folder className="w-5 h-5 text-white/70 group-hover:text-primary transition-colors" />
                         </div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-white/40 hover:text-white">
+                        <div className="flex items-center gap-1.5">
+                            {pendingReview > 0 && (
+                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-500/20 border border-yellow-500/30">
+                                    <Clock className="w-3 h-3 text-yellow-400" />
+                                    <span className="text-xs text-yellow-300 font-medium">{pendingReview}</span>
+                                </div>
+                            )}
+                            {inProduction > 0 && (
+                                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/20 border border-blue-500/30">
+                                    <Clapperboard className="w-3 h-3 text-blue-400" />
+                                    <span className="text-xs text-blue-300 font-medium">{inProduction}</span>
+                                </div>
+                            )}
+                            <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={(e) => { e.stopPropagation(); }}
+                            title="Opções"
+                        >
                             <MoreVertical className="w-4 h-4" />
                         </Button>
+                        </div>
                     </div>
 
                     {/* Details */}
@@ -70,7 +96,7 @@ export function ChannelFolder({
                                 {name}
                             </h3>
                             <p className="text-xs text-white/40 font-medium uppercase tracking-wider">
-                                YOUTUBE AUTOMATION
+                                {niche}
                             </p>
                         </div>
 

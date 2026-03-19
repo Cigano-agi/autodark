@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(find '/c/Users/Fabricio Padrin/Downloads/autodark/src' -type f \\\\\\(-name *pipeline* -o -name *orchestrat* -o -name *agent* \\\\\\))",
+      "Bash(\"/tmp/uix_audit.md\":*)",
+      "Read(//tmp/**)",
+      "Bash(\"/tmp/RELATORIO_FINAL_CLIENTE.md\":*)",
+      "Bash(curl -s -m 15 -X POST \"https://api.ai33.pro/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer sk_e3hc1sz4put0gp25lqjk5kffpnp1sz3k6by0p5bkvyqjhoyh\" -d \"{\"\"model\"\":\"\"gpt-4o-mini\"\",\"\"messages\"\":[{\"\"role\"\":\"\"user\"\",\"\"content\"\":\"\"responda apenas: OK\"\"}]}\")",
+      "Bash(curl -s -m 20 -X POST \"https://openrouter.ai/api/v1/chat/completions\" -H \"Content-Type: application/json\" -H \"Authorization: Bearer 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\" -H \"HTTP-Referer: http://localhost:5176\" -d \"{\"\"model\"\":\"\"openai/gpt-4o-mini\"\",\"\"messages\"\":[{\"\"role\"\":\"\"user\"\",\"\"content\"\":\"\"responda apenas: OK\"\"}]}\")",
+      "Bash(find 'C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\\\\src\\\\pages' -name *.tsx)"
+    ]
+  }
+}

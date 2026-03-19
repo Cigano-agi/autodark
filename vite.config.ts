@@ -8,15 +8,16 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 5173,
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "require-corp",
-    },
     proxy: {
       '/api-ai': {
         target: 'https://api.ai33.pro',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-ai/, ''),
+      },
+      '/api-kie': {
+        target: 'https://api.kie.ai',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-kie/, ''),
       },
       '/api-pollinations': {
         target: 'https://image.pollinations.ai',
@@ -43,8 +44,7 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['lucide-react', 'framer-motion', 'clsx', 'tailwind-merge'],
-          'vendor-supabase': ['@supabase/supabase-js'],
-          'vendor-ffmpeg': ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+          'vendor-supabase': ['@supabase/supabase-js']
         }
       }
     }

@@ -40,13 +40,16 @@ import { toast } from 'sonner';
 
 // Premium Components
 import { BeamsBackground } from "@/components/ui/beams-background";
-import { DashboardHeader } from "@/components/ui/dashboard-header";
+
 import { ChannelFolder } from "@/components/ui/channel-folder";
+import { GlobalQueueSection } from "@/components/Dashboard/GlobalQueueSection";
+import { useGlobalQueue } from "@/hooks/useGlobalQueue";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { userName } = useAuth();
   const { channels, isLoading, createChannel, deleteChannel } = useChannels();
+  const { queueItems, channelCounts } = useGlobalQueue();
 
   // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -106,8 +109,6 @@ export default function Dashboard() {
 
   return (
     <BeamsBackground intensity="medium" className="bg-background">
-      <DashboardHeader />
-
       <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
 
         {/* Hero / Header Section */}
@@ -123,7 +124,15 @@ export default function Dashboard() {
 
           <Dialog open={createDialogOpen} onOpenChange={(open) => {
             setCreateDialogOpen(open);
-            if (!open) setCreateStep(1);
+            if (!open) {
+              setCreateStep(1);
+              setNewChannelName('');
+              setNewChannelNiche('');
+              setIsCustomNiche(false);
+              setToneOfVoice('');
+              setTargetAudience('');
+              setRequiresReview(false);
+            }
           }}>
             <DialogTrigger asChild>
               <Button size="lg" className="rounded-full px-8 shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 relative overflow-hidden group">
@@ -288,6 +297,11 @@ export default function Dashboard() {
           </Dialog>
         </div>
 
+        {/* Global Queue — pending review across all channels */}
+        {!isLoading && queueItems.length > 0 && (
+          <GlobalQueueSection items={queueItems} />
+        )}
+
         {/* Loading State */}
         {isLoading && (
           <div className="flex items-center justify-center py-24">
@@ -313,17 +327,20 @@ export default function Dashboard() {
         {!isLoading && channels && channels.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {channels.map((channel, index) => {
-              // Assign consistent colors based on index for visual variety
               const colors = ['blue', 'purple', 'green', 'red'];
               const color = colors[index % colors.length];
+              const counts = channelCounts.find(c => c.channel_id === channel.id);
 
               return (
                 <ChannelFolder
                   key={channel.id}
                   name={channel.name}
+                  niche={channel.niche}
                   subscribers={formatNumber(channel.subscribers || 0)}
                   videoCount={channel.youtube_total_videos || 0}
                   color={color}
+                  pendingReview={counts?.pending_review}
+                  inProduction={counts?.in_production}
                   onClick={() => handleChannelClick(channel.id)}
                 />
               );

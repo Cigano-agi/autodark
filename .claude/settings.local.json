@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1 | head -40)",
+      "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1 | head -50)",
+      "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1)"
+    ]
+  }
+}
