@@ -14,7 +14,7 @@ import { useChannel } from "@/hooks/useChannels";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
 import { RemotionPreview } from "@/remotion/RemotionPreview";
 import type { SlideData } from "@/remotion/types";
-import { callPollinationsImage } from "@/agents/llm";
+import { callImageGeneration } from "@/agents/llm";
 import { generateTTSAudio, estimateDurationSec } from "@/agents/tts";
 import { VideoGenerationHistory } from "@/components/VideoGenerationHistory";
 import JSZip from "jszip";
@@ -85,8 +85,6 @@ export default function LongVideoStudio() {
     const { assembleVideo, assembling: renderingVideo, progress: renderProgress, log: renderLog } = useVideoAssembler();
 
     const [savedToHistory, setSavedToHistory] = useState(false);
-
-    const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
 
     const saveGeneration = async (data: ScriptData, sceneCount: number) => {
         const { data: { user } } = await supabase.auth.getUser();
@@ -230,9 +228,8 @@ export default function LongVideoStudio() {
         const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
 
         try {
-            // Pollinations com o prompt visual da cena — gera imagem temática
-            // callPollinationsImage já tem Canvas dark como fallback interno
-            const imageUrl = await callPollinationsImage(fullPrompt);
+            // callImageGeneration tenta Kie.ai antes de Pollinations
+            const imageUrl = await callImageGeneration(fullPrompt);
             setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
         } catch {
             console.warn("[studio] Todos os providers de imagem falharam para cena", sceneId);

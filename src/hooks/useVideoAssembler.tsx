@@ -177,11 +177,23 @@ export function useVideoAssembler() {
         const dest = audioCtx.createMediaStreamDestination();
         const sceneAudioElements: (HTMLAudioElement | null)[] = [];
 
-        // Pre-load all scene audio elements
-        for (const scene of scenes) {
+        // Pre-load all scene audio elements and wait for metadata to correct duration
+        for (let i = 0; i < scenes.length; i++) {
+          const scene = scenes[i];
           if (scene.audioUrl && scene.audioUrl !== "browser_tts") {
             const el = new Audio(scene.audioUrl);
             el.preload = "auto";
+            await new Promise<void>((resolve) => {
+              el.onloadedmetadata = () => {
+                const audioDuration = el.duration;
+                // Update scene duration if audio is longer than estimate
+                scene.durationSec = Math.max(scene.durationSec, audioDuration + 0.3);
+                resolve();
+              };
+              el.onerror = () => resolve(); // continue anyway
+              // Timeout to prevent hanging if metadata fails
+              setTimeout(resolve, 3000);
+            });
             sceneAudioElements.push(el);
           } else {
             sceneAudioElements.push(null);
@@ -245,6 +257,14 @@ export function useVideoAssembler() {
 
           const drawFrame = () => {
             if (sceneIdx >= scenes.length) {
+              // Garante que o áudio da última cena terminou antes de parar o recorder
+              const lastAudio = sceneAudioElements[scenes.length - 1];
+              if (lastAudio && !lastAudio.paused && lastAudio.currentTime < lastAudio.duration - 0.1) {
+                // Desenha o último frame estático enquanto o áudio termina
+                drawSceneImage(ctx, images[scenes.length - 1], getMotion(scenes[scenes.length - 1].emotion), 1.0, WIDTH, HEIGHT);
+                requestAnimationFrame(drawFrame);
+                return;
+              }
               recorder.stop();
               return;
             }

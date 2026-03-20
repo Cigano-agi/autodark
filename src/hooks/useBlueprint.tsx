@@ -59,11 +59,57 @@ export const VISUAL_STYLE_OPTIONS = [
   { value: 'microscopico',      label: '🔬 Microscópico / Macro — Ciência, saúde, natureza, biologia' },
   { value: 'minimalista',       label: '⬜ Minimalista Clean — Negócios, tech, finanças, produtividade' },
   { value: 'urbano',            label: '🏙️ Urbano Cultural — Lifestyle, música, viagem, cultura' },
+
+  // ── Estilos n8n (Específicos do Pipeline) ──────────────────────────────────
+  { value: 'biblico-n8n',       label: '📜 Bíblico (Estilo n8n) — 2D animado, luminoso, quente' },
+  { value: 'darkside-n8n',      label: '👽 Darkside (Estilo n8n) — 3D hiper-realista, dramático' },
+  { value: 'terror-n8n',        label: '🏚️ Terror (Estilo n8n) — Fotografia true crime, documental' },
+  { value: 'jazz-n8n',          label: '🎷 Jazz with J (Estilo n8n) — Noir, clássico, elegante' },
 ];
 
 // Maps preset value → rich image generation prompt used in scene generation.
 // Inspired by production-grade n8n pipeline prompts — work for any topic within each style.
 export const VISUAL_STYLE_PROMPTS: Record<string, string> = {
+
+  'biblico-n8n': `
+2D stylized illustration, luminous and warm aesthetic. Character design inspired by biblical or historical epics.
+Lighting: soft radiant golden glow, divine rays of light, aura effects, warm sunset tones.
+Colors: rich amber, golden yellow, sky blue, soft white, earthy terracotta.
+Style: clean lines, expressive and symbolic shapes, painterly textures.
+Composition: epic and meaningful, metaphorical representation of faith, hope or ancient history.
+No text, no modern objects, no logos. No realistic human faces (stylized 2D).
+High resolution illustration, 4K sharp, ethereal atmosphere.
+`.trim(),
+
+  'darkside-n8n': `
+3D hyper-realistic render, dramatic alien or sci-fi lighting.
+Lighting: high contrast, directional beams, neon blue or toxic green localized glows.
+Deep black shadows, volumetric particles, floating space debris.
+Colors: charcoal grey, deep navy, vibrant electric cyan and neon violet accents.
+Elements: futuristic technology, unknown scientific phenomena, alien structures, deep space void.
+Style: cinematic 3D CGI, Unreal Engine 5 quality, Octane Render, 8K ultra detailed.
+No text, no human elements, no common objects. Surreal and dark.
+`.trim(),
+
+  'terror-n8n': `
+Hyper-realistic true crime photography. Investigative documentary style.
+Lighting: low-key, desaturated, high contrast. Flashlight effects, partial illumination of dark spaces.
+Atmosphere: psychologically unsettling, isolated, abandoned.
+Colors: desaturated blacks, cold greys, muted blues and browns. Minimal warm light.
+Elements: evidence bags, tape, empty dark corridors, abandoned rural structures, grainy security footage feel.
+No explicit violence, no bodies. Purely atmospheric psychological horror.
+Shot on 35mm film, grainy texture, natural depth of field, sharp focus on unsettling details.
+`.trim(),
+
+  'jazz-n8n': `
+Classic noir photography style. Elegant and moody jazz club aesthetic.
+Lighting: high contrast black and white (or very desaturated). Rim lighting on musical instruments.
+Atmosphere: smokey, intimate, sophisticated, timeless.
+Colors: monochrome or deep sepia with gold accents.
+Elements: shadows of musical instruments, smoke patterns, classic urban nightlife details, stage lighting.
+No faces, no text. Evocative of golden era jazz and noir cinema.
+Film noir aesthetic, cinematic grain, soft bokeh, sharp contrast.
+`.trim(),
 
   cinematografico: `
 Cinematic photography, anamorphic lens flare, dramatic directional lighting, deep shadows,

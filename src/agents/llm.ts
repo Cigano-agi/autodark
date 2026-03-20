@@ -1,115 +1,59 @@
+import { supabase } from "@/integrations/supabase/client";
+
 /**
  * Shared LLM and image generation helpers.
- * Extracted from Production/Index.tsx so both the wizard and agents can use them.
+ * Calls Supabase Edge Functions instead of direct APIs to keep keys secure server-side.
  */
-
-const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
-const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
-const KIE_API_KEY = (import.meta.env.VITE_KIE_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
-
-function isDev(): boolean {
-  return ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
-    window.location.hostname.startsWith("192.168.") ||
-    window.location.hostname.startsWith("10.");
-}
 
 export async function callClaude(systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> {
   try {
-    const url = isDev() ? "/api-ai/v1/chat/completions" : "https://api.ai33.pro/v1/chat/completions";
-    if (!AI33_API_KEY) throw new Error("AI33_API_KEY missing");
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-        temperature: 0.7,
-        ...(requireJson ? { response_format: { type: "json_object" } } : {}),
-      }),
+    const { data, error } = await supabase.functions.invoke("chat-completions", {
+      body: { systemPrompt, userPrompt, requireJson, temperature: 0.7 }
     });
-    if (res.ok) return (await res.json()).choices?.[0]?.message?.content || "";
-    if (res.status === 401 && OPENROUTER_API_KEY) return callOpenRouter(systemPrompt, userPrompt, requireJson);
-    throw new Error(`AI33 ${res.status}: ${(await res.text()).slice(0, 100)}`);
+    if (error) throw error;
+    return data.content || "";
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "";
-    if (OPENROUTER_API_KEY && msg.includes("AI33")) return callOpenRouter(systemPrompt, userPrompt, requireJson);
+    console.error("[autodark] callClaude failed:", err);
     throw err;
   }
 }
 
 export async function callOpenRouter(systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> {
-  // Try paid model first, fall back to free tier model
-  const models = OPENROUTER_API_KEY
-    ? ["openai/gpt-4o-mini", "mistralai/mistral-7b-instruct:free"]
-    : ["mistralai/mistral-7b-instruct:free", "google/gemma-3-4b-it:free"];
-
-  for (const model of models) {
-    try {
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${OPENROUTER_API_KEY || "sk-or-free"}`,
-          "HTTP-Referer": window.location.origin,
-          "X-Title": "AutoDark Production",
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-          ...(requireJson ? { response_format: { type: "json_object" } } : {}),
-        }),
-      });
-      if (res.ok) return (await res.json()).choices?.[0]?.message?.content || "";
-    } catch { continue; }
-  }
-  throw new Error("Todos os modelos OpenRouter falharam");
+  // Edge Function chat-completions should handle fallbacks
+  return callClaude(systemPrompt, userPrompt, requireJson);
 }
 
 export async function callKieImage(prompt: string): Promise<string> {
-  if (!KIE_API_KEY) throw new Error("KIE_API_KEY missing");
-  const baseUrl = isDev() ? "/api-kie" : "https://api.kie.ai";
-  const submitRes = await fetch(`${baseUrl}/api/v1/flux/kontext/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${KIE_API_KEY}` },
-    body: JSON.stringify({ prompt, aspectRatio: "16:9", outputFormat: "jpeg", model: "flux-kontext-pro", enableTranslation: true }),
+  const { data: submitData, error: submitError } = await supabase.functions.invoke("generate-kie-flow", {
+    body: { action: "generate", prompt, aspectRatio: "16:9" }
   });
-  if (!submitRes.ok) throw new Error(`Kie.ai submit failed (${submitRes.status})`);
-  const taskId = (await submitRes.json())?.data?.taskId;
-  if (!taskId) throw new Error("Kie.ai: no taskId returned");
+  if (submitError) throw submitError;
+  const taskId = submitData?.taskId;
+  if (!taskId) throw new Error("Kie.ai: no taskId returned from edge function");
 
   const start = Date.now();
   while (Date.now() - start < 200_000) {
     await new Promise(r => setTimeout(r, 5_000));
-    const pollRes = await fetch(`${baseUrl}/api/v1/flux/kontext/record-info?taskId=${taskId}`, {
-      headers: { "Authorization": `Bearer ${KIE_API_KEY}` },
+    const { data: pollData, error: pollError } = await supabase.functions.invoke("generate-kie-flow", {
+      body: { action: "poll", taskId }
     });
-    if (!pollRes.ok) continue;
-    const data = (await pollRes.json())?.data;
-    if (!data) continue;
-    if (data.successFlag === 1 && data.response?.resultImageUrl) return data.response.resultImageUrl;
-    if (data.errorCode) throw new Error(`Kie.ai failed: ${data.errorMessage || data.errorCode}`);
+    if (pollError) continue;
+    const result = pollData?.data;
+    if (!result) continue;
+    if (result.successFlag === 1 && result.response?.resultImageUrl) return result.response.resultImageUrl;
+    if (result.errorCode) throw new Error(`Kie.ai failed: ${result.errorMessage || result.errorCode}`);
   }
   throw new Error("Kie.ai: timeout");
 }
 
 export async function callImageGeneration(prompt: string): Promise<string> {
-  if (KIE_API_KEY) {
-    try { return await callKieImage(prompt); }
-    catch (e) { console.warn("[autodark] Kie.ai failed:", e instanceof Error ? e.message : e); }
+  try {
+    return await callKieImage(prompt);
+  } catch (e) {
+    console.warn("[autodark] Kie.ai via Edge Function failed, falling back:", e);
+    // Fallback: Pollinations.ai — 100% free, no API key needed
+    return callPollinationsImage(prompt);
   }
-  if (AI33_API_KEY) {
-    try {
-      const url = isDev() ? "/api-ai/v1/images/generations" : "https://api.ai33.pro/v1/images/generations";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-        body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "standard", n: 1 }),
-      });
-      if (res.ok) return (await res.json()).data[0].url as string;
-    } catch { /* AI33 falhou — usa Pollinations */ }
-  }
-  // Fallback: Pollinations.ai — 100% free, no API key needed
-  return callPollinationsImage(prompt);
 }
 
 export async function callUnsplashImage(keywords: string): Promise<string> {
@@ -230,16 +174,15 @@ export async function callTTS(text: string, voice: string, voiceId: string): Pro
     return { blob: new Blob(), durationSec: Math.ceil(text.length / 15) };
   }
 
-  if (!AI33_API_KEY) throw new Error("AI33_API_KEY missing for TTS");
-
-  const url = isDev() ? "/api-ai/v1/audio/speech" : "https://api.ai33.pro/v1/audio/speech";
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-    body: JSON.stringify({ model: "tts-1", input: text, voice: voiceId || "alloy", response_format: "mp3" }),
+  const { data, error } = await supabase.functions.invoke("youtube-generate-audio", {
+    body: { text, voice: voiceId, provider: voice === "google" || voice === "google_chirp" ? "google" : "ai33" }
   });
-  if (!res.ok) throw new Error(`TTS failed: ${res.status}`);
-  const blob = await res.blob();
+
+  if (error) throw error;
+  if (!data) throw new Error("TTS edge function returned no data");
+
+  // Supabase client automatically converts audio response to Blob
+  const blob = data instanceof Blob ? data : new Blob([data], { type: "audio/mpeg" });
   const durationSec = await getAudioDuration(blob);
   return { blob, durationSec };
 }

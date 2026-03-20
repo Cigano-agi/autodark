@@ -163,7 +163,7 @@ function getSupportedMimeType(): string {
  */
 export function estimateDurationSec(text: string): number {
   const wordCount = text.trim().split(/\s+/).length;
-  return Math.max(15, Math.ceil(wordCount / 2.5));
+  return Math.max(3, Math.ceil(wordCount / 2.5));
 }
 
 /**

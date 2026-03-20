@@ -77,6 +77,18 @@ function ReviewModal({ content, open, onClose, onSave, onApprove, onPublishNow, 
 
   const handleApprove = () => onApprove(scheduledDate || null);
 
+  // Helper to get video URL
+  const getVideoUrl = (c: any) => {
+    if (c.video_path?.startsWith('http')) return c.video_path;
+    if (c.video_path) {
+      const { data } = supabase.storage.from('videos').getPublicUrl(c.video_path);
+      return data.publicUrl;
+    }
+    return c.reference || null;
+  };
+
+  const videoUrl = getVideoUrl(content);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[640px] bg-card border-white/10 shadow-2xl">
@@ -88,17 +100,18 @@ function ReviewModal({ content, open, onClose, onSave, onApprove, onPublishNow, 
         </DialogHeader>
 
         <div className="space-y-5 mt-2">
-          {/* Video preview placeholder */}
-          {content.reference && (
+          {/* Video preview */}
+          {videoUrl && (
             <div className="aspect-video bg-black/60 rounded-xl border border-white/10 flex items-center justify-center relative overflow-hidden">
               <video
-                src={content.reference}
+                src={videoUrl}
                 controls
                 className="w-full h-full rounded-xl object-contain"
+                poster={content.thumbnail_path}
               />
             </div>
           )}
-          {!content.reference && (
+          {!videoUrl && (
             <div className="aspect-video bg-black/40 rounded-xl border border-dashed border-white/10 flex flex-col items-center justify-center gap-2">
               <Play className="w-10 h-10 text-white/20" />
               <p className="text-xs text-muted-foreground">Vídeo não gerado ainda</p>
@@ -197,6 +210,13 @@ function ContentCard({ content, onReview, onQuickApprove, onQuickReject, isUpdat
   const status = content.status || "draft";
   const isAwaiting = status === "awaiting_review";
 
+  // Helper for thumbnail preview
+  const videoUrl = content.video_path?.startsWith('http') 
+    ? content.video_path 
+    : content.video_path 
+      ? supabase.storage.from('videos').getPublicUrl(content.video_path).data.publicUrl 
+      : content.reference;
+
   return (
     <Card className={cn(
       "bg-card/30 backdrop-blur border transition-all",
@@ -208,8 +228,8 @@ function ContentCard({ content, onReview, onQuickApprove, onQuickReject, isUpdat
         <div className="flex items-start gap-4">
           {/* Thumbnail / preview */}
           <div className="w-28 shrink-0 aspect-video bg-black/50 rounded-lg overflow-hidden border border-white/10 relative flex items-center justify-center">
-            {content.reference ? (
-              <video src={content.reference} className="w-full h-full object-cover" />
+            {videoUrl ? (
+              <video src={videoUrl} className="w-full h-full object-cover" poster={content.thumbnail_path} />
             ) : (
               <Play className="w-6 h-6 text-white/20" />
             )}

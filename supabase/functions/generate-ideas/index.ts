@@ -65,6 +65,7 @@ Deno.serve(async (req) => {
         const reference = blueprint?.reference || "fontes confiáveis";
         const topic = blueprint?.topic || channel.niche;
         const personaPrompt = blueprint?.persona_prompt || "";
+        const customScriptPrompt = blueprint?.custom_script_prompt || "";
 
         const systemPrompt = `Você é um curador de momentos extraordinários. Seu objetivo é gerar ${videosPerBatch} ideias de vídeos curtos com alto potencial viral.
 
@@ -72,6 +73,7 @@ NICHO: ${channel.niche}
 TÓPICO BASE: ${topic}
 FONTE DE REFERÊNCIA: ${reference}
 ${personaPrompt ? `PERSONA: ${personaPrompt}` : ""}
+${customScriptPrompt ? `REGRAS CUSTOMIZADAS: ${customScriptPrompt}` : ""}
 
 DIRETRIZES DE VARIEDADE E IMPACTO:
 

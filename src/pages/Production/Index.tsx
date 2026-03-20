@@ -28,12 +28,16 @@ import {
 import { toast } from "sonner";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { KieGenerator } from "@/components/ui/kie-generator";
+import { 
+  callClaude as callClaudeHelper, 
+  callImageGeneration as callImageGenerationHelper,
+  callTTS as callTTSHelper,
+  extractJson as extractJsonHelper,
+  stripMarkdown as stripMarkdownHelper
+} from "@/agents/llm";
 
 // ─── API Keys ────────────────────────────────────────────────────────────────
-
-const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
-const OPENROUTER_API_KEY = (import.meta.env.VITE_OPENROUTER_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
-const KIE_API_KEY = (import.meta.env.VITE_KIE_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
+// Removed VITE_* keys from bundle - now using Edge Functions via helpers
 
 // Resolves a visual_style value (preset key or free-text) to an image prompt string
 function resolveVisualStyle(raw: string | null | undefined): string {
@@ -140,63 +144,10 @@ function generateId(): string {
 
 // ─── Chat completion helper ────────────────────────────────────────────────────
 
-const fetchWithTimeout = (url: string, options: RequestInit, timeoutMs = 45000): Promise<Response> => {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer));
-};
-
-const callClaude = async (systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> => {
-  const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
-                window.location.hostname.startsWith("192.168.") ||
-                window.location.hostname.startsWith("10.");
-  try {
-    const url = isDev ? "/api-ai/v1/chat/completions" : "https://api.ai33.pro/v1/chat/completions";
-    if (!AI33_API_KEY) throw new Error("AI33_API_KEY missing");
-    const res = await fetchWithTimeout(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-        temperature: 0.7,
-        ...(requireJson ? { response_format: { type: "json_object" } } : {}),
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content;
-      if (!content) throw new Error(`AI33 sem resposta: ${data.message || JSON.stringify(data).slice(0, 80)}`);
-      return content;
-    }
-    if (res.status === 401 && OPENROUTER_API_KEY) return callOpenRouter(systemPrompt, userPrompt, requireJson);
-    throw new Error(`AI33 ${res.status}: ${(await res.text()).slice(0, 100)}`);
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "";
-    if (err instanceof Error && err.name === "AbortError") throw new Error("AI33 timeout — tentando OpenRouter...");
-    if (OPENROUTER_API_KEY && (msg.includes("AI33") || msg.includes("timeout"))) return callOpenRouter(systemPrompt, userPrompt, requireJson);
-    throw err;
-  }
-};
-
-const callOpenRouter = async (systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> => {
-  const res = await fetchWithTimeout("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-      "HTTP-Referer": window.location.origin,
-      "X-Title": "AutoDark Production",
-    },
-    body: JSON.stringify({
-      model: "openai/gpt-4o-mini",
-      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      ...(requireJson ? { response_format: { type: "json_object" } } : {}),
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
-  return (await res.json()).choices?.[0]?.message?.content || "";
-};
+const callClaude = callClaudeHelper;
+const callImageGeneration = callImageGenerationHelper;
+const extractJson = extractJsonHelper;
+const stripMarkdown = stripMarkdownHelper;
 
 // ─── Image generation helper ──────────────────────────────────────────────────
 
@@ -221,73 +172,6 @@ const generatePlaceholderImage = (prompt: string, index: number): string => {
 };
 
 let _placeholderIdx = 0;
-
-const callKieImage = async (prompt: string): Promise<string> => {
-  if (!KIE_API_KEY) throw new Error("KIE_API_KEY missing");
-  const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-  const baseUrl = isDev ? "/api-kie" : "https://api.kie.ai";
-  const submitRes = await fetch(`${baseUrl}/api/v1/flux/kontext/generate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${KIE_API_KEY}` },
-    body: JSON.stringify({ prompt, aspectRatio: "16:9", outputFormat: "jpeg", model: "flux-kontext-pro", enableTranslation: true }),
-  });
-  if (!submitRes.ok) {
-    const errText = await submitRes.text();
-    throw new Error(`Kie.ai submit failed (${submitRes.status}): ${errText.slice(0, 120)}`);
-  }
-  const submitData = await submitRes.json();
-  const taskId = submitData?.data?.taskId;
-  if (!taskId) throw new Error("Kie.ai: no taskId returned");
-  const maxWait = 200_000;
-  const pollInterval = 5_000;
-  const start = Date.now();
-  while (Date.now() - start < maxWait) {
-    await new Promise(r => setTimeout(r, pollInterval));
-    const pollRes = await fetch(`${baseUrl}/api/v1/flux/kontext/record-info?taskId=${taskId}`, {
-      headers: { "Authorization": `Bearer ${KIE_API_KEY}` },
-    });
-    if (!pollRes.ok) continue;
-    const pollData = await pollRes.json();
-    if (pollData?.code === 422) continue;
-    const data = pollData?.data;
-    if (!data) continue;
-    if (data.successFlag === 1 && data.response?.resultImageUrl) return data.response.resultImageUrl;
-    if (data.errorCode || data.errorMessage) throw new Error(`Kie.ai failed: ${data.errorMessage || data.errorCode}`);
-  }
-  throw new Error("Kie.ai: timeout waiting for image (120s)");
-};
-
-const callImageGeneration = async (prompt: string): Promise<string> => {
-  if (KIE_API_KEY) {
-    try { return await callKieImage(prompt); }
-    catch (e) { console.warn("[autodark] Kie.ai failed:", e instanceof Error ? e.message : e); }
-  }
-  if (AI33_API_KEY) {
-    try {
-      const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-      const url = isDev ? "/api-ai/v1/images/generations" : "https://api.ai33.pro/v1/images/generations";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-        body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "standard", n: 1 }),
-      });
-      if (res.ok) { const data = await res.json(); return data.data[0].url as string; }
-    } catch { }
-  }
-  return generatePlaceholderImage(prompt, _placeholderIdx++);
-};
-
-const extractJson = (text: string) => {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("JSON não encontrado na resposta");
-  return JSON.parse(match[0]);
-};
-
-const stripMarkdown = (text: string): string =>
-  text.replace(/^#{1,6}\s+/gm, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1")
-    .replace(/~~(.+?)~~/g, "$1").replace(/`(.+?)`/g, "$1").replace(/^[-*_]{3,}\s*$/gm, "")
-    .replace(/^[-*+]\s+/gm, "").replace(/^\d+\.\s+/gm, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/\n{3,}/g, "\n\n").trim();
 
 const renderMarkdown = (text: string): string =>
   text.replace(/^### (.+)$/gm, '<h4 class="text-sm font-bold text-white/90 mt-3 mb-1">$1</h4>')
@@ -586,52 +470,12 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
     setGeneratingAudio(chapterId);
     try {
       const text = stripMarkdown(chapter.script);
+      const { blob, durationSec } = await callTTSHelper(text, hub.voice, hub.voiceId);
 
-      if (hub.voice === "browser" && !AI33_API_KEY) {
-        setChapters(prev => prev.map(ch =>
-          ch.id === chapterId ? { ...ch, audioUrl: "browser_tts", audioDurationSec: Math.ceil(text.length / 15) } : ch
-        ));
-        toast.warning(`TTS browser: vídeo ficará sem áudio (configure AI33_API_KEY para narração real)`);
-        return;
-      }
-
-      let res: Response;
-
-      if (hub.voice === "google_chirp") {
-        // Route through Edge Function (keeps GOOGLE_TTS_API_KEY server-side)
-        const { data: { session } } = await supabase.auth.getSession();
-        res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-generate-audio`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({ text, voice: hub.voiceId, provider: "google" }),
-          }
-        );
-      } else {
-        const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-        const ttsUrl = isDev ? "/api-ai/v1/audio/speech" : "https://api.ai33.pro/v1/audio/speech";
-        res = await fetch(ttsUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-          body: JSON.stringify({
-            model: "tts-1",
-            input: text,
-            voice: hub.voiceId || "alloy",
-            response_format: "mp3",
-          }),
-        });
-      }
-      if (!res.ok) throw new Error(`TTS failed: ${res.status}`);
-      const blob = await res.blob();
       const audioUrl = URL.createObjectURL(blob);
-      const audioDuration = await getAudioDuration(blob);
       audioBlobsRef.current[chapterId] = blob;
       setChapters(prev => prev.map(ch =>
-        ch.id === chapterId ? { ...ch, audioUrl, audioDurationSec: audioDuration } : ch
+        ch.id === chapterId ? { ...ch, audioUrl, audioDurationSec: durationSec } : ch
       ));
       toast.success(`Áudio de "${chapter.title}" gerado!`);
     } catch (e: unknown) {
@@ -897,6 +741,9 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
         script: fullScript,
         topic: blueprint?.topic || undefined,
         status: "awaiting_review",
+        video_path: mp4Url || videoUrl || undefined,
+        thumbnail_path: thumbImageUrl || undefined,
+        scenes: allScenes as any,
       });
 
       toast.success("Conteúdo salvo!");

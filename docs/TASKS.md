@@ -25,9 +25,9 @@
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 2.1 | Migration: adicionar colunas `scenes`, `video_path`, `thumbnail_path`, `render_status` em `channel_contents` | ⬜ |
-| 2.2 | Edge function `generate-video-scenes`: recebe ideia, retorna array de cenas com prompt de imagem | ⬜ |
-| 2.3 | Edge function `generate-scene-images`: chama provedor de imagem (a definir) por cena | ⬜ |
+| 2.1 | Migration: adicionar colunas `scenes`, `video_path`, `thumbnail_path`, `render_status` em `channel_contents` | ✅ |
+| 2.2 | Edge function `generate-video-scenes`: recebe ideia, retorna array de cenas com prompt de imagem | ✅ |
+| 2.3 | Edge function `generate-scene-images`: chama provedor de imagem (a definir) por cena | ✅ (Placeholder Picsum implementado) |
 | 2.4 | Adaptar N8N Workflow 3 para orquestrar render FFmpeg com as cenas geradas | ⬜ |
 | 2.5 | UI: botão "Gerar Vídeo Curto" no `ChannelView` / Production com progress steps | ⬜ |
 
@@ -48,9 +48,9 @@
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 4.1 | Adicionar campo `custom_script_prompt` na tabela `channel_blueprints` | ⬜ |
+| 4.1 | Adicionar campo `custom_script_prompt` na tabela `channel_blueprints` | ✅ |
 | 4.2 | Adicionar textarea "Script Personalizado" na aba Blueprint do `ChannelView` | ⬜ |
-| 4.3 | Atualizar edge functions `generate-ideas` e `generate-video-scenes` para usar `custom_script_prompt` quando definido, sobrepondo o prompt padrão | ⬜ |
+| 4.3 | Atualizar edge functions `generate-ideas` e `generate-video-scenes` para usar `custom_script_prompt` quando definido, sobrepondo o prompt padrão | ✅ |
 | 4.4 | Documentar para o cliente como formatar o script personalizado | ⬜ |
 
 ---

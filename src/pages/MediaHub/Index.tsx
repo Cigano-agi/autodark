@@ -32,10 +32,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-const KIE_API_KEY = (import.meta.env.VITE_KIE_API_KEY as string | undefined)
-  ?.replace(/['"]/g, "")
-  .trim();
-
 // ─── Storage ──────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "autodark_hub_defaults_v2";
 
@@ -228,7 +224,7 @@ const IMAGE_PROVIDERS: ImageProvider[] = [
     quality: "premium",
     resolution: "16:9 (1280×720+)",
     avgTime: "~3 min",
-    available: !!KIE_API_KEY,
+    available: true,
     badge: "R$ 0,30/img",
     useCase: "thumbnail + slides",
   },
