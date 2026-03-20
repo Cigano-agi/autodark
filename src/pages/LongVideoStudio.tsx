@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -9,17 +9,40 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
-import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download } from "lucide-react";
+import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download, FileAudio } from "lucide-react";
 import { useChannel } from "@/hooks/useChannels";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
+import { RemotionPreview } from "@/remotion/RemotionPreview";
+import type { SlideData } from "@/remotion/types";
+import { callPollinationsImage } from "@/agents/llm";
 
+
+interface SceneData {
+    id: string;
+    director_notes: string;
+    narration_text: string;
+    visual_prompt_for_image_ai: string;
+    estimated_duration: number;
+}
+
+interface ScriptData {
+    title: string;
+    description: string;
+    tags: string[];
+    scenes: SceneData[];
+}
+
+interface BlueprintData {
+    tone_of_voice?: string;
+    target_audience?: string;
+}
 
 export default function LongVideoStudio() {
     const { id: channelId } = useParams();
     const { data: channel } = useChannel(channelId);
 
     const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
-    const [blueprint, setBlueprint] = useState<any>(null);
+    const [blueprint, setBlueprint] = useState<BlueprintData | null>(null);
 
     useEffect(() => {
         if (channelId) {
@@ -32,7 +55,7 @@ export default function LongVideoStudio() {
 
     const [topic, setTopic] = useState("");
     const [context, setContext] = useState("");
-    const [scriptData, setScriptData] = useState<any>(null);
+    const [scriptData, setScriptData] = useState<ScriptData | null>(null);
 
     const [generatingScript, setGeneratingScript] = useState(false);
     const [analyzingRules, setAnalyzingRules] = useState(false);
@@ -52,6 +75,16 @@ export default function LongVideoStudio() {
     const { assembleVideo, assembling: renderingVideo, progress: renderProgress, log: renderLog } = useVideoAssembler();
 
     const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
+
+    // Build Remotion slide data from current scriptData + generated assets
+    const remotionSlides: SlideData[] = scriptData?.scenes
+        ?.filter((s: { id: string }) => sceneImages[s.id])
+        .map((s: { id: string; narration_text: string; estimated_duration: number }) => ({
+            imageUrl: sceneImages[s.id],
+            narration: s.narration_text,
+            durationSec: Math.max(4, s.estimated_duration || 6),
+            audioUrl: audioDataUrls[s.id],
+        })) ?? [];
 
     useEffect(() => {
         if (blueprint) {
@@ -79,8 +112,8 @@ export default function LongVideoStudio() {
             setRulesLog(null);
             setWizardStep(2);
             toast.success('Roteiro gerado! Revise os blocos abaixo.');
-        } catch (e: any) {
-            toast.error(`Erro na IA: ${e.message}`);
+        } catch (e: unknown) {
+            toast.error(`Erro na IA: ${e instanceof Error ? e.message : "Erro desconhecido"}`);
         } finally {
             setGeneratingScript(false);
         }
@@ -112,8 +145,8 @@ export default function LongVideoStudio() {
             setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
             toast.success('Áudio Gerado. Narração baixada.');
 
-        } catch (e: any) {
-            toast.error(`Erro no TTS: ${e.message}`);
+        } catch (e: unknown) {
+            toast.error(`Erro no TTS: ${e instanceof Error ? e.message : "Erro desconhecido"}`);
         } finally {
             setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
         }
@@ -121,74 +154,77 @@ export default function LongVideoStudio() {
 
     const updateSceneNarration = (id: string, text: string) => {
         if (!scriptData) return;
-        const newScenes = scriptData.scenes.map((s: any) => s.id === id ? { ...s, narration_text: text } : s);
+        const newScenes = scriptData.scenes.map((s: SceneData) => s.id === id ? { ...s, narration_text: text } : s);
         setScriptData({ ...scriptData, scenes: newScenes });
     };
 
     const updateScenePrompt = (id: string, text: string) => {
         if (!scriptData) return;
-        const newScenes = scriptData.scenes.map((s: any) => s.id === id ? { ...s, visual_prompt_for_image_ai: text } : s);
+        const newScenes = scriptData.scenes.map((s: SceneData) => s.id === id ? { ...s, visual_prompt_for_image_ai: text } : s);
         setScriptData({ ...scriptData, scenes: newScenes });
     };
 
     const generateSceneImage = async (sceneId: string, visualPrompt: string) => {
-        if (!AI33_API_KEY) { toast.error("AI33_API_KEY missing"); return; }
         setGeneratingImage(prev => ({ ...prev, [sceneId]: true }));
+        const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
         try {
-            const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-            const url = isDev ? "/api-ai/v1/images/generations" : "https://api.ai33.pro/v1/images/generations";
-            const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
-            const res = await fetch(url, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-                body: JSON.stringify({ model: "dall-e-3", prompt: fullPrompt, size: "1792x1024", quality: "standard", n: 1 }),
-            });
-            if (!res.ok) throw new Error(`Image API ${res.status}`);
-            const data = await res.json();
-            const imageUrl = data.data[0].url as string;
+            let imageUrl: string;
+            if (AI33_API_KEY) {
+                const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+                const apiUrl = isDev ? "/api-ai/v1/images/generations" : "https://api.ai33.pro/v1/images/generations";
+                const res = await fetch(apiUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
+                    body: JSON.stringify({ model: "dall-e-3", prompt: fullPrompt, size: "1792x1024", quality: "standard", n: 1 }),
+                });
+                if (!res.ok) throw new Error(`AI33 ${res.status} — usando Pollinations como fallback`);
+                const data = await res.json();
+                imageUrl = data.data[0].url as string;
+            } else {
+                toast.info("Usando Pollinations.ai (gratuito)...");
+                imageUrl = await callPollinationsImage(fullPrompt);
+            }
             setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
-            toast.success(`Imagem da cena gerada!`);
+            toast.success("Imagem da cena gerada!");
         } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem");
+            // Primary failed — try Pollinations
+            try {
+                toast.info("Tentando Pollinations.ai como fallback...");
+                const imageUrl = await callPollinationsImage(fullPrompt);
+                setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
+                toast.success("Imagem gerada via Pollinations.ai!");
+            } catch {
+                toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem");
+            }
         } finally {
             setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
         }
     };
 
     const handleRenderVideo = async () => {
-        if (!scriptData) return;
+        if (!scriptData || remotionSlides.length === 0) return;
         setVideoUrl(null);
 
-        // Check if we have scene images
-        const scenesWithImages = scriptData.scenes.filter((s: { id: string }) => sceneImages[s.id]);
-        if (scenesWithImages.length === 0) {
-            toast.error("Gere pelo menos uma imagem de cena antes de renderizar.");
-            return;
-        }
-
         try {
-            toast.info('Renderizando vídeo com imagens + áudio via FFmpeg WASM...');
+            toast.info('Renderizando vídeo via Canvas (100% no navegador)...');
 
-            // Build assembly scenes
-            const totalNarration = scriptData.scenes.reduce((sum: number, s: { narration_text: string }) => sum + (s.narration_text?.length || 100), 0);
-            const assemblyScenes = scenesWithImages.map((s: { id: string; narration_text: string; estimated_duration: number }) => ({
-                imageUrl: sceneImages[s.id],
-                durationSec: Math.max(4, s.estimated_duration || Math.round((s.narration_text?.length || 100) / totalNarration * 60)),
+            const assemblyScenes = remotionSlides.map(s => ({
+                imageUrl: s.imageUrl,
+                durationSec: s.durationSec,
+                subtitle: s.narration,
             }));
 
-            // Collect audio blob if available
+            // Collect first available audio blob
             let audioBlob: Blob | null = null;
-            const audioEntries = Object.values(audioDataUrls);
-            if (audioEntries.length > 0) {
-                // Fetch first audio as blob (simplified - ideally concat all)
-                const firstAudioUrl = audioEntries[0];
-                const audioRes = await fetch(firstAudioUrl);
+            const audioEntry = Object.values(audioDataUrls)[0];
+            if (audioEntry) {
+                const audioRes = await fetch(audioEntry);
                 audioBlob = await audioRes.blob();
             }
 
             const url = await assembleVideo(assemblyScenes, audioBlob);
             setVideoUrl(url);
-            toast.success('Vídeo renderizado! Seu MP4 está pronto.');
+            toast.success('Vídeo pronto para download!');
 
         } catch (e: unknown) {
             toast.error(e instanceof Error ? e.message : "Erro de Renderização");
@@ -312,7 +348,7 @@ export default function LongVideoStudio() {
                                 </Card>
 
                                 {/* Scenes */}
-                                {scriptData.scenes?.map((scene: any, index: number) => (
+                                {scriptData.scenes?.map((scene: SceneData, index: number) => (
                                     <Card key={scene.id} className="border-white/10 overflow-hidden">
                                         <div className="bg-muted/50 px-4 py-2 flex items-center justify-between border-b border-white/5">
                                             <Badge variant="outline" className="font-mono text-xs">Bloco {index + 1} - {scene.estimated_duration}s</Badge>
@@ -394,19 +430,44 @@ export default function LongVideoStudio() {
 
                 {/* Fase 3: Renderização Total */}
                 {wizardStep === 3 && scriptData && (
-                    <div className="max-w-3xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-500">
+                    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-500">
                         <Button variant="ghost" className="text-muted-foreground" onClick={() => setWizardStep(2)}>
                             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar para os Blocos
                         </Button>
+
+                        {/* Remotion Player — preview in-browser before rendering */}
+                        {remotionSlides.length > 0 && (
+                            <Card className="border-white/10 overflow-hidden">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <Play className="w-5 h-5 text-primary" /> Preview do Vídeo (Remotion)
+                                    </CardTitle>
+                                    <CardDescription>
+                                        {remotionSlides.length} cena{remotionSlides.length !== 1 ? "s" : ""} com imagem — assista antes de renderizar.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    <RemotionPreview slides={remotionSlides} className="rounded-none" />
+                                </CardContent>
+                            </Card>
+                        )}
+
+                        {remotionSlides.length === 0 && (
+                            <div className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-400 text-sm flex items-start gap-3">
+                                <ImageIcon className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                                <p>Nenhuma cena com imagem encontrada. Volte para o Passo 2 e gere imagens para pelo menos uma cena.</p>
+                            </div>
+                        )}
+
                         <Card className="glass-panel border-white/10 overflow-hidden">
                             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-                            <CardHeader className="relative z-10 text-center py-10">
+                            <CardHeader className="relative z-10 text-center py-8">
                                 <div className="mx-auto w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
                                     <Video className="h-8 w-8 text-emerald-400" />
                                 </div>
-                                <CardTitle className="text-3xl font-bold">Mesa de Renderização Final</CardTitle>
-                                <CardDescription className="text-lg mx-auto max-w-lg mt-3">
-                                    Compilaremos todos os áudios e prompts em um vídeo único rodando via WebAssembly (100% no seu navegador).
+                                <CardTitle className="text-2xl font-bold">Renderizar para Download (WebM/MP4)</CardTitle>
+                                <CardDescription className="mx-auto max-w-lg mt-2">
+                                    Exporta o vídeo como arquivo usando Canvas + MediaRecorder (100% no navegador, sem servidor).
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6 relative z-10 max-w-lg mx-auto pb-10">
@@ -422,10 +483,10 @@ export default function LongVideoStudio() {
                                 <Button
                                     className="w-full bg-emerald-600 hover:bg-emerald-500 h-14 text-lg font-bold shadow-xl shadow-emerald-600/20 transition-all hover:scale-[1.02]"
                                     onClick={handleRenderVideo}
-                                    disabled={renderingVideo}
+                                    disabled={renderingVideo || remotionSlides.length === 0}
                                 >
-                                    {renderingVideo ? <Loader2 className="mr-3 h-6 w-6 animate-spin" /> : <Play className="mr-3 h-6 w-6" />}
-                                    {renderingVideo ? "Processando no Navegador..." : "Iniciar Renderização Local"}
+                                    {renderingVideo ? <Loader2 className="mr-3 h-6 w-6 animate-spin" /> : <Download className="mr-3 h-6 w-6" />}
+                                    {renderingVideo ? "Processando no Navegador..." : "Exportar Vídeo para Download"}
                                 </Button>
 
                                 {videoUrl && (
@@ -437,17 +498,17 @@ export default function LongVideoStudio() {
                                             <video src={videoUrl} controls className="w-full rounded-lg mt-2" />
                                             <a
                                                 href={videoUrl}
-                                                download={`${scriptData?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'video'}.mp4`}
+                                                download={`${scriptData?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'video'}.webm`}
                                                 className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 underline"
                                             >
-                                                <Download className="w-3 h-3" /> Baixar MP4
+                                                <Download className="w-3 h-3" /> Baixar Vídeo
                                             </a>
                                         </div>
                                     </div>
                                 )}
                             </CardContent>
                             <div className="bg-black/60 border-t border-white/5 p-4 text-center">
-                                <Label className="text-[10px] w-full uppercase text-gray-500 tracking-wider mb-2 flex items-center justify-center gap-1"><Loader2 className="w-3 h-3" /> FFmpeg WASM Core Console</Label>
+                                <Label className="text-[10px] w-full uppercase text-gray-500 tracking-wider mb-2 flex items-center justify-center gap-1"><Loader2 className="w-3 h-3" /> Canvas Render Console</Label>
                                 <pre className="text-emerald-400 text-[10px] p-2 w-full mx-auto max-w-lg text-left bg-black rounded h-20 overflow-y-auto mt-2 opacity-50 font-mono">
                                     {renderLog || "Aguardando inputs de vídeo/áudio..."}
                                 </pre>
