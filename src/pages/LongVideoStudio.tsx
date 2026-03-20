@@ -14,8 +14,9 @@ import { useChannel } from "@/hooks/useChannels";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
 import { RemotionPreview } from "@/remotion/RemotionPreview";
 import type { SlideData } from "@/remotion/types";
-import { callPollinationsImage, callUnsplashImage } from "@/agents/llm";
-import { generateTTSAudio, estimateDurationSec, extractUnsplashKeywords } from "@/agents/tts";
+import { callPollinationsImage } from "@/agents/llm";
+import { generateTTSAudio, estimateDurationSec } from "@/agents/tts";
+import { VideoGenerationHistory } from "@/components/VideoGenerationHistory";
 
 
 interface SceneData {
@@ -79,7 +80,36 @@ export default function LongVideoStudio() {
 
     const { assembleVideo, assembling: renderingVideo, progress: renderProgress, log: renderLog } = useVideoAssembler();
 
+    const [savedToHistory, setSavedToHistory] = useState(false);
+
     const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
+
+    const saveGeneration = async (data: ScriptData, sceneCount: number) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !channelId) return;
+
+        const durationSec = data.scenes?.reduce(
+            (acc: number, s: SceneData) => acc + estimateDurationSec(s.narration_text),
+            0
+        ) ?? 0;
+
+        const visualPrompts = data.scenes?.map((s: SceneData) => s.visual_prompt_for_image_ai) ?? [];
+
+        const { error } = await supabase.from("video_generations").insert({
+            channel_id: channelId,
+            user_id: user.id,
+            title: data.title || "Vídeo sem título",
+            youtube_title: data.title ?? null,
+            youtube_description: data.description ?? null,
+            scene_count: sceneCount,
+            duration_sec: durationSec,
+            script_data: data as unknown as Record<string, unknown>,
+            visual_prompts: visualPrompts,
+            status: "complete",
+        });
+
+        if (!error) setSavedToHistory(true);
+    };
 
     // Build Remotion slide data — inclui TODAS as cenas que têm imagem gerada
     // durationSec calculado pelo tamanho do texto de narração (PT-BR: ~2.5 palavras/seg)
@@ -189,22 +219,14 @@ export default function LongVideoStudio() {
     const generateSceneImage = async (sceneId: string, visualPrompt: string): Promise<void> => {
         setGeneratingImage(prev => ({ ...prev, [sceneId]: true }));
         const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
-        const keywords = extractUnsplashKeywords(visualPrompt);
 
         try {
-            // 1. Unsplash Source — gratuito, sem API key, fotos reais de alta qualidade
-            const imageUrl = await callUnsplashImage(keywords);
+            // Pollinations com o prompt visual da cena — gera imagem temática
+            // callPollinationsImage já tem Canvas dark como fallback interno
+            const imageUrl = await callPollinationsImage(fullPrompt);
             setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
         } catch {
-            try {
-                // 2. Pollinations via proxy (gratuito) — inclui Canvas como fallback interno
-                const imageUrl = await callPollinationsImage(fullPrompt);
-                setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
-            } catch {
-                // callPollinationsImage já usa Canvas como último fallback internamente
-                // Se chegou aqui, algo muito errado aconteceu — mantém sem imagem
-                console.warn("[studio] Todos os providers de imagem falharam para cena", sceneId);
-            }
+            console.warn("[studio] Todos os providers de imagem falharam para cena", sceneId);
         } finally {
             setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
         }
@@ -232,6 +254,7 @@ export default function LongVideoStudio() {
         setGeneratingAll(false);
         setGenerateAllProgress(null);
         toast.success(`${total} cenas geradas! Avançando para montagem...`);
+        await saveGeneration(scriptData, total);
         setWizardStep(3);
     };
 
@@ -302,7 +325,8 @@ export default function LongVideoStudio() {
 
                 {/* Fase 1: Roteiro e Cérebro */}
                 {wizardStep === 1 && (
-                    <Card className="glass-panel border-white/10 dark:bg-black/40 overflow-hidden relative animate-in fade-in zoom-in-95 duration-500 mx-auto max-w-3xl">
+                    <div className="flex flex-col items-center gap-0 w-full">
+                    <Card className="glass-panel border-white/10 dark:bg-black/40 overflow-hidden relative animate-in fade-in zoom-in-95 duration-500 mx-auto max-w-3xl w-full">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-20 -mt-20" />
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><LayoutTemplate className="h-5 w-5 text-purple-500" /> Cérebro Editorial</CardTitle>
@@ -344,6 +368,20 @@ export default function LongVideoStudio() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    {channelId && (
+                        <div className="max-w-3xl w-full">
+                            <VideoGenerationHistory
+                                channelId={channelId}
+                                onRestore={(data) => {
+                                    setScriptData(data as unknown as ScriptData);
+                                    setSavedToHistory(false);
+                                    setWizardStep(2);
+                                }}
+                            />
+                        </div>
+                    )}
+                    </div>
                 )}
 
                 {/* Fase 2: Blocos e Validação */}
@@ -497,6 +535,11 @@ export default function LongVideoStudio() {
                                 <CardHeader className="pb-3">
                                     <CardTitle className="flex items-center gap-2 text-lg">
                                         <Play className="w-5 h-5 text-primary" /> Preview do Vídeo (Remotion)
+                                        {savedToHistory && (
+                                            <Badge className="ml-2 bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] font-medium">
+                                                Salvo no histórico
+                                            </Badge>
+                                        )}
                                     </CardTitle>
                                     <CardDescription>
                                         {remotionSlides.length} cena{remotionSlides.length !== 1 ? "s" : ""} com imagem — assista antes de renderizar.
