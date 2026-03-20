@@ -38,22 +38,31 @@ export async function callClaude(systemPrompt: string, userPrompt: string, requi
 }
 
 export async function callOpenRouter(systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> {
-  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-      "HTTP-Referer": window.location.origin,
-      "X-Title": "AutoDark Production",
-    },
-    body: JSON.stringify({
-      model: "openai/gpt-4o-mini",
-      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      ...(requireJson ? { response_format: { type: "json_object" } } : {}),
-    }),
-  });
-  if (!res.ok) throw new Error(`OpenRouter ${res.status}: ${await res.text()}`);
-  return (await res.json()).choices?.[0]?.message?.content || "";
+  // Try paid model first, fall back to free tier model
+  const models = OPENROUTER_API_KEY
+    ? ["openai/gpt-4o-mini", "mistralai/mistral-7b-instruct:free"]
+    : ["mistralai/mistral-7b-instruct:free", "google/gemma-3-4b-it:free"];
+
+  for (const model of models) {
+    try {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENROUTER_API_KEY || "sk-or-free"}`,
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "AutoDark Production",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          ...(requireJson ? { response_format: { type: "json_object" } } : {}),
+        }),
+      });
+      if (res.ok) return (await res.json()).choices?.[0]?.message?.content || "";
+    } catch { continue; }
+  }
+  throw new Error("Todos os modelos OpenRouter falharam");
 }
 
 export async function callKieImage(prompt: string): Promise<string> {
@@ -99,8 +108,19 @@ export async function callImageGeneration(prompt: string): Promise<string> {
       if (res.ok) return (await res.json()).data[0].url as string;
     } catch { }
   }
-  // Return empty string — caller should handle placeholder
-  return "";
+  // Fallback: Pollinations.ai — 100% free, no API key needed
+  return callPollinationsImage(prompt);
+}
+
+export async function callPollinationsImage(prompt: string): Promise<string> {
+  const encoded = encodeURIComponent(prompt.slice(0, 500));
+  const seed = Math.floor(Math.random() * 999999);
+  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&enhance=true`;
+  // Pollinations returns the image directly at the URL — just verify it loads
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Pollinations.ai falhou");
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 }
 
 export function extractJson(text: string): Record<string, unknown> {
