@@ -34,7 +34,7 @@ serve(async (req) => {
             });
         }
 
-        const { topic, channelContext, webhookUrl } = await req.json();
+        const { topic, channelContext, webhookUrl, target_duration_minutes, scene_count } = await req.json();
 
         if (!topic) {
             return new Response(JSON.stringify({ error: "Missing topic" }), {
@@ -43,17 +43,21 @@ serve(async (req) => {
             });
         }
 
-        const systemPrompt = `Você é um engenheiro de viralização e especialista em SEO focado em scripts longos para YouTube.
-Contexto do Canal: ${channelContext || "Conteúdo Genérico, tom dinâmico e retenção alta."}
+        const targetMinutes = target_duration_minutes ?? 10;
+        const targetScenes = scene_count ?? 30;
 
-Sua missão é gerar um Roteiro de Vídeo Longo (em formato JSON) dividido em: 
+        const systemPrompt = `Você é um engenheiro de viralização e especialista em SEO focado em scripts longos para YouTube.
+Contexto do Canal: ${channelContext || "Canal dark/mistério, tom tenso, narração dramática, retenção alta."}
+
+Sua missão é gerar um Roteiro de Vídeo Longo (em formato JSON) com duração alvo de ${targetMinutes} minutos dividido em:
 1. title (Otimizado para clique com Curiosidade)
 2. description (2 linhas de gancho focado na palavra-chave + 21 hashtags)
 3. tags (20 tags como string separada por vírgula)
-4. scenes (array com: id, director_notes (o que vai acontecer visualmente no slide), narration_text (apenas a fala exata para o TTS ler), visual_prompt_for_image_ai (prompt em inglês para IA de imagem), estimated_duration (segundos)). 
+4. scenes (array com EXATAMENTE ${targetScenes} cenas: id, director_notes (o que vai acontecer visualmente no slide), narration_text (apenas a fala exata para o TTS ler — MÍNIMO 60 palavras por cena para garantir duração adequada), visual_prompt_for_image_ai (prompt em inglês para IA de imagem, seja específico: cenário, iluminação, atmosfera), estimated_duration (segundos — calcule baseado nas palavras do narration_text: ~150 palavras/minuto)).
 
-Seja detalhista. Crie uma história profunda para reter atenção (crie entre 5 a 10 blocos). 
-Atenção: narration_text DEVE conter apenas as palavras que o narrador vai falar, sem marcações ou ações. 
+IMPORTANTE: Crie exatamente ${targetScenes} blocos/cenas. A soma de estimated_duration deve ser próxima de ${targetMinutes * 60} segundos.
+Estrutura: 1 cena de abertura impactante + 2 cenas de contexto + ${targetScenes - 5} cenas de desenvolvimento + 2 cenas de clímax + 1 cena de conclusão/CTA.
+Atenção: narration_text DEVE conter apenas as palavras que o narrador vai falar, sem marcações ou ações. Cada cena deve ter mínimo 60 palavras de narração.
 Retorne APENAS um JSON válido.`;
 
         const userPrompt = `Gere um roteiro épico sobre: ${topic}`;

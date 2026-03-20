@@ -9,12 +9,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
-import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download, FileAudio } from "lucide-react";
+import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download, FileAudio, Zap } from "lucide-react";
 import { useChannel } from "@/hooks/useChannels";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
 import { RemotionPreview } from "@/remotion/RemotionPreview";
 import type { SlideData } from "@/remotion/types";
-import { callPollinationsImage } from "@/agents/llm";
+import { callPollinationsImage, callUnsplashImage } from "@/agents/llm";
+import { generateTTSAudio, estimateDurationSec, extractUnsplashKeywords } from "@/agents/tts";
 
 
 interface SceneData {
@@ -72,17 +73,22 @@ export default function LongVideoStudio() {
     const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
     const [generatingImage, setGeneratingImage] = useState<Record<string, boolean>>({});
 
+    // Bulk "Gerar Tudo" generation
+    const [generatingAll, setGeneratingAll] = useState(false);
+    const [generateAllProgress, setGenerateAllProgress] = useState<string | null>(null);
+
     const { assembleVideo, assembling: renderingVideo, progress: renderProgress, log: renderLog } = useVideoAssembler();
 
     const AI33_API_KEY = (import.meta.env.VITE_AI33_API_KEY as string | undefined)?.replace(/['"]/g, '').trim();
 
-    // Build Remotion slide data from current scriptData + generated assets
+    // Build Remotion slide data — inclui TODAS as cenas que têm imagem gerada
+    // durationSec calculado pelo tamanho do texto de narração (PT-BR: ~2.5 palavras/seg)
     const remotionSlides: SlideData[] = scriptData?.scenes
-        ?.filter((s: { id: string }) => sceneImages[s.id])
-        .map((s: { id: string; narration_text: string; estimated_duration: number }) => ({
+        ?.filter((s: SceneData) => sceneImages[s.id])
+        .map((s: SceneData) => ({
             imageUrl: sceneImages[s.id],
             narration: s.narration_text,
-            durationSec: Math.max(4, s.estimated_duration || 6),
+            durationSec: estimateDurationSec(s.narration_text),
             audioUrl: audioDataUrls[s.id],
         })) ?? [];
 
@@ -102,12 +108,18 @@ export default function LongVideoStudio() {
         setGeneratingScript(true);
         try {
             const response = await supabase.functions.invoke("youtube-long-engine", {
-                body: { topic, channelContext: context }
+                body: { topic, channelContext: context, target_duration_minutes: 10, scene_count: 30 }
             });
 
             if (response.error) throw new Error(response.error.message);
 
             const script = response.data.script;
+            // Normaliza tags: Edge Function pode retornar string ou array
+            if (typeof script.tags === 'string') {
+                script.tags = (script.tags as string).split(',').map((t: string) => t.trim()).filter(Boolean);
+            } else if (!Array.isArray(script.tags)) {
+                script.tags = [];
+            }
             setScriptData(script);
             setRulesLog(null);
             setWizardStep(2);
@@ -131,22 +143,32 @@ export default function LongVideoStudio() {
     const generateBlockVoice = async (sceneId: string, text: string) => {
         setProcessingVoices(prev => ({ ...prev, [sceneId]: true }));
         try {
+            // Tenta Edge Function primeiro (ai33.pro / openai TTS)
             const response = await supabase.functions.invoke("youtube-generate-audio", {
                 body: { text: text, voice: "onyx" }
             });
 
             if (response.error) throw new Error(response.error.message);
 
-            // Edge functions returning blob/binary
             const blob = new Blob([response.data], { type: "audio/mpeg" });
-            const audioUrl = URL.createObjectURL(blob);
+            if (blob.size < 100) throw new Error("Blob de áudio vazio da Edge Function");
 
+            const audioUrl = URL.createObjectURL(blob);
             setAudioDataUrls(prev => ({ ...prev, [sceneId]: audioUrl }));
             setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
             toast.success('Áudio Gerado. Narração baixada.');
 
-        } catch (e: unknown) {
-            toast.error(`Erro no TTS: ${e instanceof Error ? e.message : "Erro desconhecido"}`);
+        } catch {
+            // Fallback: Web Speech API (browser nativo, gratuito)
+            try {
+                toast.info("Usando TTS do navegador (gratuito)...");
+                const audioUrl = await generateTTSAudio(text);
+                setAudioDataUrls(prev => ({ ...prev, [sceneId]: audioUrl }));
+                setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
+                toast.success('Áudio gerado via TTS do navegador.');
+            } catch (fallbackErr: unknown) {
+                toast.error(`Erro no TTS: ${fallbackErr instanceof Error ? fallbackErr.message : "Erro desconhecido"}`);
+            }
         } finally {
             setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
         }
@@ -164,41 +186,53 @@ export default function LongVideoStudio() {
         setScriptData({ ...scriptData, scenes: newScenes });
     };
 
-    const generateSceneImage = async (sceneId: string, visualPrompt: string) => {
+    const generateSceneImage = async (sceneId: string, visualPrompt: string): Promise<void> => {
         setGeneratingImage(prev => ({ ...prev, [sceneId]: true }));
         const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
+        const keywords = extractUnsplashKeywords(visualPrompt);
+
         try {
-            let imageUrl: string;
-            if (AI33_API_KEY) {
-                const isDev = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-                const apiUrl = isDev ? "/api-ai/v1/images/generations" : "https://api.ai33.pro/v1/images/generations";
-                const res = await fetch(apiUrl, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-                    body: JSON.stringify({ model: "dall-e-3", prompt: fullPrompt, size: "1792x1024", quality: "standard", n: 1 }),
-                });
-                if (!res.ok) throw new Error(`AI33 ${res.status} — usando Pollinations como fallback`);
-                const data = await res.json();
-                imageUrl = data.data[0].url as string;
-            } else {
-                toast.info("Usando Pollinations.ai (gratuito)...");
-                imageUrl = await callPollinationsImage(fullPrompt);
-            }
+            // 1. Unsplash Source — gratuito, sem API key, fotos reais de alta qualidade
+            const imageUrl = await callUnsplashImage(keywords);
             setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
-            toast.success("Imagem da cena gerada!");
-        } catch (e: unknown) {
-            // Primary failed — try Pollinations
+        } catch {
             try {
-                toast.info("Tentando Pollinations.ai como fallback...");
+                // 2. Pollinations via proxy (gratuito) — inclui Canvas como fallback interno
                 const imageUrl = await callPollinationsImage(fullPrompt);
                 setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
-                toast.success("Imagem gerada via Pollinations.ai!");
             } catch {
-                toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem");
+                // callPollinationsImage já usa Canvas como último fallback internamente
+                // Se chegou aqui, algo muito errado aconteceu — mantém sem imagem
+                console.warn("[studio] Todos os providers de imagem falharam para cena", sceneId);
             }
         } finally {
             setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
         }
+    };
+
+    const generateAllScenes = async () => {
+        if (!scriptData) return;
+        setGeneratingAll(true);
+        const scenes = scriptData.scenes;
+        const total = scenes.length;
+
+        for (let i = 0; i < scenes.length; i++) {
+            const scene = scenes[i];
+            setGenerateAllProgress(`Gerando cena ${i + 1} de ${total}...`);
+
+            // Gera imagem e áudio em paralelo
+            await Promise.allSettled([
+                generateSceneImage(scene.id, scene.visual_prompt_for_image_ai),
+                generateTTSAudio(scene.narration_text)
+                    .then((url) => setAudioDataUrls(prev => ({ ...prev, [scene.id]: url })))
+                    .catch(() => { /* TTS falhou — sem áudio nessa cena */ }),
+            ]);
+        }
+
+        setGeneratingAll(false);
+        setGenerateAllProgress(null);
+        toast.success(`${total} cenas geradas! Avançando para montagem...`);
+        setWizardStep(3);
     };
 
     const handleRenderVideo = async () => {
@@ -342,7 +376,7 @@ export default function LongVideoStudio() {
                                         <CardTitle className="text-lg text-primary">{scriptData.title}</CardTitle>
                                         <p className="text-sm text-muted-foreground mt-1">{scriptData.description}</p>
                                         <div className="flex flex-wrap gap-2 mt-3">
-                                            {scriptData.tags?.map((t: string) => <Badge variant="secondary" key={t} className="text-[10px]">{t}</Badge>)}
+                                            {Array.isArray(scriptData.tags) && scriptData.tags.map((t: string) => <Badge variant="secondary" key={t} className="text-[10px]">{t}</Badge>)}
                                         </div>
                                     </CardHeader>
                                 </Card>
@@ -408,20 +442,42 @@ export default function LongVideoStudio() {
                             </div>
                         </div>
 
-                        {/* Painel lateral direito (apenas botões de avanço no Step 2) */}
+                        {/* Painel lateral direito */}
                         <div className="w-full xl:w-[320px] space-y-6">
                             <Card className="glass-panel border-white/10 sticky top-24">
                                 <CardHeader>
-                                    <CardTitle className="flex items-center gap-2"><CheckCircle2 className="h-5 w-5 text-indigo-400" /> Tudo Certo?</CardTitle>
-                                    <CardDescription>Revise os blocos. Com narrações prontas, clique em "Avançar" para a mesa de renderização.</CardDescription>
+                                    <CardTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-yellow-400" /> Geração Automática</CardTitle>
+                                    <CardDescription>
+                                        Gera imagens e áudio para todas as {scriptData?.scenes?.length ?? 0} cenas automaticamente e avança para a montagem.
+                                    </CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <Button className="w-full bg-indigo-600 hover:bg-indigo-700 h-11 shadow-lg shadow-indigo-600/20" onClick={() => setWizardStep(3)}>
-                                        Avançar para Montagem <ArrowRight className="w-4 h-4 ml-2" />
+                                <CardContent className="space-y-3">
+                                    <Button
+                                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-black h-12 font-bold shadow-lg shadow-yellow-500/20 transition-all hover:scale-[1.02]"
+                                        onClick={generateAllScenes}
+                                        disabled={generatingAll}
+                                    >
+                                        {generatingAll
+                                            ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{generateAllProgress ?? "Gerando..."}</>
+                                            : <><Zap className="w-4 h-4 mr-2" />Gerar Tudo Automaticamente</>
+                                        }
                                     </Button>
-                                    <Button variant="ghost" className="w-full h-11 mt-3" onClick={() => setWizardStep(1)}>
-                                        <ArrowLeft className="w-4 h-4 mr-2" /> Alterar Roteiro
-                                    </Button>
+
+                                    {generatingAll && (
+                                        <p className="text-xs text-center text-muted-foreground animate-pulse">
+                                            {generateAllProgress}
+                                        </p>
+                                    )}
+
+                                    <div className="border-t border-white/5 pt-3">
+                                        <p className="text-xs text-muted-foreground mb-3">Ou avance manualmente depois de configurar as cenas:</p>
+                                        <Button className="w-full bg-indigo-600 hover:bg-indigo-700 h-10 shadow-lg shadow-indigo-600/20" onClick={() => setWizardStep(3)} disabled={generatingAll}>
+                                            Avançar para Montagem <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Button>
+                                        <Button variant="ghost" className="w-full h-10 mt-2" onClick={() => setWizardStep(1)} disabled={generatingAll}>
+                                            <ArrowLeft className="w-4 h-4 mr-2" /> Alterar Roteiro
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </div>

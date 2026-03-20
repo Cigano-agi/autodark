@@ -15,6 +15,9 @@ interface SlideSceneProps {
   height: number;
 }
 
+// Frames de zoom-in dramático no início de cada cena (efeito terror/impacto)
+const ZOOM_IN_FRAMES = 30;
+
 export function SlideScene({
   imageUrl,
   narration,
@@ -28,7 +31,7 @@ export function SlideScene({
 }: SlideSceneProps) {
   const frame = useCurrentFrame();
 
-  // Fade in/out
+  // Fade in/out mais rápido (fadeDurationFrames vem dos props, agora padrão 8)
   const opacity = interpolate(
     frame,
     [0, fadeDurationFrames, durationInFrames - fadeDurationFrames, durationInFrames],
@@ -36,16 +39,33 @@ export function SlideScene({
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
 
+  // Zoom-in acelerado nos primeiros ZOOM_IN_FRAMES frames (1.0 → 1.15)
+  const zoomScale = interpolate(
+    frame,
+    [0, ZOOM_IN_FRAMES],
+    [1.0, 1.15],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
   return (
     <AbsoluteFill style={{ opacity }}>
-      {/* Background image with Ken Burns */}
-      <KenBurns
-        src={imageUrl}
-        durationInFrames={durationInFrames}
-        intensity={kenBurnsIntensity}
-        width={width}
-        height={height}
-      />
+      {/* Background image com Ken Burns + zoom inicial dramático */}
+      <div
+        style={{
+          width,
+          height,
+          transform: `scale(${zoomScale})`,
+          transformOrigin: "center center",
+        }}
+      >
+        <KenBurns
+          src={imageUrl}
+          durationInFrames={durationInFrames}
+          intensity={kenBurnsIntensity}
+          width={width}
+          height={height}
+        />
+      </div>
 
       {/* Audio track for this scene */}
       {audioUrl && audioUrl !== "browser_tts" && (

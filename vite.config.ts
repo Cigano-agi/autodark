@@ -28,6 +28,17 @@ export default defineConfig(({ mode }) => ({
             proxyRes.headers['cross-origin-resource-policy'] = 'cross-origin';
           });
         },
+      },
+      '/api-unsplash': {
+        target: 'https://source.unsplash.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-unsplash/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['cross-origin-resource-policy'] = 'cross-origin';
+            proxyRes.headers['access-control-allow-origin'] = '*';
+          });
+        },
       }
     }
   },

@@ -38,8 +38,8 @@ export const DEFAULT_SLIDESHOW_PROPS: Partial<SlideShowProps> = {
   fps: 30,
   width: 1920,
   height: 1080,
-  kenBurnsIntensity: 8,
+  kenBurnsIntensity: 15,
   captionStyle: DEFAULT_CAPTION_STYLE,
-  fadeDurationFrames: 15,
+  fadeDurationFrames: 8,
   musicVolume: 0.2,
 };

@@ -106,21 +106,110 @@ export async function callImageGeneration(prompt: string): Promise<string> {
         body: JSON.stringify({ model: "dall-e-3", prompt, size: "1792x1024", quality: "standard", n: 1 }),
       });
       if (res.ok) return (await res.json()).data[0].url as string;
-    } catch { }
+    } catch { /* AI33 falhou — usa Pollinations */ }
   }
   // Fallback: Pollinations.ai — 100% free, no API key needed
   return callPollinationsImage(prompt);
 }
 
-export async function callPollinationsImage(prompt: string): Promise<string> {
-  const encoded = encodeURIComponent(prompt.slice(0, 500));
-  const seed = Math.floor(Math.random() * 999999);
-  const url = `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&enhance=true`;
-  // Pollinations returns the image directly at the URL — just verify it loads
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("Pollinations.ai falhou");
+export async function callUnsplashImage(keywords: string): Promise<string> {
+  // source.unsplash.com — gratuito, sem API key, CORS ok, redireciona para foto real
+  const isDevMode = typeof window !== 'undefined' && (
+    ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
+    window.location.hostname.startsWith("192.168.")
+  );
+  const base = isDevMode ? `/api-unsplash` : `https://source.unsplash.com`;
+  const url = `${base}/1280x720/?${encodeURIComponent(keywords)}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  if (!res.ok) throw new Error(`Unsplash Source ${res.status}`);
   const blob = await res.blob();
+  if (blob.size < 5000) throw new Error("Unsplash retornou blob vazio");
   return URL.createObjectURL(blob);
+}
+
+export async function callPollinationsImage(prompt: string): Promise<string> {
+  const encoded = encodeURIComponent(prompt.slice(0, 400));
+  const seed = Math.floor(Math.random() * 999999);
+  const isDev = typeof window !== 'undefined' && ["localhost", "127.0.0.1"].includes(window.location.hostname);
+  const base = isDev ? `/api-pollinations/prompt` : `https://image.pollinations.ai/prompt`;
+  const url = `${base}/${encoded}?width=1280&height=720&seed=${seed}&nologo=true`;
+
+  // Tenta até 2 vezes com backoff
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (res.ok) {
+        const blob = await res.blob();
+        return URL.createObjectURL(blob);
+      }
+      if (res.status === 429 && attempt < 2) {
+        await new Promise(r => setTimeout(r, 4000));
+        continue;
+      }
+    } catch {
+      // timeout ou network error — usa fallback canvas
+    }
+  }
+  // Fallback: gera imagem dark cinematográfica via Canvas (100% offline)
+  return generateCanvasDarkImage(prompt);
+}
+
+/** Gera background dark cinematográfico via Canvas — sem API, sempre funciona */
+function generateCanvasDarkImage(prompt: string): string {
+  const W = 1280, H = 720;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  // Paleta baseada em keywords do prompt
+  const isBlood = /blood|gore|kill|murder|death/i.test(prompt);
+  const isMystery = /mystery|secret|unknown|ancient|forbidden/i.test(prompt);
+  const isHaunted = /ghost|haunted|spirit|phantom|mansion|aband/i.test(prompt);
+
+  const c1 = isBlood ? '#1a0000' : isMystery ? '#00001a' : '#050508';
+  const c2 = isBlood ? '#3d0000' : isMystery ? '#0a0030' : '#0d0d15';
+  const accent = isBlood ? '#8b0000' : isMystery ? '#1a006b' : isHaunted ? '#1a1a3e' : '#111122';
+
+  // Fundo gradiente
+  const grad = ctx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.4, W * 0.75);
+  grad.addColorStop(0, accent);
+  grad.addColorStop(0.6, c2);
+  grad.addColorStop(1, c1);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Vinheta pesada nas bordas
+  const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, W * 0.8);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.85)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, W, H);
+
+  // Partículas/estrelas atmosféricas
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 80; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.7;
+    const r = Math.random() * 1.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Barras cinematográficas (letterbox)
+  ctx.fillStyle = 'rgba(0,0,0,0.9)';
+  ctx.fillRect(0, 0, W, 60);
+  ctx.fillRect(0, H - 60, W, 60);
+
+  // Texto do prompt (limitado, estilo legenda)
+  const shortText = prompt.replace(/Style:.*$/i, '').trim().slice(0, 80);
+  ctx.font = 'italic 18px Georgia, serif';
+  ctx.fillStyle = 'rgba(200,180,150,0.7)';
+  ctx.textAlign = 'center';
+  ctx.fillText(shortText, W / 2, H - 25);
+
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
 export function extractJson(text: string): Record<string, unknown> {
