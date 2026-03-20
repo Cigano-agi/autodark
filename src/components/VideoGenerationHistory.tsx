@@ -105,7 +105,14 @@ export function VideoGenerationHistory({ channelId, onRestore }: VideoGeneration
     );
   }
 
-  if (generations.length === 0) return null;
+  if (generations.length === 0) {
+    return (
+      <div className="mt-8 text-center py-8 border border-dashed border-white/10 rounded-xl">
+        <Film className="w-8 h-8 mx-auto text-muted-foreground/30 mb-2" />
+        <p className="text-sm text-muted-foreground/50">Nenhuma geração ainda. Crie seu primeiro vídeo acima.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-8">

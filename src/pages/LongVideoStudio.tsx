@@ -28,8 +28,11 @@ interface SceneData {
 }
 
 interface ScriptData {
-    title: string;
-    description: string;
+    title?: string;
+    youtube_title?: string;
+    video_title?: string;
+    description?: string;
+    youtube_description?: string;
     tags: string[];
     scenes: SceneData[];
 }
@@ -95,20 +98,25 @@ export default function LongVideoStudio() {
 
         const visualPrompts = data.scenes?.map((s: SceneData) => s.visual_prompt_for_image_ai) ?? [];
 
-        const { error } = await supabase.from("video_generations").insert({
-            channel_id: channelId,
-            user_id: user.id,
-            title: data.title || "Vídeo sem título",
-            youtube_title: data.title ?? null,
-            youtube_description: data.description ?? null,
-            scene_count: sceneCount,
-            duration_sec: durationSec,
-            script_data: data as unknown as Record<string, unknown>,
-            visual_prompts: visualPrompts,
-            status: "complete",
-        });
+        try {
+            const resolvedTitle = data.youtube_title ?? data.video_title ?? data.title ?? "Vídeo sem título";
+            const { error } = await supabase.from("video_generations").insert({
+                channel_id: channelId,
+                user_id: user.id,
+                title: resolvedTitle,
+                youtube_title: data.youtube_title ?? data.title ?? null,
+                youtube_description: data.youtube_description ?? data.description ?? null,
+                scene_count: sceneCount,
+                duration_sec: durationSec,
+                script_data: data as unknown as Record<string, unknown>,
+                visual_prompts: visualPrompts,
+                status: "complete",
+            });
 
-        if (!error) setSavedToHistory(true);
+            if (!error) setSavedToHistory(true);
+        } catch {
+            // tabela ainda não criada — ignora silenciosamente
+        }
     };
 
     // Build Remotion slide data — inclui TODAS as cenas que têm imagem gerada
@@ -411,8 +419,8 @@ export default function LongVideoStudio() {
                                 {/* Metadata */}
                                 <Card className="bg-card/50 border-white/5 shadow-none pb-2">
                                     <CardHeader className="py-4">
-                                        <CardTitle className="text-lg text-primary">{scriptData.title}</CardTitle>
-                                        <p className="text-sm text-muted-foreground mt-1">{scriptData.description}</p>
+                                        <CardTitle className="text-lg text-primary">{scriptData.youtube_title ?? scriptData.video_title ?? scriptData.title ?? "Vídeo sem título"}</CardTitle>
+                                        <p className="text-sm text-muted-foreground mt-1">{scriptData.youtube_description ?? scriptData.description}</p>
                                         <div className="flex flex-wrap gap-2 mt-3">
                                             {Array.isArray(scriptData.tags) && scriptData.tags.map((t: string) => <Badge variant="secondary" key={t} className="text-[10px]">{t}</Badge>)}
                                         </div>
@@ -597,7 +605,7 @@ export default function LongVideoStudio() {
                                             <video src={videoUrl} controls className="w-full rounded-lg mt-2" />
                                             <a
                                                 href={videoUrl}
-                                                download={`${scriptData?.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'video'}.webm`}
+                                                download={`${(scriptData?.youtube_title ?? scriptData?.video_title ?? scriptData?.title ?? 'video').replace(/[^a-zA-Z0-9]/g, '_')}.webm`}
                                                 className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 underline"
                                             >
                                                 <Download className="w-3 h-3" /> Baixar Vídeo
