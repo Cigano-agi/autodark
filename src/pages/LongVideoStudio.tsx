@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from 'sonner';
-import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download, FileAudio, Zap } from "lucide-react";
+import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download, FileAudio, Zap, FolderArchive, GalleryHorizontalEnd } from "lucide-react";
 import { useChannel } from "@/hooks/useChannels";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
 import { RemotionPreview } from "@/remotion/RemotionPreview";
@@ -17,6 +17,7 @@ import type { SlideData } from "@/remotion/types";
 import { callPollinationsImage } from "@/agents/llm";
 import { generateTTSAudio, estimateDurationSec } from "@/agents/tts";
 import { VideoGenerationHistory } from "@/components/VideoGenerationHistory";
+import JSZip from "jszip";
 
 
 interface SceneData {
@@ -254,7 +255,12 @@ export default function LongVideoStudio() {
             await Promise.allSettled([
                 generateSceneImage(scene.id, scene.visual_prompt_for_image_ai),
                 generateTTSAudio(scene.narration_text)
-                    .then((url) => setAudioDataUrls(prev => ({ ...prev, [scene.id]: url })))
+                    .then((url) => {
+                        if (url) {
+                            setAudioDataUrls(prev => ({ ...prev, [scene.id]: url }));
+                            setCompletedVoices(prev => ({ ...prev, [scene.id]: true }));
+                        }
+                    })
                     .catch(() => { /* TTS falhou — sem áudio nessa cena */ }),
             ]);
         }
@@ -277,22 +283,87 @@ export default function LongVideoStudio() {
                 imageUrl: s.imageUrl,
                 durationSec: s.durationSec,
                 subtitle: s.narration,
+                audioUrl: s.audioUrl,
             }));
 
-            // Collect first available audio blob
-            let audioBlob: Blob | null = null;
-            const audioEntry = Object.values(audioDataUrls)[0];
-            if (audioEntry) {
-                const audioRes = await fetch(audioEntry);
-                audioBlob = await audioRes.blob();
-            }
-
-            const url = await assembleVideo(assemblyScenes, audioBlob);
+            const url = await assembleVideo(assemblyScenes, null);
             setVideoUrl(url);
             toast.success('Vídeo pronto para download!');
 
         } catch (e: unknown) {
             toast.error(e instanceof Error ? e.message : "Erro de Renderização");
+        }
+    };
+
+    // ── Export para CapCut: ZIP com imagens numeradas + áudios + roteiro ──
+    const [exportingZip, setExportingZip] = useState(false);
+
+    const handleExportCapCut = async () => {
+        if (!scriptData) return;
+        setExportingZip(true);
+        const zip = new JSZip();
+        const imgFolder = zip.folder("imagens")!;
+        const audioFolder = zip.folder("audios")!;
+
+        const scenes = scriptData.scenes.filter((s: SceneData) => sceneImages[s.id]);
+        if (scenes.length === 0) {
+            toast.error("Nenhuma cena com imagem. Gere as imagens primeiro.");
+            setExportingZip(false);
+            return;
+        }
+
+        toast.info(`Empacotando ${scenes.length} cenas...`);
+
+        try {
+            for (let i = 0; i < scenes.length; i++) {
+                const scene = scenes[i];
+                const num = String(i + 1).padStart(3, '0');
+
+                // Baixa imagem como blob
+                try {
+                    const imgRes = await fetch(sceneImages[scene.id]);
+                    const imgBlob = await imgRes.blob();
+                    const ext = imgBlob.type.includes('png') ? 'png' : 'jpg';
+                    imgFolder.file(`${num}_cena.${ext}`, imgBlob);
+                } catch {
+                    console.warn(`[export] Falha ao baixar imagem da cena ${i + 1}`);
+                }
+
+                // Baixa áudio se existir
+                if (audioDataUrls[scene.id]) {
+                    try {
+                        const audioRes = await fetch(audioDataUrls[scene.id]);
+                        const audioBlob = await audioRes.blob();
+                        const audioExt = audioBlob.type.includes('wav') ? 'wav' : 'mp3';
+                        audioFolder.file(`${num}_audio.${audioExt}`, audioBlob);
+                    } catch {
+                        console.warn(`[export] Falha ao baixar áudio da cena ${i + 1}`);
+                    }
+                }
+            }
+
+            // Roteiro em TXT
+            const roteiro = scenes.map((s: SceneData, i: number) => {
+                const num = String(i + 1).padStart(3, '0');
+                return `=== CENA ${num} ===\nNarração: ${s.narration_text}\nPrompt Visual: ${s.visual_prompt_for_image_ai}\nDuração Estimada: ${estimateDurationSec(s.narration_text)}s\n`;
+            }).join('\n');
+
+            zip.file("roteiro.txt", roteiro);
+            zip.file("info.txt", `Título: ${scriptData.youtube_title ?? scriptData.video_title ?? scriptData.title ?? 'Sem título'}\nDescrição: ${scriptData.youtube_description ?? scriptData.description ?? ''}\nTags: ${(scriptData.tags ?? []).join(', ')}\nTotal de Cenas: ${scenes.length}\nGerado por AutoDark Studio`);
+
+            const blob = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const safeTitle = (scriptData.youtube_title ?? scriptData.video_title ?? scriptData.title ?? 'video').replace(/[^a-zA-Z0-9À-ú\s]/g, '').replace(/\s+/g, '_').slice(0, 50);
+            a.download = `${safeTitle}_capcut.zip`;
+            a.click();
+            URL.revokeObjectURL(url);
+            toast.success('ZIP baixado! Arraste as imagens em ordem no CapCut.');
+        } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Erro ao gerar ZIP");
+        } finally {
+            setExportingZip(false);
         }
     };
 
@@ -530,9 +601,9 @@ export default function LongVideoStudio() {
                     </div>
                 )}
 
-                {/* Fase 3: Renderização Total */}
+                {/* Fase 3: Renderização e Exportação */}
                 {wizardStep === 3 && scriptData && (
-                    <div className="max-w-4xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-500">
+                    <div className="max-w-5xl mx-auto space-y-8 animate-in slide-in-from-right-8 duration-500">
                         <Button variant="ghost" className="text-muted-foreground" onClick={() => setWizardStep(2)}>
                             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar para os Blocos
                         </Button>
@@ -542,7 +613,7 @@ export default function LongVideoStudio() {
                             <Card className="border-white/10 overflow-hidden">
                                 <CardHeader className="pb-3">
                                     <CardTitle className="flex items-center gap-2 text-lg">
-                                        <Play className="w-5 h-5 text-primary" /> Preview do Vídeo (Remotion)
+                                        <Play className="w-5 h-5 text-primary" /> Preview do Vídeo
                                         {savedToHistory && (
                                             <Badge className="ml-2 bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] font-medium">
                                                 Salvo no histórico
@@ -550,7 +621,7 @@ export default function LongVideoStudio() {
                                         )}
                                     </CardTitle>
                                     <CardDescription>
-                                        {remotionSlides.length} cena{remotionSlides.length !== 1 ? "s" : ""} com imagem — assista antes de renderizar.
+                                        {remotionSlides.length} cena{remotionSlides.length !== 1 ? "s" : ""} — assista antes de exportar.
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-0">
@@ -566,61 +637,130 @@ export default function LongVideoStudio() {
                             </div>
                         )}
 
-                        <Card className="glass-panel border-white/10 overflow-hidden">
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-                            <CardHeader className="relative z-10 text-center py-8">
-                                <div className="mx-auto w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
-                                    <Video className="h-8 w-8 text-emerald-400" />
-                                </div>
-                                <CardTitle className="text-2xl font-bold">Renderizar para Download (WebM/MP4)</CardTitle>
-                                <CardDescription className="mx-auto max-w-lg mt-2">
-                                    Exporta o vídeo como arquivo usando Canvas + MediaRecorder (100% no navegador, sem servidor).
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-6 relative z-10 max-w-lg mx-auto pb-10">
-                                <div className="space-y-3">
-                                    <div className="flex justify-between text-sm font-medium">
-                                        <span className="text-muted-foreground">Progresso de Empacotamento</span>
-                                        <span className={renderingVideo ? "text-emerald-400 font-bold" : "text-emerald-500"}>{renderProgress}%</span>
+                        {/* Galeria de Imagens — para visualizar antes de exportar */}
+                        {remotionSlides.length > 0 && (
+                            <Card className="border-white/10 overflow-hidden">
+                                <CardHeader className="pb-3">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <GalleryHorizontalEnd className="w-5 h-5 text-indigo-400" /> Galeria de Cenas ({remotionSlides.length})
+                                    </CardTitle>
+                                    <CardDescription>Todas as imagens numeradas na ordem do vídeo.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                        {remotionSlides.map((slide, i) => (
+                                            <div key={i} className="relative group rounded-lg overflow-hidden border border-white/10 aspect-video bg-black">
+                                                <img src={slide.imageUrl} alt={`Cena ${i + 1}`} className="w-full h-full object-cover" />
+                                                <div className="absolute top-1 left-1 bg-black/80 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                                    {String(i + 1).padStart(3, '0')}
+                                                </div>
+                                                {slide.audioUrl && (
+                                                    <div className="absolute top-1 right-1 bg-emerald-500/80 text-white text-[10px] px-1 py-0.5 rounded">
+                                                        <Volume2 className="w-2.5 h-2.5" />
+                                                    </div>
+                                                )}
+                                                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <p className="text-[9px] text-white/80 line-clamp-2">{slide.narration.slice(0, 60)}...</p>
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                    <Progress value={renderProgress} className="h-3 bg-muted" />
-                                    {renderingVideo && <p className="text-xs text-center text-emerald-500/70 animate-pulse mt-2">A paciência é a virtude dos produtores dark...</p>}
-                                </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                                <Button
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 h-14 text-lg font-bold shadow-xl shadow-emerald-600/20 transition-all hover:scale-[1.02]"
-                                    onClick={handleRenderVideo}
-                                    disabled={renderingVideo || remotionSlides.length === 0}
-                                >
-                                    {renderingVideo ? <Loader2 className="mr-3 h-6 w-6 animate-spin" /> : <Download className="mr-3 h-6 w-6" />}
-                                    {renderingVideo ? "Processando no Navegador..." : "Exportar Vídeo para Download"}
-                                </Button>
+                        {/* Export Options */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* CapCut Export — imagens numeradas + áudios em ZIP */}
+                            <Card className="glass-panel border-yellow-500/20 overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+                                <CardHeader className="relative z-10 text-center py-6">
+                                    <div className="mx-auto w-14 h-14 bg-yellow-500/20 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(234,179,8,0.15)]">
+                                        <FolderArchive className="h-7 w-7 text-yellow-400" />
+                                    </div>
+                                    <CardTitle className="text-xl font-bold">Exportar p/ CapCut</CardTitle>
+                                    <CardDescription className="mt-1">
+                                        ZIP com imagens numeradas (001, 002...) + áudios + roteiro. Arraste tudo no CapCut e exporte.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 relative z-10 pb-6">
+                                    <div className="bg-yellow-500/5 border border-yellow-500/10 rounded-lg p-3 text-xs text-yellow-400/80 space-y-1">
+                                        <p>📁 <strong>imagens/</strong> — 001_cena.jpg, 002_cena.jpg...</p>
+                                        <p>📁 <strong>audios/</strong> — 001_audio.mp3, 002_audio.mp3...</p>
+                                        <p>📄 <strong>roteiro.txt</strong> — texto de cada cena</p>
+                                    </div>
+                                    <Button
+                                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-black h-12 font-bold shadow-lg shadow-yellow-500/20 transition-all hover:scale-[1.02]"
+                                        onClick={handleExportCapCut}
+                                        disabled={exportingZip || remotionSlides.length === 0}
+                                    >
+                                        {exportingZip ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <FolderArchive className="mr-2 h-5 w-5" />}
+                                        {exportingZip ? "Empacotando..." : "Baixar ZIP para CapCut"}
+                                    </Button>
+                                </CardContent>
+                            </Card>
 
-                                {videoUrl && (
-                                    <div className="mt-8 p-1 border border-emerald-500/30 rounded-2xl bg-gradient-to-b from-emerald-500/10 to-transparent shadow-2xl animate-in zoom-in-95 duration-500">
-                                        <div className="bg-black/40 rounded-xl p-4 relative backdrop-blur-sm">
-                                            <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg border-0">
-                                                Sucesso! Vídeo Pronto
-                                            </Badge>
-                                            <video src={videoUrl} controls className="w-full rounded-lg mt-2" />
-                                            <a
-                                                href={videoUrl}
-                                                download={`${(scriptData?.youtube_title ?? scriptData?.video_title ?? scriptData?.title ?? 'video').replace(/[^a-zA-Z0-9]/g, '_')}.webm`}
-                                                className="mt-3 inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 underline"
-                                            >
-                                                <Download className="w-3 h-3" /> Baixar Vídeo
-                                            </a>
+                            {/* WebM Video Export */}
+                            <Card className="glass-panel border-emerald-500/20 overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+                                <CardHeader className="relative z-10 text-center py-6">
+                                    <div className="mx-auto w-14 h-14 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-4 shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+                                        <Video className="h-7 w-7 text-emerald-400" />
+                                    </div>
+                                    <CardTitle className="text-xl font-bold">Exportar Vídeo (WebM)</CardTitle>
+                                    <CardDescription className="mt-1">
+                                        Renderiza tudo no navegador — slides + legendas + transições. Download direto.
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4 relative z-10 pb-6">
+                                    {(renderingVideo || renderProgress > 0) && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between text-sm font-medium">
+                                                <span className="text-muted-foreground">Renderizando</span>
+                                                <span className="text-emerald-400 font-bold">{renderProgress}%</span>
+                                            </div>
+                                            <Progress value={renderProgress} className="h-2 bg-muted" />
                                         </div>
-                                    </div>
-                                )}
-                            </CardContent>
-                            <div className="bg-black/60 border-t border-white/5 p-4 text-center">
+                                    )}
+                                    <Button
+                                        className="w-full bg-emerald-600 hover:bg-emerald-500 h-12 font-bold shadow-lg shadow-emerald-600/20 transition-all hover:scale-[1.02]"
+                                        onClick={handleRenderVideo}
+                                        disabled={renderingVideo || remotionSlides.length === 0}
+                                    >
+                                        {renderingVideo ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Download className="mr-2 h-5 w-5" />}
+                                        {renderingVideo ? "Processando..." : "Renderizar Vídeo"}
+                                    </Button>
+
+                                    {videoUrl && (
+                                        <div className="mt-4 p-1 border border-emerald-500/30 rounded-xl bg-gradient-to-b from-emerald-500/10 to-transparent animate-in zoom-in-95 duration-500">
+                                            <div className="bg-black/40 rounded-lg p-3 relative backdrop-blur-sm">
+                                                <Badge className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg border-0 text-[10px]">
+                                                    Vídeo Pronto
+                                                </Badge>
+                                                <video src={videoUrl} controls className="w-full rounded-lg mt-1" />
+                                                <a
+                                                    href={videoUrl}
+                                                    download={`${(scriptData?.youtube_title ?? scriptData?.video_title ?? scriptData?.title ?? 'video').replace(/[^a-zA-Z0-9]/g, '_')}.webm`}
+                                                    className="mt-2 inline-flex items-center gap-2 text-xs text-emerald-400 hover:text-emerald-300 underline"
+                                                >
+                                                    <Download className="w-3 h-3" /> Baixar .webm
+                                                </a>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
+
+                        {/* Render Console */}
+                        {renderLog && (
+                            <div className="bg-black/60 border border-white/5 rounded-xl p-4 text-center">
                                 <Label className="text-[10px] w-full uppercase text-gray-500 tracking-wider mb-2 flex items-center justify-center gap-1"><Loader2 className="w-3 h-3" /> Canvas Render Console</Label>
                                 <pre className="text-emerald-400 text-[10px] p-2 w-full mx-auto max-w-lg text-left bg-black rounded h-20 overflow-y-auto mt-2 opacity-50 font-mono">
-                                    {renderLog || "Aguardando inputs de vídeo/áudio..."}
+                                    {renderLog}
                                 </pre>
                             </div>
-                        </Card>
+                        )}
                     </div>
                 )}
             </div>

@@ -29,6 +29,21 @@ export default defineConfig(({ mode }) => ({
           });
         },
       },
+      '/api-tts': {
+        target: 'https://translate.google.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-tts/, ''),
+      },
+      '/api-streamelements': {
+        target: 'https://api.streamelements.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api-streamelements/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            proxyRes.headers['access-control-allow-origin'] = '*';
+          });
+        },
+      },
       '/api-unsplash': {
         target: 'https://source.unsplash.com',
         changeOrigin: true,

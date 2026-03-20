@@ -1,6 +1,10 @@
--- Migration: Histórico de gerações de vídeo
--- Inspirado em Google Flow / CapCut — cada geração fica salva para restauro futuro.
+# Aplicar Migration: Histórico de Vídeos
 
+**1 passo — execute este SQL no Supabase Dashboard:**
+
+👉 https://supabase.com/dashboard/project/bwitfpvqruwikpuaiurc/sql/new
+
+```sql
 CREATE TABLE public.video_generations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   channel_id UUID,
@@ -18,7 +22,6 @@ CREATE TABLE public.video_generations (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- RLS
 ALTER TABLE public.video_generations ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can manage own video generations"
@@ -26,6 +29,8 @@ CREATE POLICY "Users can manage own video generations"
   FOR ALL
   USING (auth.uid() = user_id);
 
--- Índices
 CREATE INDEX idx_video_generations_channel ON public.video_generations(channel_id);
 CREATE INDEX idx_video_generations_user ON public.video_generations(user_id);
+```
+
+Após executar, o histórico de gerações aparece automaticamente no Studio (Step 1).

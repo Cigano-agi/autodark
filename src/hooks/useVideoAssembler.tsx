@@ -5,6 +5,7 @@ export interface AssemblyScene {
   durationSec: number;
   subtitle?: string;
   emotion?: string;
+  audioUrl?: string;
 }
 
 // ── Motion by emotion (mirrors n8n pipeline getMotionByEmotion) ──────────────
@@ -136,7 +137,7 @@ export function useVideoAssembler() {
   const assembleVideo = useCallback(
     async (
       scenes: AssemblyScene[],
-      audioBlob: Blob | null,
+      _audioBlob: Blob | null,   // deprecated — use per-scene audioUrl instead
       bgMusicUrl?: string,       // optional background music (low volume)
     ): Promise<string> => {
       setAssembling(true);
@@ -171,34 +172,34 @@ export function useVideoAssembler() {
         const ctx = canvas.getContext("2d")!;
         const stream = canvas.captureStream(FPS);
 
-        // ── Audio: narration + optional BGM ────────────────────────────────
-        if (audioBlob || bgMusicUrl) {
-          const audioCtx = new AudioContext();
-          const dest = audioCtx.createMediaStreamDestination();
+        // ── Audio: per-scene narration + optional BGM ───────────────────────
+        const audioCtx = new AudioContext();
+        const dest = audioCtx.createMediaStreamDestination();
+        const sceneAudioElements: (HTMLAudioElement | null)[] = [];
 
-          if (audioBlob) {
-            const narrUrl = URL.createObjectURL(audioBlob);
-            const narrEl  = new Audio(narrUrl);
-            narrEl.loop   = false; // plays once, matches video length
-            const narrSrc  = audioCtx.createMediaElementSource(narrEl);
-            const narrGain = audioCtx.createGain();
-            narrGain.gain.value = 1.0;
-            narrSrc.connect(narrGain).connect(dest);
-            narrEl.play();
+        // Pre-load all scene audio elements
+        for (const scene of scenes) {
+          if (scene.audioUrl && scene.audioUrl !== "browser_tts") {
+            const el = new Audio(scene.audioUrl);
+            el.preload = "auto";
+            sceneAudioElements.push(el);
+          } else {
+            sceneAudioElements.push(null);
           }
-
-          if (bgMusicUrl) {
-            const bgEl  = new Audio(bgMusicUrl);
-            bgEl.loop   = true;
-            const bgSrc  = audioCtx.createMediaElementSource(bgEl);
-            const bgGain = audioCtx.createGain();
-            bgGain.gain.value = 0.12; // 12% volume — music under narration
-            bgSrc.connect(bgGain).connect(dest);
-            bgEl.play();
-          }
-
-          dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
         }
+
+        // Connect BGM if provided
+        if (bgMusicUrl) {
+          const bgEl  = new Audio(bgMusicUrl);
+          bgEl.loop   = true;
+          const bgSrc  = audioCtx.createMediaElementSource(bgEl);
+          const bgGain = audioCtx.createGain();
+          bgGain.gain.value = 0.12;
+          bgSrc.connect(bgGain).connect(dest);
+          bgEl.play();
+        }
+
+        dest.stream.getAudioTracks().forEach((t) => stream.addTrack(t));
 
         // ── MediaRecorder ───────────────────────────────────────────────────
         const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
@@ -206,7 +207,7 @@ export function useVideoAssembler() {
           : "video/webm";
         const recorder = new MediaRecorder(stream, {
           mimeType,
-          videoBitsPerSecond: 5_000_000, // 5 Mbps — good HD quality
+          videoBitsPerSecond: 5_000_000,
         });
         const videoChunks: Blob[] = [];
         recorder.ondataavailable = (e) => { if (e.data.size > 0) videoChunks.push(e.data); };
@@ -218,8 +219,17 @@ export function useVideoAssembler() {
 
         setLog((p) => p + `\n[autodark] Renderizando ${scenes.length} cenas (${totalDuration.toFixed(1)}s)...`);
 
+        // Track which scenes have had audio started
+        const audioStarted = new Set<number>();
+        // Track audio sources connected to prevent double-connect
+        const connectedSources = new Map<number, { source: MediaElementAudioSourceNode; gain: GainNode }>();
+
         return await new Promise<string>((resolve, reject) => {
           recorder.onstop = () => {
+            // Stop all audio elements
+            sceneAudioElements.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });
+            audioCtx.close().catch(() => {});
+            
             const blob = new Blob(videoChunks, { type: mimeType });
             const url  = URL.createObjectURL(blob);
             setProgress(100);
@@ -243,6 +253,32 @@ export function useVideoAssembler() {
             const motion   = getMotion(scene.emotion);
             const progress = sceneElapsed / scene.durationSec;
 
+            // ── Start per-scene audio when scene begins ────────────────────
+            if (!audioStarted.has(sceneIdx)) {
+              audioStarted.add(sceneIdx);
+              
+              // Fade down previous scene's audio
+              if (sceneIdx > 0 && connectedSources.has(sceneIdx - 1)) {
+                const prev = connectedSources.get(sceneIdx - 1)!;
+                prev.gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+              }
+              
+              const audioEl = sceneAudioElements[sceneIdx];
+              if (audioEl) {
+                try {
+                  const src = audioCtx.createMediaElementSource(audioEl);
+                  const gain = audioCtx.createGain();
+                  gain.gain.value = 1.0;
+                  src.connect(gain).connect(dest);
+                  connectedSources.set(sceneIdx, { source: src, gain });
+                  audioEl.play().catch(() => {});
+                  setLog((p) => p + `\n[autodark] 🔊 Áudio cena ${sceneIdx + 1} iniciado`);
+                } catch {
+                  // Audio element may already be connected
+                }
+              }
+            }
+
             // ── Draw current scene ─────────────────────────────────────────
             drawSceneImage(ctx, images[sceneIdx], motion, progress, WIDTH, HEIGHT);
 
@@ -260,7 +296,6 @@ export function useVideoAssembler() {
 
             // ── Subtitles ──────────────────────────────────────────────────
             if (scene.subtitle) {
-              // During cross-fade, subtitle of current scene fades out
               if (sceneElapsed >= fadeStart) {
                 const fadeOut = 1 - (sceneElapsed - fadeStart) / FADE_SEC;
                 ctx.globalAlpha = Math.max(fadeOut, 0);
@@ -275,7 +310,6 @@ export function useVideoAssembler() {
             setProgress(Math.round(Math.min(elapsed / totalDuration, 1) * 100));
 
             if (sceneElapsed >= scene.durationSec) {
-              // Account for overlap: next scene starts FADE_SEC before current ends
               sceneIdx++;
               sceneElapsed = 0;
             }

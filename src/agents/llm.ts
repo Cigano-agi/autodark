@@ -113,17 +113,13 @@ export async function callImageGeneration(prompt: string): Promise<string> {
 }
 
 export async function callUnsplashImage(keywords: string): Promise<string> {
-  // source.unsplash.com — gratuito, sem API key, CORS ok, redireciona para foto real
-  const isDevMode = typeof window !== 'undefined' && (
-    ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
-    window.location.hostname.startsWith("192.168.")
-  );
-  const base = isDevMode ? `/api-unsplash` : `https://source.unsplash.com`;
-  const url = `${base}/1280x720/?${encodeURIComponent(keywords)}`;
+  // Picsum.photos — ultra-confiável, sem auth, seed único por cena = imagem diferente sempre
+  const seed = Math.floor(Math.random() * 9999) + 1;
+  const url = `https://picsum.photos/seed/${seed}/1280/720`;
   const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
-  if (!res.ok) throw new Error(`Unsplash Source ${res.status}`);
+  if (!res.ok) throw new Error(`Picsum ${res.status}`);
   const blob = await res.blob();
-  if (blob.size < 5000) throw new Error("Unsplash retornou blob vazio");
+  if (blob.size < 5000) throw new Error("Picsum retornou blob vazio");
   return URL.createObjectURL(blob);
 }
 
@@ -134,20 +130,23 @@ export async function callPollinationsImage(prompt: string): Promise<string> {
   const base = isDev ? `/api-pollinations/prompt` : `https://image.pollinations.ai/prompt`;
   const url = `${base}/${encoded}?width=1280&height=720&seed=${seed}&nologo=true`;
 
-  // Tenta até 2 vezes com backoff
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  // Tenta até 3 vezes com backoff generoso (imagens AI demoram)
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
       if (res.ok) {
         const blob = await res.blob();
-        return URL.createObjectURL(blob);
+        if (blob.size > 1000) return URL.createObjectURL(blob);
       }
-      if (res.status === 429 && attempt < 2) {
-        await new Promise(r => setTimeout(r, 4000));
+      if (res.status === 429 && attempt < 3) {
+        await new Promise(r => setTimeout(r, 3000 * attempt));
         continue;
       }
     } catch {
-      // timeout ou network error — usa fallback canvas
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 2000 * attempt));
+        continue;
+      }
     }
   }
   // Fallback: gera imagem dark cinematográfica via Canvas (100% offline)

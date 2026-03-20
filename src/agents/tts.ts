@@ -8,17 +8,44 @@
  * Retorna um blob URL usável como <Audio src={...}> no Remotion.
  */
 export async function generateTTSAudio(text: string): Promise<string> {
-  // Tenta Web Speech API com captura via AudioContext
-  if (typeof window !== "undefined" && "speechSynthesis" in window && "AudioContext" in window) {
-    try {
-      return await captureWebSpeechAudio(text);
-    } catch (err) {
-      console.warn("[tts] Web Speech capture falhou, tentando Google TTS:", err);
-    }
+  // 1. StreamElements TTS — gratuito, sem key, voz pt-BR "Vitoria" (Amazon Polly)
+  try {
+    return await fetchStreamElementsTTS(text);
+  } catch (err) {
+    console.warn("[tts] StreamElements falhou:", err);
   }
 
-  // Fallback: Google Translate TTS (GET simples, sem key, aceita CORS via proxy no dev)
-  return fetchGoogleTTS(text);
+  // 2. Google Translate TTS via proxy Vite
+  try {
+    return await fetchGoogleTTS(text);
+  } catch (err) {
+    console.warn("[tts] Google TTS falhou:", err);
+  }
+
+  // 3. Sem áudio — timing vem do durationSec, narração via Web Speech overlay
+  return "";
+}
+
+/** StreamElements TTS — gratuito, sem auth, voz Vitoria (pt-BR) */
+async function fetchStreamElementsTTS(text: string): Promise<string> {
+  const chunks = splitIntoChunks(text, 200);
+  const blobs: Blob[] = [];
+
+  for (const chunk of chunks) {
+    const encoded = encodeURIComponent(chunk);
+    // Vitoria = pt-BR (Amazon Polly), Filipa = pt-PT
+    const isDevMode = ["localhost", "127.0.0.1"].includes(window.location.hostname);
+    const base = isDevMode ? `/api-streamelements` : `https://api.streamelements.com`;
+    const url = `${base}/kappa/v2/speech?voice=Vitoria&text=${encoded}`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) throw new Error(`StreamElements TTS ${res.status}`);
+    const blob = await res.blob();
+    if (blob.size < 500) throw new Error("StreamElements retornou blob vazio");
+    blobs.push(blob);
+  }
+
+  const merged = new Blob(blobs, { type: "audio/mpeg" });
+  return URL.createObjectURL(merged);
 }
 
 async function captureWebSpeechAudio(text: string): Promise<string> {
@@ -107,6 +134,23 @@ function splitIntoChunks(text: string, maxLen: number): string[] {
   }
   if (current) chunks.push(current.trim());
   return chunks;
+}
+
+/** Gera WAV silencioso com duração exata — garante sincronismo de slides no Remotion */
+export function generateSilentAudio(durationSec: number): string {
+  const sampleRate = 22050;
+  const numSamples = Math.floor(sampleRate * Math.max(1, durationSec));
+  const buf = new ArrayBuffer(44 + numSamples * 2);
+  const v = new DataView(buf);
+  const write = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  write(0, 'RIFF'); v.setUint32(4, 36 + numSamples * 2, true);
+  write(8, 'WAVE'); write(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+  v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  write(36, 'data'); v.setUint32(40, numSamples * 2, true);
+  // bytes 44+ são zeros = silêncio
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
 }
 
 function getSupportedMimeType(): string {

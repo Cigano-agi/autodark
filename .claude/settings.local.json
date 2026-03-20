@@ -3,7 +3,29 @@
     "allow": [
       "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1 | head -40)",
       "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1 | head -50)",
-      "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1)"
+      "Bash(cd \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\autodark\" && npx tsc --noEmit --skipLibCheck 2>&1)",
+      "Bash(npm run:*)",
+      "WebFetch(domain:localhost)",
+      "Bash(curl:*)",
+      "Bash(netstat -ano)",
+      "WebFetch(domain:api.ai33.pro)",
+      "WebFetch(domain:ai33.pro)",
+      "Bash(grep -E LISTENING.*517[0-9])",
+      "Bash(taskkill:*)",
+      "WebSearch",
+      "WebFetch(domain:docs.kie.ai)",
+      "Bash(node --input-type=module)",
+      "mcp__supabase__deploy_edge_function",
+      "Bash(cp -r \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\claudeskillsnovas\\\\composio\" \"C:\\\\Users\\\\Fabricio Padrin\\\\.claude\\\\skills\\\\composio\")",
+      "Bash(cp -r \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\claudeskillsnovas\\\\cost-reducer\" \"C:\\\\Users\\\\Fabricio Padrin\\\\.claude\\\\skills\\\\cost-reducer\")",
+      "Bash(cp -r \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\claudeskillsnovas\\\\create-skill\" \"C:\\\\Users\\\\Fabricio Padrin\\\\.claude\\\\skills\\\\create-skill\")",
+      "Bash(cp -r \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\claudeskillsnovas\\\\customer-support\" \"C:\\\\Users\\\\Fabricio Padrin\\\\.claude\\\\skills\\\\customer-support\")",
+      "Bash(cp -r \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\claudeskillsnovas\\\\know-me\" \"C:\\\\Users\\\\Fabricio Padrin\\\\.claude\\\\skills\\\\know-me\")",
+      "Bash(# Update frontend-design \\(already existed, override with the new version\\)\ncp -rf \"C:\\\\Users\\\\Fabricio Padrin\\\\Downloads\\\\claudeskillsnovas\\\\frontend-design\" \"C:\\\\Users\\\\Fabricio Padrin\\\\.claude\\\\skills\\\\frontend-design\" && echo \"frontend-design updated OK\")",
+      "Bash(python3 -c \":*)",
+      "Bash(vercel:*)",
+      "Bash(npm i:*)",
+      "Bash(node -e \"const { execSync } = require\\(''child_process''\\); console.log\\(execSync\\(''npm run build'', {encoding: ''utf8'', shell: true}\\)\\)\")"
     ]
   }
 }
