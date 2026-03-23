@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { History, RotateCcw, Trash2, Clock, Film, ChevronDown, ChevronUp } from "lucide-react";
+import { History, RotateCcw, Trash2, Clock, Film, ChevronDown, ChevronUp, Play, Download } from "lucide-react";
 
 interface VideoGeneration {
   id: string;
@@ -14,6 +14,7 @@ interface VideoGeneration {
   scene_count: number;
   duration_sec: number;
   status: "draft" | "complete" | "exported";
+  video_url: string | null;
   created_at: string;
   script_data: Record<string, unknown>;
 }
@@ -56,12 +57,13 @@ export function VideoGenerationHistory({ channelId, onRestore }: VideoGeneration
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
 
   const fetchGenerations = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("video_generations")
-      .select("id, title, youtube_title, scene_count, duration_sec, status, created_at, script_data")
+      .select("id, title, youtube_title, scene_count, duration_sec, status, video_url, created_at, script_data")
       .eq("channel_id", channelId)
       .order("created_at", { ascending: false })
       .limit(20);
@@ -143,12 +145,41 @@ export function VideoGenerationHistory({ channelId, onRestore }: VideoGeneration
                   <CardTitle className="text-sm font-medium leading-tight line-clamp-1">
                     {gen.title}
                   </CardTitle>
-                  <Badge variant={STATUS_VARIANTS[gen.status]} className="text-[10px] shrink-0">
-                    {STATUS_LABELS[gen.status]}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {gen.video_url && (
+                      <Badge className="text-[10px] bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                        <Play className="w-2.5 h-2.5 mr-0.5" /> Vídeo
+                      </Badge>
+                    )}
+                    <Badge variant={STATUS_VARIANTS[gen.status]} className="text-[10px]">
+                      {STATUS_LABELS[gen.status]}
+                    </Badge>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="px-4 py-3">
+                {/* Video Player — exibe quando tem video_url */}
+                {gen.video_url && playingId === gen.id && (
+                  <div className="mb-3 rounded-lg overflow-hidden border border-emerald-500/20 bg-black animate-in zoom-in-95 duration-300">
+                    <video
+                      src={gen.video_url}
+                      controls
+                      className="w-full max-h-48 rounded-lg"
+                      autoPlay
+                    />
+                    <div className="flex items-center justify-between px-2 py-1.5 bg-black/80">
+                      <span className="text-[10px] text-emerald-400/70">Vídeo salvo na nuvem</span>
+                      <a
+                        href={gen.video_url}
+                        download
+                        className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                      >
+                        <Download className="w-2.5 h-2.5" /> Baixar
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                   <span className="flex items-center gap-1">
                     <Film className="w-3 h-3" />
@@ -164,6 +195,17 @@ export function VideoGenerationHistory({ channelId, onRestore }: VideoGeneration
                 </div>
 
                 <div className="flex gap-2">
+                  {gen.video_url && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/10"
+                      onClick={() => setPlayingId(playingId === gen.id ? null : gen.id)}
+                    >
+                      <Play className="w-3 h-3 mr-1" />
+                      {playingId === gen.id ? "Fechar" : "Assistir"}
+                    </Button>
+                  )}
                   <Button
                     size="sm"
                     variant="default"

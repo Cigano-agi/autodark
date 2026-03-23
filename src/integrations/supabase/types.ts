@@ -1,4 +1,4 @@
-export type Json =
+﻿export type Json =
   | string
   | number
   | boolean
@@ -275,6 +275,119 @@ export type Database = {
           },
         ]
       }
+      channel_foundation: {
+        Row: {
+          channel_id: string
+          channel_name_rationale: string | null
+          created_at: string | null
+          defensive_moat: string | null
+          directives_generated_at: string | null
+          evidence_strategy: string | null
+          feedback_loop: string | null
+          generated_directives: Json | null
+          hardware_profile: Json | null
+          id: string
+          insider_angle: string | null
+          is_complete: boolean | null
+          monetization_model: string[] | null
+          monthly_api_budget: number | null
+          narrative_enemy: string | null
+          narrative_structure: string | null
+          niche: string | null
+          operational_risks: string | null
+          primary_language: string | null
+          publish_frequency: string | null
+          publish_schedule: Json | null
+          quality_system: Json | null
+          required_apis: string[] | null
+          rss_feeds: string[] | null
+          scaling_plan: string | null
+          seed_channels: Json | null
+          sub_niches: string[] | null
+          target_duration_min: number | null
+          updated_at: string | null
+          visual_signature: Json | null
+          voice_cloning: boolean | null
+          z_score_threshold: number | null
+        }
+        Insert: {
+          channel_id: string
+          channel_name_rationale?: string | null
+          created_at?: string | null
+          defensive_moat?: string | null
+          directives_generated_at?: string | null
+          evidence_strategy?: string | null
+          feedback_loop?: string | null
+          generated_directives?: Json | null
+          hardware_profile?: Json | null
+          id?: string
+          insider_angle?: string | null
+          is_complete?: boolean | null
+          monetization_model?: string[] | null
+          monthly_api_budget?: number | null
+          narrative_enemy?: string | null
+          narrative_structure?: string | null
+          niche?: string | null
+          operational_risks?: string | null
+          primary_language?: string | null
+          publish_frequency?: string | null
+          publish_schedule?: Json | null
+          quality_system?: Json | null
+          required_apis?: string[] | null
+          rss_feeds?: string[] | null
+          scaling_plan?: string | null
+          seed_channels?: Json | null
+          sub_niches?: string[] | null
+          target_duration_min?: number | null
+          updated_at?: string | null
+          visual_signature?: Json | null
+          voice_cloning?: boolean | null
+          z_score_threshold?: number | null
+        }
+        Update: {
+          channel_id?: string
+          channel_name_rationale?: string | null
+          created_at?: string | null
+          defensive_moat?: string | null
+          directives_generated_at?: string | null
+          evidence_strategy?: string | null
+          feedback_loop?: string | null
+          generated_directives?: Json | null
+          hardware_profile?: Json | null
+          id?: string
+          insider_angle?: string | null
+          is_complete?: boolean | null
+          monetization_model?: string[] | null
+          monthly_api_budget?: number | null
+          narrative_enemy?: string | null
+          narrative_structure?: string | null
+          niche?: string | null
+          operational_risks?: string | null
+          primary_language?: string | null
+          publish_frequency?: string | null
+          publish_schedule?: Json | null
+          quality_system?: Json | null
+          required_apis?: string[] | null
+          rss_feeds?: string[] | null
+          scaling_plan?: string | null
+          seed_channels?: Json | null
+          sub_niches?: string[] | null
+          target_duration_min?: number | null
+          updated_at?: string | null
+          visual_signature?: Json | null
+          voice_cloning?: boolean | null
+          z_score_threshold?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_foundation_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: true
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_metrics: {
         Row: {
           channel_id: string
@@ -518,118 +631,38 @@ export type Database = {
         }
         Relationships: []
       }
-      channel_foundation: {
+      characters: {
         Row: {
-          channel_id: string
-          channel_name_rationale: string | null
           created_at: string | null
-          defensive_moat: string | null
-          directives_generated_at: string | null
-          evidence_strategy: string | null
-          feedback_loop: string | null
-          generated_directives: Json | null
-          hardware_profile: Json | null
+          group_name: string | null
           id: string
-          insider_angle: string | null
-          is_complete: boolean | null
-          monetization_model: string[] | null
-          monthly_api_budget: number | null
-          narrative_enemy: string | null
-          narrative_structure: string | null
-          niche: string | null
-          operational_risks: string | null
-          primary_language: string | null
-          publish_frequency: string | null
-          publish_schedule: Json | null
-          quality_system: Json | null
-          required_apis: string[] | null
-          rss_feeds: string[] | null
-          scaling_plan: string | null
-          seed_channels: Json | null
-          sub_niches: string[] | null
-          target_duration_min: number | null
-          updated_at: string | null
-          visual_signature: Json | null
-          voice_cloning: boolean | null
-          z_score_threshold: number | null
+          name: string
+          organization: string | null
+          power: string | null
+          season_name: string | null
+          season_number: number | null
         }
         Insert: {
-          channel_id: string
-          channel_name_rationale?: string | null
           created_at?: string | null
-          defensive_moat?: string | null
-          directives_generated_at?: string | null
-          evidence_strategy?: string | null
-          feedback_loop?: string | null
-          generated_directives?: Json | null
-          hardware_profile?: Json | null
+          group_name?: string | null
           id?: string
-          insider_angle?: string | null
-          is_complete?: boolean | null
-          monetization_model?: string[] | null
-          monthly_api_budget?: number | null
-          narrative_enemy?: string | null
-          narrative_structure?: string | null
-          niche?: string | null
-          operational_risks?: string | null
-          primary_language?: string | null
-          publish_frequency?: string | null
-          publish_schedule?: Json | null
-          quality_system?: Json | null
-          required_apis?: string[] | null
-          rss_feeds?: string[] | null
-          scaling_plan?: string | null
-          seed_channels?: Json | null
-          sub_niches?: string[] | null
-          target_duration_min?: number | null
-          updated_at?: string | null
-          visual_signature?: Json | null
-          voice_cloning?: boolean | null
-          z_score_threshold?: number | null
+          name: string
+          organization?: string | null
+          power?: string | null
+          season_name?: string | null
+          season_number?: number | null
         }
         Update: {
-          channel_id?: string
-          channel_name_rationale?: string | null
           created_at?: string | null
-          defensive_moat?: string | null
-          directives_generated_at?: string | null
-          evidence_strategy?: string | null
-          feedback_loop?: string | null
-          generated_directives?: Json | null
-          hardware_profile?: Json | null
+          group_name?: string | null
           id?: string
-          insider_angle?: string | null
-          is_complete?: boolean | null
-          monetization_model?: string[] | null
-          monthly_api_budget?: number | null
-          narrative_enemy?: string | null
-          narrative_structure?: string | null
-          niche?: string | null
-          operational_risks?: string | null
-          primary_language?: string | null
-          publish_frequency?: string | null
-          publish_schedule?: Json | null
-          quality_system?: Json | null
-          required_apis?: string[] | null
-          rss_feeds?: string[] | null
-          scaling_plan?: string | null
-          seed_channels?: Json | null
-          sub_niches?: string[] | null
-          target_duration_min?: number | null
-          updated_at?: string | null
-          visual_signature?: Json | null
-          voice_cloning?: boolean | null
-          z_score_threshold?: number | null
+          name?: string
+          organization?: string | null
+          power?: string | null
+          season_name?: string | null
+          season_number?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "channel_foundation_channel_id_fkey"
-            columns: ["channel_id"]
-            isOneToOne: true
-            referencedRelation: "channels"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       content_ideas: {
         Row: {
@@ -668,6 +701,53 @@ export type Database = {
             columns: ["channel_id"]
             isOneToOne: false
             referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generation_logs: {
+        Row: {
+          channel_id: string | null
+          created_at: string | null
+          error_details: string | null
+          generation_id: string | null
+          id: string
+          message: string | null
+          metadata: Json | null
+          status: string
+          step_name: string
+          user_id: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string | null
+          error_details?: string | null
+          generation_id?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          status?: string
+          step_name: string
+          user_id?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string | null
+          error_details?: string | null
+          generation_id?: string | null
+          id?: string
+          message?: string | null
+          metadata?: Json | null
+          status?: string
+          step_name?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generation_logs_generation_id_fkey"
+            columns: ["generation_id"]
+            isOneToOne: false
+            referencedRelation: "video_generations"
             referencedColumns: ["id"]
           },
         ]
@@ -846,6 +926,60 @@ export type Database = {
           },
         ]
       }
+      video_generations: {
+        Row: {
+          channel_id: string | null
+          created_at: string | null
+          duration_sec: number | null
+          id: string
+          scene_count: number | null
+          script_data: Json
+          status: string | null
+          thumbnail_data: string | null
+          title: string
+          updated_at: string | null
+          user_id: string | null
+          video_url: string | null
+          visual_prompts: Json | null
+          youtube_description: string | null
+          youtube_title: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string | null
+          duration_sec?: number | null
+          id?: string
+          scene_count?: number | null
+          script_data?: Json
+          status?: string | null
+          thumbnail_data?: string | null
+          title: string
+          updated_at?: string | null
+          user_id?: string | null
+          video_url?: string | null
+          visual_prompts?: Json | null
+          youtube_description?: string | null
+          youtube_title?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string | null
+          duration_sec?: number | null
+          id?: string
+          scene_count?: number | null
+          script_data?: Json
+          status?: string | null
+          thumbnail_data?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string | null
+          video_url?: string | null
+          visual_prompts?: Json | null
+          youtube_description?: string | null
+          youtube_title?: string | null
+        }
+        Relationships: []
+      }
       video_performance_base: {
         Row: {
           ctr_48h: number | null
@@ -883,6 +1017,7 @@ export type Database = {
       }
       video_uploads: {
         Row: {
+          content_id: string | null
           cost_breakdown: Json | null
           error_message: string | null
           id: string
@@ -890,11 +1025,13 @@ export type Database = {
           pipeline_stage: string | null
           script_id: string | null
           status: string | null
+          thumbnail_url: string | null
           title: string | null
           upload_timestamp: string | null
           youtube_video_id: string | null
         }
         Insert: {
+          content_id?: string | null
           cost_breakdown?: Json | null
           error_message?: string | null
           id?: string
@@ -902,11 +1039,13 @@ export type Database = {
           pipeline_stage?: string | null
           script_id?: string | null
           status?: string | null
+          thumbnail_url?: string | null
           title?: string | null
           upload_timestamp?: string | null
           youtube_video_id?: string | null
         }
         Update: {
+          content_id?: string | null
           cost_breakdown?: Json | null
           error_message?: string | null
           id?: string
@@ -914,11 +1053,19 @@ export type Database = {
           pipeline_stage?: string | null
           script_id?: string | null
           status?: string | null
+          thumbnail_url?: string | null
           title?: string | null
           upload_timestamp?: string | null
           youtube_video_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "video_uploads_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "channel_contents"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "video_uploads_script_id_fkey"
             columns: ["script_id"]

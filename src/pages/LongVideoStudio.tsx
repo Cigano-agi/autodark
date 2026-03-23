@@ -17,6 +17,9 @@ import type { SlideData } from "@/remotion/types";
 import { callImageGeneration } from "@/agents/llm";
 import { generateTTSAudio, estimateDurationSec } from "@/agents/tts";
 import { VideoGenerationHistory } from "@/components/VideoGenerationHistory";
+import { GenerationDebugConsole } from "@/components/GenerationDebugConsole";
+import { useGenerationLogger } from "@/hooks/useGenerationLogger";
+import { uploadVideoToStorage, saveVideoUrl } from "@/lib/videoStorage";
 import JSZip from "jszip";
 
 
@@ -83,12 +86,14 @@ export default function LongVideoStudio() {
     const [generateAllProgress, setGenerateAllProgress] = useState<string | null>(null);
 
     const { assembleVideo, assembling: renderingVideo, progress: renderProgress, log: renderLog } = useVideoAssembler();
+    const { logStep, setGenerationId, generationIdRef } = useGenerationLogger(channelId);
 
     const [savedToHistory, setSavedToHistory] = useState(false);
+    const [lastGenerationId, setLastGenerationId] = useState<string | null>(null);
 
-    const saveGeneration = async (data: ScriptData, sceneCount: number) => {
+    const saveGeneration = async (data: ScriptData, sceneCount: number): Promise<string | null> => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user || !channelId) return;
+        if (!user || !channelId) return null;
 
         const durationSec = data.scenes?.reduce(
             (acc: number, s: SceneData) => acc + estimateDurationSec(s.narration_text),
@@ -99,7 +104,7 @@ export default function LongVideoStudio() {
 
         try {
             const resolvedTitle = data.youtube_title ?? data.video_title ?? data.title ?? "Vídeo sem título";
-            const { error } = await supabase.from("video_generations").insert({
+            const { data: insertedData, error } = await supabase.from("video_generations").insert({
                 channel_id: channelId,
                 user_id: user.id,
                 title: resolvedTitle,
@@ -110,12 +115,19 @@ export default function LongVideoStudio() {
                 script_data: data as unknown as Record<string, unknown>,
                 visual_prompts: visualPrompts,
                 status: "complete",
-            });
+            }).select("id").single();
 
-            if (!error) setSavedToHistory(true);
+            if (!error && insertedData) {
+                setSavedToHistory(true);
+                const genId = insertedData.id;
+                setGenerationId(genId);
+                setLastGenerationId(genId);
+                return genId;
+            }
         } catch {
             // tabela ainda não criada — ignora silenciosamente
         }
+        return null;
     };
 
     // Build Remotion slide data — inclui TODAS as cenas que têm imagem gerada
@@ -143,7 +155,9 @@ export default function LongVideoStudio() {
             return;
         }
         setGeneratingScript(true);
+        logStep("script_generation", "started", `Tópico: ${topic}`);
         try {
+            logStep("script_generation", "running", "Chamando youtube-long-engine...");
             const response = await supabase.functions.invoke("youtube-long-engine", {
                 body: { topic, channelContext: context, target_duration_minutes: 10, scene_count: 30 }
             });
@@ -151,7 +165,6 @@ export default function LongVideoStudio() {
             if (response.error) throw new Error(response.error.message);
 
             const script = response.data.script;
-            // Normaliza tags: Edge Function pode retornar string ou array
             if (typeof script.tags === 'string') {
                 script.tags = (script.tags as string).split(',').map((t: string) => t.trim()).filter(Boolean);
             } else if (!Array.isArray(script.tags)) {
@@ -160,9 +173,12 @@ export default function LongVideoStudio() {
             setScriptData(script);
             setRulesLog(null);
             setWizardStep(2);
+            logStep("script_generation", "success", `Roteiro gerado: ${script.scenes?.length ?? 0} cenas`);
             toast.success('Roteiro gerado! Revise os blocos abaixo.');
         } catch (e: unknown) {
-            toast.error(`Erro na IA: ${e instanceof Error ? e.message : "Erro desconhecido"}`);
+            const msg = e instanceof Error ? e.message : "Erro desconhecido";
+            logStep("script_generation", "error", "Falha na geração do roteiro", { error_details: msg });
+            toast.error(`Erro na IA: ${msg}`);
         } finally {
             setGeneratingScript(false);
         }
@@ -177,38 +193,46 @@ export default function LongVideoStudio() {
         }, 3000);
     };
 
-    const generateBlockVoice = async (sceneId: string, text: string) => {
+    const generateBlockVoice = async (sceneId: string, text: string, retries = 2): Promise<string> => {
         setProcessingVoices(prev => ({ ...prev, [sceneId]: true }));
-        try {
-            // Tenta Edge Function primeiro (ai33.pro / openai TTS)
-            const response = await supabase.functions.invoke("youtube-generate-audio", {
-                body: { text: text, voice: "onyx" }
-            });
-
-            if (response.error) throw new Error(response.error.message);
-
-            const blob = new Blob([response.data], { type: "audio/mpeg" });
-            if (blob.size < 100) throw new Error("Blob de áudio vazio da Edge Function");
-
-            const audioUrl = URL.createObjectURL(blob);
-            setAudioDataUrls(prev => ({ ...prev, [sceneId]: audioUrl }));
-            setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
-            toast.success('Áudio Gerado. Narração baixada.');
-
-        } catch {
-            // Fallback: Web Speech API (browser nativo, gratuito)
+        for (let attempt = 0; attempt <= retries; attempt++) {
             try {
-                toast.info("Usando TTS do navegador (gratuito)...");
-                const audioUrl = await generateTTSAudio(text);
+                const response = await supabase.functions.invoke("youtube-generate-audio", {
+                    body: { text: text, voice: "onyx" }
+                });
+
+                if (response.error) throw new Error(response.error.message);
+
+                const blob = new Blob([response.data], { type: "audio/mpeg" });
+                if (blob.size < 100) throw new Error("Blob de áudio vazio da Edge Function");
+
+                const audioUrl = URL.createObjectURL(blob);
                 setAudioDataUrls(prev => ({ ...prev, [sceneId]: audioUrl }));
                 setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
-                toast.success('Áudio gerado via TTS do navegador.');
-            } catch (fallbackErr: unknown) {
-                toast.error(`Erro no TTS: ${fallbackErr instanceof Error ? fallbackErr.message : "Erro desconhecido"}`);
+                setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
+                if (attempt === 0) toast.success('Áudio Gerado.');
+                return audioUrl;
+            } catch (e) {
+                if (attempt < retries) {
+                    await new Promise(r => setTimeout(r, 2000));
+                    continue;
+                }
+                // Fallback
+                try {
+                    toast.info("Fallback: TTS navegador...");
+                    const audioUrl = await generateTTSAudio(text);
+                    setAudioDataUrls(prev => ({ ...prev, [sceneId]: audioUrl }));
+                    setCompletedVoices(prev => ({ ...prev, [sceneId]: true }));
+                    setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
+                    toast.success('Áudio gerado via TTS do navegador.');
+                    return audioUrl;
+                } catch (fallbackErr) {
+                    setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
+                    throw fallbackErr;
+                }
             }
-        } finally {
-            setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
         }
+        throw new Error("Falha inesperada");
     };
 
     const updateSceneNarration = (id: string, text: string) => {
@@ -223,19 +247,28 @@ export default function LongVideoStudio() {
         setScriptData({ ...scriptData, scenes: newScenes });
     };
 
-    const generateSceneImage = async (sceneId: string, visualPrompt: string): Promise<void> => {
+    const generateSceneImage = async (sceneId: string, visualPrompt: string, retries = 2): Promise<string> => {
         setGeneratingImage(prev => ({ ...prev, [sceneId]: true }));
         const fullPrompt = `${visualPrompt}. Style: cinematic, dark aesthetic, dramatic lighting, high contrast, 4K. No text, no letters, no watermarks.`;
 
-        try {
-            // callImageGeneration tenta Kie.ai antes de Pollinations
-            const imageUrl = await callImageGeneration(fullPrompt);
-            setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
-        } catch {
-            console.warn("[studio] Todos os providers de imagem falharam para cena", sceneId);
-        } finally {
-            setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const imageUrl = await callImageGeneration(fullPrompt);
+                setSceneImages(prev => ({ ...prev, [sceneId]: imageUrl }));
+                setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
+                return imageUrl;
+            } catch (e) {
+                if (attempt < retries) {
+                    console.warn(`[studio] Cena ${sceneId} imagem falhou. Tentando novamente... (${attempt + 1}/${retries})`);
+                    await new Promise(r => setTimeout(r, 2000));
+                    continue;
+                }
+                console.warn("[studio] Todos os providers de imagem falharam para cena", sceneId);
+                setGeneratingImage(prev => ({ ...prev, [sceneId]: false }));
+                throw e;
+            }
         }
+        throw new Error("Falha inesperada");
     };
 
     const generateAllScenes = async () => {
@@ -244,37 +277,88 @@ export default function LongVideoStudio() {
         const scenes = scriptData.scenes;
         const total = scenes.length;
 
+        logStep("image_generation", "started", `Iniciando geração de ${total} cenas`);
+        logStep("audio_generation", "started", `Iniciando TTS para ${total} cenas`);
+
+        let imgSuccess = 0;
+        let imgFail = 0;
+        let audioSuccess = 0;
+        let audioFail = 0;
+
         for (let i = 0; i < scenes.length; i++) {
             const scene = scenes[i];
             setGenerateAllProgress(`Gerando cena ${i + 1} de ${total}...`);
 
-            // Gera imagem e áudio em paralelo
-            await Promise.allSettled([
+            const results = await Promise.allSettled([
                 generateSceneImage(scene.id, scene.visual_prompt_for_image_ai),
-                generateTTSAudio(scene.narration_text)
-                    .then((url) => {
-                        if (url) {
-                            setAudioDataUrls(prev => ({ ...prev, [scene.id]: url }));
-                            setCompletedVoices(prev => ({ ...prev, [scene.id]: true }));
-                        }
-                    })
-                    .catch(() => { /* TTS falhou — sem áudio nessa cena */ }),
+                generateBlockVoice(scene.id, scene.narration_text)
             ]);
+
+            if (results[0].status === "fulfilled") imgSuccess++; else imgFail++;
+            if (results[1].status === "fulfilled") audioSuccess++; else audioFail++;
         }
+
+        logStep("image_generation", imgFail > 0 ? "error" : "success", `Imagens: ${imgSuccess}/${total} ok, ${imgFail} falhas`);
+        logStep("audio_generation", audioFail > 0 ? "error" : "success", `Áudio: ${audioSuccess}/${total} ok, ${audioFail} falhas`);
 
         setGeneratingAll(false);
         setGenerateAllProgress(null);
+
+        if (imgFail > 0 || audioFail > 0) {
+            toast.warning(`Geração concluída com ${imgFail} erros de imagem e ${audioFail} de áudio. Regere os blocos com erro usando os botões individuais ou o atalho à direita.`, { duration: 6000 });
+            return;
+        }
+
         toast.success(`${total} cenas geradas! Avançando para montagem...`);
         await saveGeneration(scriptData, total);
         setWizardStep(3);
     };
 
+    const handleRetryFailedScenes = async () => {
+        if (!scriptData) return;
+        const failedScenes = scriptData.scenes.filter((s: SceneData) => !sceneImages[s.id] || !completedVoices[s.id]);
+        if (failedScenes.length === 0) return;
+
+        setGeneratingAll(true);
+        const total = failedScenes.length;
+
+        for (let i = 0; i < failedScenes.length; i++) {
+            const scene = failedScenes[i];
+            setGenerateAllProgress(`Regerando cena com falha ${i + 1} de ${total}...`);
+            const tasks = [];
+            
+            if (!sceneImages[scene.id]) tasks.push(generateSceneImage(scene.id, scene.visual_prompt_for_image_ai));
+            if (!completedVoices[scene.id]) tasks.push(generateBlockVoice(scene.id, scene.narration_text));
+
+            await Promise.allSettled(tasks);
+        }
+
+        setGeneratingAll(false);
+        setGenerateAllProgress(null);
+
+        const stillFailed = scriptData.scenes.filter((s: SceneData) => !sceneImages[s.id] || !completedVoices[s.id]);
+        if (stillFailed.length > 0) {
+            toast.warning(`Ainda restam blocos com erro. Tente novamente em alguns instantes.`, { duration: 6000 });
+            return;
+        }
+
+        toast.success(`Todas as falhas foram corrigidas! Avançando...`);
+        await saveGeneration(scriptData, scriptData.scenes.length);
+        setWizardStep(3);
+    };
+
+    const failedScenesCount = scriptData?.scenes ? scriptData.scenes.filter((s: SceneData) => !sceneImages[s.id] || !completedVoices[s.id]).length : 0;
+    const hasGeneratedAnything = scriptData?.scenes ? scriptData.scenes.some((s: SceneData) => sceneImages[s.id] || completedVoices[s.id]) : false;
+
     const handleRenderVideo = async () => {
         if (!scriptData || remotionSlides.length === 0) return;
         setVideoUrl(null);
 
+        logStep("video_render", "started", `Renderizando ${remotionSlides.length} cenas`);
+
         try {
             toast.info('Renderizando vídeo via Canvas (100% no navegador)...');
+            logStep("video_render", "running", "Canvas MediaRecorder ativo...");
 
             const assemblyScenes = remotionSlides.map(s => ({
                 imageUrl: s.imageUrl,
@@ -285,10 +369,31 @@ export default function LongVideoStudio() {
 
             const url = await assembleVideo(assemblyScenes, null);
             setVideoUrl(url);
-            toast.success('Vídeo pronto para download!');
+            logStep("video_render", "success", "Vídeo renderizado com sucesso");
+            toast.success('Vídeo pronto! Fazendo upload para a nuvem...');
+
+            // Upload para Supabase Storage
+            const genId = generationIdRef.current ?? lastGenerationId;
+            if (genId) {
+                logStep("video_upload", "started", "Enviando para Supabase Storage...");
+                try {
+                    const videoResponse = await fetch(url);
+                    const videoBlob = await videoResponse.blob();
+                    const publicUrl = await uploadVideoToStorage(videoBlob, genId);
+                    await saveVideoUrl(genId, publicUrl);
+                    logStep("video_upload", "success", `Upload concluído: ${(videoBlob.size / 1024 / 1024).toFixed(1)} MB`);
+                    toast.success('Vídeo salvo na nuvem! Acesse pelo Histórico.');
+                } catch (uploadErr: unknown) {
+                    const msg = uploadErr instanceof Error ? uploadErr.message : "Erro no upload";
+                    logStep("video_upload", "error", "Falha no upload para Storage", { error_details: msg });
+                    toast.error(`Upload falhou: ${msg}. O vídeo local ainda está disponível.`);
+                }
+            }
 
         } catch (e: unknown) {
-            toast.error(e instanceof Error ? e.message : "Erro de Renderização");
+            const msg = e instanceof Error ? e.message : "Erro de Renderização";
+            logStep("video_render", "error", "Falha na renderização", { error_details: msg });
+            toast.error(msg);
         }
     };
 
@@ -540,7 +645,13 @@ export default function LongVideoStudio() {
                                                     size="sm"
                                                     variant="outline"
                                                     className="w-full h-8 text-xs border-white/5 hover:bg-white/5"
-                                                    onClick={() => generateSceneImage(scene.id, scene.visual_prompt_for_image_ai)}
+                                                    onClick={async () => {
+                                                        try {
+                                                            await generateSceneImage(scene.id, scene.visual_prompt_for_image_ai);
+                                                        } catch(e) {
+                                                            toast.error("Falha ao gerar imagem. Revise o prompt ou tente novamente.");
+                                                        }
+                                                    }}
                                                     disabled={generatingImage[scene.id]}
                                                 >
                                                     {generatingImage[scene.id] ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Wand2 className="w-3 h-3 mr-2 text-emerald-500" />}
@@ -594,7 +705,12 @@ export default function LongVideoStudio() {
                                     </div>
                                 </CardContent>
                             </Card>
+                        {channelId && (
+                        <div className="max-w-3xl w-full mt-4">
+                            <GenerationDebugConsole channelId={channelId} generationId={lastGenerationId} />
                         </div>
+                    )}
+                    </div>
                     </div>
                 )}
 
@@ -757,6 +873,11 @@ export default function LongVideoStudio() {
                                     {renderLog}
                                 </pre>
                             </div>
+                        )}
+
+                        {/* Debug Console — logs persistidos */}
+                        {channelId && (
+                            <GenerationDebugConsole channelId={channelId} generationId={lastGenerationId} />
                         )}
                     </div>
                 )}
