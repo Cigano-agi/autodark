@@ -1,0 +1,1 @@
+ALTER TABLE public.channels ADD COLUMN IF NOT EXISTS requires_review boolean DEFAULT false;

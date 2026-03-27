@@ -1,0 +1,42 @@
+project_id = "bwitfpvqruwikpuaiurc"
+
+[api]
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[functions.scrape-youtube-channel]
+verify_jwt = false
+
+[functions.generate-ideas]
+verify_jwt = false
+
+[functions.generate-video-scenes]
+verify_jwt = false
+
+[functions.generate-scene-images]
+verify_jwt = false
+
+[functions.generate-script]
+verify_jwt = false
+
+[functions.generate-directives]
+verify_jwt = false
+
+[functions.generate-strategy]
+verify_jwt = false
+
+[functions.generate-kie-flow]
+verify_jwt = false
+
+[functions.process-content-audio]
+verify_jwt = false
+
+[functions.chat-completions]
+verify_jwt = false

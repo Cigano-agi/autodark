@@ -1,0 +1,28 @@
+{
+  "rewrites": [
+    {
+      "source": "/api-ai/:path*",
+      "destination": "https://api.ai33.pro/:path*"
+    },
+    {
+      "source": "/api-kie/:path*",
+      "destination": "https://api.kie.ai/:path*"
+    },
+    {
+      "source": "/api-pollinations/:path*",
+      "destination": "https://image.pollinations.ai/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api-pollinations/:path*",
+      "headers": [
+        { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,297 @@
+/* Uber Base Design System - Global Styles */
+
+/* Font Imports - Uber Move (using system fallbacks) */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 
+ * Uber Base Design System 
+ * Theme: Dark Mode Default with Light Mode Support
+ * All colors in HSL format for easy manipulation
+ */
+
+@layer base {
+    :root {
+        /* Primary Colors */
+        --base-black: 0 0% 0%;
+        --base-white: 0 0% 100%;
+
+        /* Gray Scale */
+        --base-gray50: 0 0% 96%;
+        --base-gray100: 0 0% 93%;
+        --base-gray200: 0 0% 89%;
+        --base-gray300: 0 0% 80%;
+        --base-gray400: 0 0% 69%;
+        --base-gray500: 0 0% 46%;
+        --base-gray600: 0 0% 33%;
+        --base-gray700: 0 0% 20%;
+        --base-gray800: 0 0% 12%;
+        --base-gray900: 0 0% 8%;
+
+        /* Semantic - Positive (Success) */
+        --base-positive: 153 95% 30%;
+        --base-positiveDark: 153 96% 23%;
+        --base-positiveLight: 147 52% 93%;
+
+        /* Semantic - Negative (Error) */
+        --base-negative: 8 100% 45%;
+        --base-negativeDark: 8 100% 34%;
+        --base-negativeLight: 8 100% 97%;
+
+        /* Semantic - Warning */
+        --base-warning: 38 100% 63%;
+        --base-warningDark: 38 53% 38%;
+        --base-warningLight: 38 100% 93%;
+
+        /* Semantic - Accent (Interactive) */
+        --base-accent: 220 87% 55%;
+        --base-accentDark: 220 72% 42%;
+        --base-accentLight: 224 89% 97%;
+
+        /* Legacy support - mapped to Base Design System */
+        --background: var(--base-gray900);
+        --foreground: var(--base-white);
+        --card: var(--base-gray800);
+        --card-foreground: var(--base-white);
+        --popover: var(--base-gray800);
+        --popover-foreground: var(--base-white);
+        --primary: var(--base-black);
+        --primary-foreground: var(--base-white);
+        --secondary: var(--base-gray700);
+        --secondary-foreground: var(--base-white);
+        --muted: var(--base-gray700);
+        --muted-foreground: var(--base-gray400);
+        --accent: var(--base-accent);
+        --accent-foreground: var(--base-white);
+        --destructive: var(--base-negative);
+        --destructive-foreground: var(--base-white);
+        --border: var(--base-gray700);
+        --input: var(--base-gray700);
+        --ring: var(--base-accent);
+        --radius: 0.5rem;
+
+        /* Semantic colors (legacy) */
+        --success: var(--base-positive);
+        --success-foreground: var(--base-white);
+        --warning: var(--base-warning);
+        --warning-foreground: var(--base-black);
+        --info: var(--base-accent);
+        --info-foreground: var(--base-white);
+
+        /* Health indicators */
+        --health-green: var(--base-positive);
+        --health-yellow: var(--base-warning);
+        --health-red: var(--base-negative);
+
+        /* Chart colors */
+        --chart-1: var(--base-positive);
+        --chart-2: var(--base-accent);
+        --chart-3: 280 65% 60%;
+        --chart-4: var(--base-warning);
+        --chart-5: var(--base-negative);
+
+        /* Sidebar */
+        --sidebar-background: var(--base-gray900);
+        --sidebar-foreground: var(--base-white);
+        --sidebar-primary: var(--base-accent);
+        --sidebar-primary-foreground: var(--base-white);
+        --sidebar-accent: var(--base-gray800);
+        --sidebar-accent-foreground: var(--base-white);
+        --sidebar-border: var(--base-gray700);
+        --sidebar-ring: var(--base-accent);
+    }
+
+    /* Light mode */
+    .light {
+        --background: var(--base-white);
+        --foreground: var(--base-gray900);
+        --card: var(--base-white);
+        --card-foreground: var(--base-gray900);
+        --popover: var(--base-white);
+        --popover-foreground: var(--base-gray900);
+        --primary: var(--base-black);
+        --primary-foreground: var(--base-white);
+        --secondary: var(--base-gray100);
+        --secondary-foreground: var(--base-gray700);
+        --muted: var(--base-gray100);
+        --muted-foreground: var(--base-gray500);
+        --accent: var(--base-accent);
+        --accent-foreground: var(--base-white);
+        --destructive: var(--base-negative);
+        --destructive-foreground: var(--base-white);
+        --border: var(--base-gray200);
+        --input: var(--base-gray200);
+        --ring: var(--base-accent);
+
+        --sidebar-background: var(--base-gray50);
+        --sidebar-foreground: var(--base-gray900);
+        --sidebar-primary: var(--base-accent);
+        --sidebar-primary-foreground: var(--base-white);
+        --sidebar-accent: var(--base-gray100);
+        --sidebar-accent-foreground: var(--base-gray900);
+        --sidebar-border: var(--base-gray200);
+        --sidebar-ring: var(--base-accent);
+    }
+
+    /* Dark mode (default) */
+    .dark {
+        --background: var(--base-gray900);
+        --foreground: var(--base-white);
+        --card: var(--base-gray800);
+        --card-foreground: var(--base-white);
+        --popover: var(--base-gray800);
+        --popover-foreground: var(--base-white);
+        --primary: var(--base-white);
+        --primary-foreground: var(--base-black);
+        --secondary: var(--base-gray700);
+        --secondary-foreground: var(--base-white);
+        --muted: var(--base-gray700);
+        --muted-foreground: var(--base-gray400);
+        --accent: var(--base-accent);
+        --accent-foreground: var(--base-white);
+        --destructive: var(--base-negative);
+        --destructive-foreground: var(--base-white);
+        --border: var(--base-gray700);
+        --input: var(--base-gray700);
+        --ring: var(--base-accent);
+
+        --sidebar-background: var(--base-gray900);
+        --sidebar-foreground: var(--base-white);
+        --sidebar-primary: var(--base-accent);
+        --sidebar-primary-foreground: var(--base-white);
+        --sidebar-accent: var(--base-gray800);
+        --sidebar-accent-foreground: var(--base-white);
+        --sidebar-border: var(--base-gray700);
+        --sidebar-ring: var(--base-accent);
+    }
+}
+
+@layer base {
+    * {
+        border-color: hsl(var(--border));
+    }
+
+    html {
+        color-scheme: dark;
+    }
+
+    body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        font-family: "DM Sans", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-feature-settings: "rlig" 1, "calt" 1;
+    }
+
+    /* Focus styles */
+    *:focus-visible {
+        outline: 2px solid transparent;
+        outline-offset: 2px;
+        --tw-ring-offset-width: 2px;
+        --tw-ring-offset-color: hsl(var(--background));
+        --tw-ring-color: hsl(var(--ring));
+        --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);
+        --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);
+        box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000);
+    }
+}
+
+/* Custom scrollbar for dark theme */
+@layer utilities {
+    .scrollbar-dark::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .scrollbar-dark::-webkit-scrollbar-track {
+        background: hsl(var(--background));
+    }
+
+    .scrollbar-dark::-webkit-scrollbar-thumb {
+        background: hsl(var(--border));
+        border-radius: 4px;
+    }
+
+    .scrollbar-dark::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--muted-foreground));
+    }
+
+    /* Text selection */
+    ::selection {
+        background-color: hsl(var(--base-accent) / 0.3);
+        color: hsl(var(--foreground));
+    }
+
+    /* Animations */
+    @keyframes fade-in {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slide-up {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes scale-in {
+        from {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    .animate-fade-in {
+        animation: fade-in 1.0s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-slide-up {
+        animation: slide-up 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .animate-scale-in {
+        animation: scale-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .delay-100 {
+        animation-delay: 100ms;
+    }
+
+    .delay-200 {
+        animation-delay: 200ms;
+    }
+
+    .delay-300 {
+        animation-delay: 300ms;
+    }
+
+    .delay-500 {
+        animation-delay: 500ms;
+    }
+
+    .delay-1000 {
+        animation-delay: 1000ms;
+    }
+}

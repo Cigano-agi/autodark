@@ -1,0 +1,241 @@
+import { useState, useEffect } from 'react';
+import { useBlueprint, UpdateBlueprintData } from '@/hooks/useBlueprint';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Save, Loader2, Sparkles, Youtube, Users, FileText, Settings, Video, Mic } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+
+interface BlueprintSettingsProps {
+  channelId: string;
+}
+
+export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
+  const { blueprint, isLoading, updateBlueprint } = useBlueprint(channelId);
+  const [formData, setFormData] = useState<UpdateBlueprintData>({});
+
+  useEffect(() => {
+    if (blueprint) {
+      setFormData({
+        topic: blueprint.topic || '',
+        persona_prompt: blueprint.persona_prompt || '',
+        target_audience: blueprint.target_audience || '',
+        script_rules: blueprint.script_rules || '',
+        upload_frequency: blueprint.upload_frequency || '',
+        videos_per_batch: blueprint.videos_per_batch || 4,
+        visual_style: blueprint.visual_style || '',
+        cta: blueprint.cta || '',
+        voice_id: blueprint.voice_id || '',
+        voice_name: blueprint.voice_name || '',
+        reference: blueprint.reference || '',
+        char_limit: blueprint.char_limit || 2000,
+      });
+    }
+  }, [blueprint]);
+
+  const handleChange = (field: keyof UpdateBlueprintData, value: string | number) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    updateBlueprint.mutate(formData);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center p-8">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            <Settings className="w-5 h-5 text-primary" /> Blueprint do Canal
+          </h3>
+          <p className="text-sm text-muted-foreground mt-1">
+            Configure a identidade, voz e regras base para a inteligência artificial gerar conteúdo.
+          </p>
+        </div>
+        <Button 
+          onClick={handleSave} 
+          disabled={updateBlueprint.isPending}
+        >
+          {updateBlueprint.isPending ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4 mr-2" />
+          )}
+          Salvar Blueprint
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Identidade e Público */}
+        <Card className="p-5 bg-card/50 border-white/5 space-y-4">
+          <div className="flex items-center gap-2 mb-2 text-primary">
+            <Users className="w-4 h-4" />
+            <h4 className="font-semibold text-sm">Posicionamento</h4>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Tópico / Nicho Principal</Label>
+            <Input 
+              value={formData.topic || ''} 
+              onChange={(e) => handleChange('topic', e.target.value)}
+              placeholder="Ex: Finanças para jovens, Motivação diária..."
+              className="bg-background/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Público-Alvo</Label>
+            <Input 
+              value={formData.target_audience || ''} 
+              onChange={(e) => handleChange('target_audience', e.target.value)}
+              placeholder="Ex: Jovens de 18-25 anos interessados em empreendedorismo"
+              className="bg-background/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Persona / Comportamento da IA</Label>
+            <Textarea 
+              value={formData.persona_prompt || ''} 
+              onChange={(e) => handleChange('persona_prompt', e.target.value)}
+              placeholder="Descreva a personalidade (ex: Seja direto, irônico, use gírias...)"
+              className="min-h-[100px] bg-background/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Referências / Inspirações</Label>
+            <Textarea 
+              value={formData.reference || ''} 
+              onChange={(e) => handleChange('reference', e.target.value)}
+              placeholder="Estilo parecido com canal X, ritmo do canal Y..."
+              className="min-h-[80px] bg-background/50"
+            />
+          </div>
+        </Card>
+
+        {/* Regras Editoriais */}
+        <Card className="p-5 bg-card/50 border-white/5 space-y-4">
+          <div className="flex items-center gap-2 mb-2 text-emerald-400">
+            <FileText className="w-4 h-4" />
+            <h4 className="font-semibold text-sm">Regras Editoriais e Roteiro</h4>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Regras de Roteiro (Do's e Don'ts)</Label>
+            <Textarea 
+              value={formData.script_rules || ''} 
+              onChange={(e) => handleChange('script_rules', e.target.value)}
+              placeholder="Ex: Não use saudações formais. Evite palavras complexas. Comece sempre com um gancho forte."
+              className="min-h-[120px] bg-background/50"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Call to Action (CTA) Padrão</Label>
+            <Input 
+              value={formData.cta || ''} 
+              onChange={(e) => handleChange('cta', e.target.value)}
+              placeholder="Ex: Se inscreva no canal para mais vídeos como este!"
+              className="bg-background/50"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Limite de Caracteres</Label>
+              <Input 
+                type="number"
+                value={formData.char_limit || ''} 
+                onChange={(e) => handleChange('char_limit', Number(e.target.value))}
+                placeholder="Ex: 2000"
+                className="bg-background/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Vídeos por Lote</Label>
+              <Input 
+                type="number"
+                value={formData.videos_per_batch || ''} 
+                onChange={(e) => handleChange('videos_per_batch', Number(e.target.value))}
+                placeholder="Ex: 4"
+                className="bg-background/50"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Áudio e Visual */}
+        <Card className="p-5 bg-card/50 border-white/5 space-y-4 lg:col-span-2">
+          <div className="flex items-center gap-2 mb-2 text-purple-400">
+            <Mic className="w-4 h-4" />
+            <h4 className="font-semibold text-sm">Produção (Audio & Visual)</h4>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>ID da Voz (OpenAI/ElevenLabs)</Label>
+                  <Input 
+                    value={formData.voice_id || ''} 
+                    onChange={(e) => handleChange('voice_id', e.target.value)}
+                    placeholder="Ex: onyx, alloy, nova..."
+                    className="bg-background/50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Nome da Voz (Exibição)</Label>
+                  <Input 
+                    value={formData.voice_name || ''} 
+                    onChange={(e) => handleChange('voice_name', e.target.value)}
+                    placeholder="Ex: Narrador Masculino Grave"
+                    className="bg-background/50"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Frequência de Postagem</Label>
+                <Select 
+                  value={formData.upload_frequency || ''} 
+                  onValueChange={(val) => handleChange('upload_frequency', val)}
+                >
+                  <SelectTrigger className="bg-background/50">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Diário (1x ao dia)</SelectItem>
+                    <SelectItem value="twice_daily">2x ao dia</SelectItem>
+                    <SelectItem value="weekly">Semanal</SelectItem>
+                    <SelectItem value="biweekly">Quinzenal</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Estilo Visual (B-Rolls / Geração de Imagem)</Label>
+              <Textarea 
+                value={formData.visual_style || ''} 
+                onChange={(e) => handleChange('visual_style', e.target.value)}
+                placeholder="Ex: Cinematic, dark lighting, cyberpunk themes. Evite mostrar rostos de pessoas..."
+                className="min-h-[140px] bg-background/50"
+              />
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
