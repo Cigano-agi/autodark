@@ -1,0 +1,234 @@
+{
+  "name": "0. roteiro jazz-w-j",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1232,
+        48
+      ],
+      "id": "9effd813-5795-42f7-bfac-6cd7614458b5",
+      "name": "cron trigger"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um roteirista especializado em vídeos curtos virais para YouTube Shorts, TikTok e Instagram Reels no nicho cristão.\n\nSua tarefa é transformar o gancho fornecido em um roteiro curto de oração e reflexão para começar o dia com Deus.\n\nCONTEXTO DO CANAL\n\n• Nicho: {{ $json.nicho }}\n• Estilo: oração matinal + reflexão bíblica\n• Público: cristãos que querem começar o dia com paz e fé\n• Idioma: Inglês\n• Duração do vídeo: aproximadamente 30 segundos\n\nREGRAS IMPORTANTES\n\n• O roteiro deve começar exatamente com o gancho:  \n{{ $json.hook }}\n\n• O roteiro deve conter:\n1. gancho emocional\n2. reflexão curta sobre o dia\n3. menção ao versículo {{ $json.reference }}\n4. oração curta\n5. encerramento positivo\n\n• Linguagem simples e natural para americanos\n• Frases curtas\n• Tom acolhedor, calmo e inspirador\n• Evite palavras difíceis\n• Evite frases muito longas\n\nCTA OBRIGATÓRIO\n\nO roteiro deve terminar exatamente com:\n\n\"Want prayers like this every day? Subscribe to the channel.\"\n\nLIMITES DE TAMANHO\n\nNúmero mínimo de caracteres: 320  \nNúmero máximo de caracteres: 420  \n\nContagem inclui espaços, pontuação e CTA.\n\nFORMATO DE SAÍDA (JSON PURO)\n\n{\n\"roteiro_final\": \"\",\n\"tema\": \"{{$json.topic}}\",\n\"gancho\": \"{{$json.hook}}\",\n\"referencia\": \"{{$json.reference}}\",\n\"char_used\": \"numero de caracteres incluindo espaços, pontuação e CTA\",\n\"translate\" : \"tradução do roteiro\"\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -736,
+        48
+      ],
+      "id": "d8f76447-c979-47c2-bc9e-1bc76ddd81ee",
+      "name": "roteiro1",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  return {\n    json: {\n      roteiro: item.json.output[0].content[0].text.roteiro_final,\n      tema:item.json.output[0].content[0].text.tema,\n      gancho: item.json.output[0].content[0].text.gancho,\n       char_used: item.json.output[0].content[0].text.char_used,\n      translate:item.json.output[0].content[0].text.translate\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        48
+      ],
+      "id": "28ddc52c-3b9c-49c6-94d4-332db25942f7",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nicho",
+              "keyValue": "jazz-with-jezz"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "ideia"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1072,
+        48
+      ],
+      "id": "21d818b2-31ee-42ba-9dea-889b3b03c3a5",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -896,
+        48
+      ],
+      "id": "576333ea-2674-4fdd-9f41-c88d64dc277b",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "script",
+              "fieldValue": "={{ $json.roteiro }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_tts"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        48
+      ],
+      "id": "0f15b1cd-ffc4-4392-a335-6162621f24bc",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "cron trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "roteiro1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "roteiro1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "dc64e842-e139-4ae0-8c74-243c9a8a36e2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "oHK2ZVmMl0QIG3Oj",
+  "tags": []
+}

@@ -1,0 +1,257 @@
+{
+  "name": "0. roteiro biblico",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -1232,
+        48
+      ],
+      "id": "910e0b4d-c146-46fe-8077-758c5b39a841",
+      "name": "cron trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  return {\n    json: {\n      roteiro: item.json.output[0].content[0].text.roteiro_final,\n      tema:item.json.output[0].content[0].text.tema,\n      gancho: item.json.output[0].content[0].text.gancho,\n      char_used:item.json.output[0].content[0].text.char_used\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -400,
+        48
+      ],
+      "id": "60dfc271-2a6b-492d-b587-6d1d24f610a9",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "=Você é um roteirista de vídeos curtos especializado em narrativas bíblicas reais. Sua missão é criar um texto emocionante, reverente e fiel, otimizado para narração (TTS).\n\nPARÂMETROS TÉCNICOS CRÍTICOS:\n\nLimite Estrito: O roteiro_final NUNCA deve ultrapassar 500 caracteres (contando espaços).\n\nInício: Comece exatamente com o hook: {{$json.hook}}.\n\nPersonagem e Fonte: Mencione naturalmente {{$json.character}} e obrigatoriamente a referência:  {{$json.reference}}.\n\nA referencia deve obrigatoriamente ser citada da maneira como está escrita, exemplo \"Isso acontece em Marcos, citulo 4 versiculo 10\"\n\nFinal: Encerre com a mensagem baseada em {{$json.angle}} e finalize com o CTA: \"Quer mensagens como esta todos dias? Se inscreva no canal!\".\n\nQUALIDADE NARRATIVA (PARA TTS):\n\nFidelidade: Siga estritamente os fatos de {{$json.reference}}. Não invente diálogos ou mude a ordem.\n\nRitmo de Fala: O texto deve ter pausas naturais para a voz da IA respirar.\n\nImpacto: Foque no poder de Jesus/Deus e na reação das pessoas. Transmita o sagrado sem soar como pregador.\n\nPROCESSO DE ESCRITA:\n\nLeia o limite de caracteres disponível.\n\nEscreva a narrativa focando no essencial do milagre.\n\nSe o texto ultrapassar o limite, corte palavras de preenchimento (adjetivos desnecessários), mas mantenha o Hook, a Referência e o CTA intactos.\n\nFORMATO DE SAÍDA (JSON PURO):\n\nJSON\n{\n\"roteiro_final\": \"O texto completo aqui.\",\n\"tema\": \"{{$json.topic}}\",\n\"char_used\": [insira aqui o número real de caracteres do roteiro_final acima]\n}"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {
+          "textFormat": {
+            "textOptions": {
+              "type": "json_object"
+            }
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        -688,
+        48
+      ],
+      "id": "b9fbd2c6-e6c9-40b8-a33d-17ed6cd8d0d6",
+      "name": "roteiro",
+      "credentials": {
+        "openAiApi": {
+          "id": "Af9194zWnYZWTFkI",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "nicho",
+              "keyValue": "biblico"
+            },
+            {
+              "keyName": "status",
+              "keyValue": "ideia"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -1024,
+        48
+      ],
+      "id": "2f79caae-43f9-4fc9-8223-3fab60d9bf27",
+      "name": "Get a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 2
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        -848,
+        48
+      ],
+      "id": "9f0cdebf-bac9-4589-a12c-b1e5998f0315",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Limit').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "script",
+              "fieldValue": "={{ $json.roteiro }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "pending_tts"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        48
+      ],
+      "id": "aade1ea6-75e0-45a9-bd27-a0fd082c9991",
+      "name": "Update a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "cron trigger": [
+      {
+        "json": {
+          "timestamp": "2026-03-02T13:03:09.903-03:00",
+          "Readable date": "March 2nd 2026, 1:03:09 pm",
+          "Readable time": "1:03:09 pm",
+          "Day of week": "Monday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "02",
+          "Hour": "13",
+          "Minute": "03",
+          "Second": "09",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "cron trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "roteiro": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "roteiro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "1eae1149-2376-4b87-92f3-7f0f6b53d4ad",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "dfk1WwvZK2yX5aFG",
+  "tags": []
+}

@@ -1,0 +1,2624 @@
+{
+  "name": "7. metrics to db",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -416,
+        0
+      ],
+      "id": "7c4b3acb-d0d5-4be5-a1d4-5460221b17eb",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        176,
+        256
+      ],
+      "id": "525046b4-b09c-41a4-b7cf-cef0c4f6bf8f",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8506c4db-b86b-4c55-bfc2-c753859faf0c",
+              "name": "video_id",
+              "value": "={{ $json['youtube id'].trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        368,
+        16
+      ],
+      "id": "a62df2dc-16b5-44fe-bc7e-1e3e29a2b6ae",
+      "name": "videoid"
+    },
+    {
+      "parameters": {
+        "url": "https://youtubeanalytics.googleapis.com/v2/reports",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"ids\": \"channel=={{ $('campos').item.json.channel_id }}\",\n  \"startDate\": \"2010-01-01\",\n  \"endDate\": \"{{ $now.format('yyyy-MM-dd') }}\",\n  \"metrics\": \"engagedViews,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained\",\n  \"dimensions\": \"video\",\n  \"filters\": \"video=={{ $json.video_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1632,
+        -288
+      ],
+      "id": "76113537-2715-4659-ae80-7d2e94c9d606",
+      "name": "analytics",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "EPbhYtffljGYJA73",
+          "name": "youtube darkside leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "video",
+        "operation": "get",
+        "videoId": "={{ $json.video_id }}",
+        "part": [
+          "snippet",
+          "status",
+          "statistics"
+        ],
+        "options": {}
+      },
+      "type": "n8n-nodes-base.youTube",
+      "typeVersion": 1,
+      "position": [
+        544,
+        16
+      ],
+      "id": "637db078-6427-43c1-883f-4aa9dcb2608e",
+      "name": "Get a video",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "EPbhYtffljGYJA73",
+          "name": "youtube darkside leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e83bad1a-54ba-40ae-926e-f87ef8242fcc",
+              "name": "views",
+              "value": "={{ $('Get a video').item.json.statistics.viewCount }}",
+              "type": "string"
+            },
+            {
+              "id": "05599310-a3ee-4ac1-a1dd-bcbdd063567e",
+              "name": "engaged Views",
+              "value": "={{ $json.rows[0][1]  }}",
+              "type": "number"
+            },
+            {
+              "id": "ae8b9b76-8691-4166-8932-1dab357a0296",
+              "name": "=estimated Minutes Watched",
+              "value": "={{ $json.rows[0][2] || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "0edc4899-9740-4bf3-86c5-68a549a955cd",
+              "name": "average View Duration",
+              "value": "={{ ($json.rows[0][3] || 0 ) / 100 }}",
+              "type": "number"
+            },
+            {
+              "id": "a2f88dc5-bd8f-4963-83f0-7ac388753c32",
+              "name": "average View Percentage",
+              "value": "={{ $json.rows[0][4] }}",
+              "type": "number"
+            },
+            {
+              "id": "244d88b2-dc06-440a-a0dd-13275e6a9d02",
+              "name": "subscribers Gained",
+              "value": "={{ $json.rows[0][5] }}",
+              "type": "number"
+            },
+            {
+              "id": "4929fd6a-f8da-4f52-9170-ae6c6a951ece",
+              "name": "likes",
+              "value": "={{ $('Get a video').item.json.statistics.likeCount }}",
+              "type": "string"
+            },
+            {
+              "id": "4ca7ae92-3f25-4015-8aec-c50392f1e3d4",
+              "name": "titulo",
+              "value": "={{ $('darkside').item.json.seo_titulo }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1888,
+        -288
+      ],
+      "id": "61cd6086-cf5f-4628-b121-fccf79236213",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "metrics",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id_conteudo",
+              "condition": "eq",
+              "keyValue": "={{ $('tem id').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "views",
+              "fieldValue": "={{ $json.views }}"
+            },
+            {
+              "fieldId": "estimated_minutes_watched",
+              "fieldValue": "={{ $json['estimated Minutes Watched'] }}"
+            },
+            {
+              "fieldId": "average_view_duration",
+              "fieldValue": "={{ $json['average View Duration'] }}"
+            },
+            {
+              "fieldId": "average_view_percentage",
+              "fieldValue": "={{ $json['average View Percentage'] }}"
+            },
+            {
+              "fieldId": "likes",
+              "fieldValue": "={{ $json.likes }}"
+            },
+            {
+              "fieldId": "subscribers",
+              "fieldValue": "={{ $json['subscribers Gained'] }}"
+            },
+            {
+              "fieldId": "published_at",
+              "fieldValue": "={{ $json[\"data/hora publi\"] }}"
+            },
+            {
+              "fieldId": "engaged_views",
+              "fieldValue": "={{ $json[\"engaged Views\"] }}"
+            },
+            {
+              "fieldId": "youtube_id",
+              "fieldValue": "={{ $json[\"youtube id\"] }}"
+            },
+            {
+              "fieldId": "titulo",
+              "fieldValue": "={{ $json.seo_titulo }}"
+            },
+            {
+              "fieldId": "nicho",
+              "fieldValue": "={{ $json.nicho }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        -16
+      ],
+      "id": "90cccf2e-5b91-4835-94aa-033f402b1bd4",
+      "name": "Update a row",
+      "alwaysOutputData": true,
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8f5cd56-0484-4b93-9091-a851ae2cd76f",
+              "name": "data_publicacao",
+              "value": "={{ DateTime.fromISO($json.status.publishAt).setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "e530333a-3d91-4c87-8069-05a09422747d",
+              "name": "video_id",
+              "value": "={{ $('videoid').item.json.video_id }}",
+              "type": "string"
+            },
+            {
+              "id": "a0de489c-f198-4795-b6ca-b4116c47aee7",
+              "name": "channel_id",
+              "value": "={{ $json.snippet.channelId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        944,
+        -96
+      ],
+      "id": "10958789-2526-4013-9708-9e3719103d66",
+      "name": "privado"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b8f5cd56-0484-4b93-9091-a851ae2cd76f",
+              "name": "data_publicacao",
+              "value": "={{ DateTime.fromISO($json.snippet.publishedAt).setZone('America/Sao_Paulo').toFormat('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "e530333a-3d91-4c87-8069-05a09422747d",
+              "name": "video_id",
+              "value": "={{ $('videoid').item.json.video_id }}",
+              "type": "string"
+            },
+            {
+              "id": "22815b79-e25b-406d-a3c9-b0fe0c29fc94",
+              "name": "channel_id",
+              "value": "={{ $json.snippet.channelId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        944,
+        80
+      ],
+      "id": "02137f36-883e-4487-8216-1a3d2489984e",
+      "name": "publico"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "238ec243-b3ba-46c2-b617-826a47df5b2d",
+              "name": "data_publicacao",
+              "value": "={{ $json.data_publicacao }}",
+              "type": "string"
+            },
+            {
+              "id": "17c63f8d-1b59-43ab-b8f6-8077b8cfa83d",
+              "name": "video_id",
+              "value": "={{ $json.video_id }}",
+              "type": "string"
+            },
+            {
+              "id": "55231e8b-2005-437d-b992-d7914ad7b3dc",
+              "name": "channel_id",
+              "value": "={{$json.channel_id}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1168,
+        0
+      ],
+      "id": "4480d15a-26d1-47b1-b28d-a30ba4b83d6c",
+      "name": "campos"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1016787741,
+          "mode": "list",
+          "cachedResultName": "darkside",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1016787741"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "youtube id": "={{ $('campos').item.json.video_id }}",
+            "data/hora publi": "={{ $('campos').item.json.data_publicacao }}",
+            "likes": "={{ $('Get a video').item.json.statistics.likeCount }}",
+            "views": "={{ $json.views }}",
+            "engaged Views": "={{ $json[\"engaged Views\"] || 0 }}",
+            "estimated Minutes Watched": "={{ $json[\"estimated Minutes Watched\"] || 0 }}",
+            "average View Duration": "={{ $json[\"average View Duration\"] || 0}}",
+            "average View Percentage": "={{ $json[\"average View Percentage\"]/100 || 0 }}",
+            "subscribers Gained": "={{ $json[\"subscribers Gained\"] || 0 }}",
+            "seo_titulo": "={{ $json.titulo }}",
+            "id": "={{ $('tem id').item.json.id }}",
+            "nicho": "curiosidades-cientificas-e-psicologicas"
+          },
+          "matchingColumns": [
+            "youtube id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "youtube id",
+              "displayName": "youtube id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data/hora publi",
+              "displayName": "data/hora publi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "views",
+              "displayName": "views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "engaged Views",
+              "displayName": "engaged Views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estimated Minutes Watched",
+              "displayName": "estimated Minutes Watched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Duration",
+              "displayName": "average View Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Percentage",
+              "displayName": "average View Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subscribers Gained",
+              "displayName": "subscribers Gained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2096,
+        -288
+      ],
+      "id": "d1050f89-17c2-4d9d-9e46-afe2a6c61f11",
+      "name": "darkside1",
+      "notesInFlow": false,
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -32,
+        0
+      ],
+      "id": "91e860d7-9895-4153-9e22-5325512f8324",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 498135605,
+          "mode": "list",
+          "cachedResultName": "biblico",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=498135605"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -224,
+        -80
+      ],
+      "id": "1bbd7fdd-b2ff-47ed-b2e9-9f30a8005032",
+      "name": "biblico",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "3UUKvkD5Pe0qB8di",
+          "name": "symbiotic-sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1016787741,
+          "mode": "list",
+          "cachedResultName": "darkside",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1016787741"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -224,
+        -272
+      ],
+      "id": "86f44fe5-d4f5-46bc-9cc8-5887b54a6c52",
+      "name": "darkside",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "3UUKvkD5Pe0qB8di",
+          "name": "symbiotic-sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "dark_conteudo",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "published"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        -544
+      ],
+      "id": "0dab6cb1-5e6b-4150-ac31-bd32f589e79d",
+      "name": "Get many rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "11a0defb-84c5-4062-89dd-059cce11b29b",
+              "leftValue": "={{ $json.nicho }}",
+              "rightValue": "curiosidades-cientificas-e-psicologicas",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -16,
+        -544
+      ],
+      "id": "7beddf75-b46c-4c99-a27c-95d37a053283",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1016787741,
+          "mode": "list",
+          "cachedResultName": "darkside",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1016787741"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "nicho": "={{ $json.nicho }}",
+            "seo_titulo": "={{ $json.seo_title }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "youtube id",
+              "displayName": "youtube id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "data/hora publi",
+              "displayName": "data/hora publi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "views",
+              "displayName": "views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "engaged Views",
+              "displayName": "engaged Views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estimated Minutes Watched",
+              "displayName": "estimated Minutes Watched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "average View Duration",
+              "displayName": "average View Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "average View Percentage",
+              "displayName": "average View Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "subscribers Gained",
+              "displayName": "subscribers Gained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        -640
+      ],
+      "id": "e90fa4a3-bba7-4716-bc43-270379e02b6b",
+      "name": "darkside2",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 498135605,
+          "mode": "list",
+          "cachedResultName": "biblico",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=498135605"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "nicho": "={{ $json.nicho }}",
+            "seo_titulo": "={{ $json.seo_title }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "youtube id",
+              "displayName": "youtube id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "data/hora publi",
+              "displayName": "data/hora publi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "views",
+              "displayName": "views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "engaged Views",
+              "displayName": "engaged Views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "estimated Minutes Watched",
+              "displayName": "estimated Minutes Watched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "average View Duration",
+              "displayName": "average View Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "average View Percentage",
+              "displayName": "average View Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "subscribers Gained",
+              "displayName": "subscribers Gained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        224,
+        -464
+      ],
+      "id": "13914c53-3c2b-4e06-b607-b16eb489e2c4",
+      "name": "biblico1",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 498135605,
+          "mode": "list",
+          "cachedResultName": "biblico",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=498135605"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "youtube id": "={{ $('campos').item.json.video_id }}",
+            "data/hora publi": "={{ $('campos').item.json.data_publicacao }}",
+            "likes": "={{ $('Get a video').item.json.statistics.likeCount }}",
+            "views": "={{ $json.views }}",
+            "engaged Views": "={{ $json[\"engaged Views\"] || 0 }}",
+            "estimated Minutes Watched": "={{ $json[\"estimated Minutes Watched\"] || 0 }}",
+            "average View Duration": "={{ $json[\"average View Duration\"] || 0}}",
+            "average View Percentage": "={{ $json[\"average View Percentage\"]/100 || 0 }}",
+            "subscribers Gained": "={{ $json[\"subscribers Gained\" ] || 0 }}",
+            "seo_titulo": "={{ $json.titulo }}",
+            "id": "={{ $('tem id').item.json.id }}",
+            "nicho": "biblico"
+          },
+          "matchingColumns": [
+            "youtube id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "youtube id",
+              "displayName": "youtube id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data/hora publi",
+              "displayName": "data/hora publi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "views",
+              "displayName": "views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "engaged Views",
+              "displayName": "engaged Views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estimated Minutes Watched",
+              "displayName": "estimated Minutes Watched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Duration",
+              "displayName": "average View Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Percentage",
+              "displayName": "average View Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subscribers Gained",
+              "displayName": "subscribers Gained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2096,
+        -112
+      ],
+      "id": "a38e5be2-da9d-468a-9541-547c3c04521a",
+      "name": "biblico2",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.channel_id }}",
+                    "rightValue": "UCBbHVVhvevY_6NJu11tUpcA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "99ead6b8-9eca-40d5-b4a6-cb7f0d987ede"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "darkside"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "c9d65ec3-8496-4f7a-b760-11d9338b677f",
+                    "leftValue": "={{ $json.channel_id }}",
+                    "rightValue": "=UCxkJAKZivVSsPCOFDSxEjMA",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "son o nome dele"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "6efc133a-0769-4ea0-bed8-74ec85bf7be6",
+                    "leftValue": "={{ $json.channel_id }}",
+                    "rightValue": "UCKSDrD31umgDrawgEgBwHvg",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "terror"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "f3be7dcb-6e10-486d-8a79-22ccf0afac3c",
+                    "leftValue": "={{ $json.channel_id }}",
+                    "rightValue": "UCHP-J9qN8WrFNpcxMa1JW7A",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "jazz-with-j"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1376,
+        -32
+      ],
+      "id": "447d822a-e4e0-42c8-a343-c5dddc678437",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "url": "https://youtubeanalytics.googleapis.com/v2/reports",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"ids\": \"channel=={{ $('campos').item.json.channel_id }}\",\n  \"startDate\": \"2010-01-01\",\n  \"endDate\": \"{{ $now.format('yyyy-MM-dd') }}\",\n  \"metrics\": \"engagedViews,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained\",\n  \"dimensions\": \"video\",\n  \"filters\": \"video=={{ $json.video_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1632,
+        -112
+      ],
+      "id": "863a6b70-ad38-46bf-a5b5-929bf778c689",
+      "name": "analytics1",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "oEqZOuwB1vYRKxY9",
+          "name": "youtube biblico leo"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "2c4946ee-1ed2-47d7-9acf-c2373bea8236",
+              "leftValue": "={{ $json['youtube id'] }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        160,
+        32
+      ],
+      "id": "dcb91e78-a9a7-495c-8072-e62e569e10a8",
+      "name": "tem id"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f4e34f53-7450-40b9-937a-03bae716c656",
+              "leftValue": "={{ $json.status.privacyStatus }}",
+              "rightValue": "private",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        16
+      ],
+      "id": "b8b4f0b9-0c97-4e58-9167-6c59ee5543b6",
+      "name": "é privado"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e83bad1a-54ba-40ae-926e-f87ef8242fcc",
+              "name": "views",
+              "value": "={{ $('Get a video').item.json.statistics.viewCount }}",
+              "type": "string"
+            },
+            {
+              "id": "05599310-a3ee-4ac1-a1dd-bcbdd063567e",
+              "name": "engaged Views",
+              "value": "={{ $json.rows[0][1]  }}",
+              "type": "number"
+            },
+            {
+              "id": "ae8b9b76-8691-4166-8932-1dab357a0296",
+              "name": "=estimated Minutes Watched",
+              "value": "={{ $json.rows[0][2] || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "0edc4899-9740-4bf3-86c5-68a549a955cd",
+              "name": "average View Duration",
+              "value": "={{ ($json.rows[0][3] || 0 ) / 100 }}",
+              "type": "number"
+            },
+            {
+              "id": "a2f88dc5-bd8f-4963-83f0-7ac388753c32",
+              "name": "average View Percentage",
+              "value": "={{ $json.rows[0][4] }}",
+              "type": "number"
+            },
+            {
+              "id": "244d88b2-dc06-440a-a0dd-13275e6a9d02",
+              "name": "subscribers Gained",
+              "value": "={{ $json.rows[0][5] }}",
+              "type": "number"
+            },
+            {
+              "id": "4929fd6a-f8da-4f52-9170-ae6c6a951ece",
+              "name": "likes",
+              "value": "={{ $('Get a video').item.json.statistics.likeCount }}",
+              "type": "string"
+            },
+            {
+              "id": "cf2ebea5-0e66-4478-8851-ba98ea0abbcc",
+              "name": "titulo",
+              "value": "={{ $('biblico').item.json.seo_titulo }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1888,
+        -112
+      ],
+      "id": "1061e2ad-b04f-430f-81a0-168b064584c5",
+      "name": "Edit Fields1"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1651310146,
+          "mode": "list",
+          "cachedResultName": "terror",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1651310146"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -224,
+        96
+      ],
+      "id": "4df15df2-2f12-4b49-9411-bcc24d3e1e60",
+      "name": "terror",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "3UUKvkD5Pe0qB8di",
+          "name": "symbiotic-sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://youtubeanalytics.googleapis.com/v2/reports",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"ids\": \"channel=={{ $('campos').item.json.channel_id }}\",\n  \"startDate\": \"2010-01-01\",\n  \"endDate\": \"{{ $now.format('yyyy-MM-dd') }}\",\n  \"metrics\": \"engagedViews,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained\",\n  \"dimensions\": \"video\",\n  \"filters\": \"video=={{ $json.video_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1632,
+        64
+      ],
+      "id": "11194288-97a1-42bc-bbeb-468fc2cf2241",
+      "name": "analytics2",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "EPbhYtffljGYJA73",
+          "name": "youtube darkside leo"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e83bad1a-54ba-40ae-926e-f87ef8242fcc",
+              "name": "views",
+              "value": "={{ $('Get a video').item.json.statistics.viewCount }}",
+              "type": "string"
+            },
+            {
+              "id": "05599310-a3ee-4ac1-a1dd-bcbdd063567e",
+              "name": "engaged Views",
+              "value": "={{ $json.rows[0][1]  }}",
+              "type": "number"
+            },
+            {
+              "id": "ae8b9b76-8691-4166-8932-1dab357a0296",
+              "name": "=estimated Minutes Watched",
+              "value": "={{ $json.rows[0][2] || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "0edc4899-9740-4bf3-86c5-68a549a955cd",
+              "name": "average View Duration",
+              "value": "={{ ($json.rows[0][3] || 0 ) / 100 }}",
+              "type": "number"
+            },
+            {
+              "id": "a2f88dc5-bd8f-4963-83f0-7ac388753c32",
+              "name": "average View Percentage",
+              "value": "={{ $json.rows[0][4] }}",
+              "type": "number"
+            },
+            {
+              "id": "244d88b2-dc06-440a-a0dd-13275e6a9d02",
+              "name": "subscribers Gained",
+              "value": "={{ $json.rows[0][5] }}",
+              "type": "number"
+            },
+            {
+              "id": "4929fd6a-f8da-4f52-9170-ae6c6a951ece",
+              "name": "likes",
+              "value": "={{ $('Get a video').item.json.statistics.likeCount }}",
+              "type": "string"
+            },
+            {
+              "id": "cf2ebea5-0e66-4478-8851-ba98ea0abbcc",
+              "name": "titulo",
+              "value": "={{ $('biblico').item.json.seo_titulo }}",
+              "type": "string"
+            },
+            {
+              "id": "f3d4020a-ef20-4d7f-bf38-2050dc9cc398",
+              "name": "nicho",
+              "value": "terror",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1888,
+        64
+      ],
+      "id": "47c452c2-ed3c-41af-953b-9a7154c5edf8",
+      "name": "Edit Fields2",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1651310146,
+          "mode": "list",
+          "cachedResultName": "terror",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1651310146"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "youtube id": "={{ $('campos').item.json.video_id }}",
+            "data/hora publi": "={{ $('campos').item.json.data_publicacao }}",
+            "likes": "={{ $('Get a video').item.json.statistics.likeCount }}",
+            "views": "={{ $json.views }}",
+            "engaged Views": "={{ $json[\"engaged Views\"] || 0 }}",
+            "estimated Minutes Watched": "={{ $json[\"estimated Minutes Watched\"] || 0 }}",
+            "average View Duration": "={{ $json[\"average View Duration\"] || 0}}",
+            "average View Percentage": "={{ $json[\"average View Percentage\"]/100 || 0 }}",
+            "subscribers Gained": "={{ $json[\"subscribers Gained\" ] || 0 }}",
+            "seo_titulo": "={{ $json.titulo }}",
+            "id": "={{ $('tem id').item.json.id }}",
+            "terror": "terror"
+          },
+          "matchingColumns": [
+            "youtube id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "youtube id",
+              "displayName": "youtube id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data/hora publi",
+              "displayName": "data/hora publi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "views",
+              "displayName": "views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "engaged Views",
+              "displayName": "engaged Views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estimated Minutes Watched",
+              "displayName": "estimated Minutes Watched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Duration",
+              "displayName": "average View Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Percentage",
+              "displayName": "average View Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subscribers Gained",
+              "displayName": "subscribers Gained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "terror",
+              "displayName": "terror",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2096,
+        64
+      ],
+      "id": "5a3ed7f3-7c6d-4e07-a31c-348c58c6136d",
+      "name": "terror1",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      },
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "tableId": "metrics",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "published_at",
+              "fieldValue": "={{ $json[\"data/hora publi\"] }}"
+            },
+            {
+              "fieldId": "youtube_id",
+              "fieldValue": "={{ $json[\"youtube id\"] }}"
+            },
+            {
+              "fieldId": "engaged_views",
+              "fieldValue": "={{ $json[\"engaged Views\"] }}"
+            },
+            {
+              "fieldId": "estimated_minutes_watched",
+              "fieldValue": "={{ $json[\"estimated Minutes Watched\"] }}"
+            },
+            {
+              "fieldId": "average_view_duration",
+              "fieldValue": "={{ $json[\"average View Duration\"] }}"
+            },
+            {
+              "fieldId": "average_view_percentage",
+              "fieldValue": "={{ $json[\"average View Percentage\"] }}"
+            },
+            {
+              "fieldId": "subscribers",
+              "fieldValue": "={{ $json[\"subscribers Gained\"] }}"
+            },
+            {
+              "fieldId": "titulo",
+              "fieldValue": "={{ $json.seo_titulo }}"
+            },
+            {
+              "fieldId": "likes",
+              "fieldValue": "={{ $json.likes }}"
+            },
+            {
+              "fieldId": "id_conteudo",
+              "fieldValue": "={{ $('tem id').item.json.id }}"
+            },
+            {
+              "fieldId": "views",
+              "fieldValue": "={{ $json.views }}"
+            },
+            {
+              "fieldId": "tema",
+              "fieldValue": "sem tema"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2368,
+        -336
+      ],
+      "id": "891eba70-4192-4ec8-9a45-7498e1d61664",
+      "name": "Create a row",
+      "credentials": {
+        "supabaseApi": {
+          "id": "PBznPfY5NNTiwzfT",
+          "name": "supabase leo dark"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1623037527,
+          "mode": "list",
+          "cachedResultName": "jazz-with-jezz",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1623037527"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -224,
+        272
+      ],
+      "id": "07d3ec19-7a41-4e82-ab3e-b1bdfe0af2fd",
+      "name": "jazz-w-j",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "3UUKvkD5Pe0qB8di",
+          "name": "symbiotic-sheets"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://youtubeanalytics.googleapis.com/v2/reports",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "youTubeOAuth2Api",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"ids\": \"channel=={{ $('campos').item.json.channel_id }}\",\n  \"startDate\": \"2010-01-01\",\n  \"endDate\": \"{{ $now.format('yyyy-MM-dd') }}\",\n  \"metrics\": \"engagedViews,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,subscribersGained\",\n  \"dimensions\": \"video\",\n  \"filters\": \"video=={{ $json.video_id }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1632,
+        256
+      ],
+      "id": "6ba318e0-7fde-4a09-9401-6b5d5d81fd2f",
+      "name": "analytics3",
+      "credentials": {
+        "youTubeOAuth2Api": {
+          "id": "dSmvFsLzJriIK4Qa",
+          "name": "yb jazz-w-j"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "e83bad1a-54ba-40ae-926e-f87ef8242fcc",
+              "name": "views",
+              "value": "={{ $('Get a video').item.json.statistics.viewCount }}",
+              "type": "string"
+            },
+            {
+              "id": "05599310-a3ee-4ac1-a1dd-bcbdd063567e",
+              "name": "engaged Views",
+              "value": "={{ $json.rows[0][1]  }}",
+              "type": "number"
+            },
+            {
+              "id": "ae8b9b76-8691-4166-8932-1dab357a0296",
+              "name": "=estimated Minutes Watched",
+              "value": "={{ $json.rows[0][2] || 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "0edc4899-9740-4bf3-86c5-68a549a955cd",
+              "name": "average View Duration",
+              "value": "={{ ($json.rows[0][3] || 0 ) / 100 }}",
+              "type": "number"
+            },
+            {
+              "id": "a2f88dc5-bd8f-4963-83f0-7ac388753c32",
+              "name": "average View Percentage",
+              "value": "={{ $json.rows[0][4] }}",
+              "type": "number"
+            },
+            {
+              "id": "244d88b2-dc06-440a-a0dd-13275e6a9d02",
+              "name": "subscribers Gained",
+              "value": "={{ $json.rows[0][5] }}",
+              "type": "number"
+            },
+            {
+              "id": "4929fd6a-f8da-4f52-9170-ae6c6a951ece",
+              "name": "likes",
+              "value": "={{ $('Get a video').item.json.statistics.likeCount }}",
+              "type": "string"
+            },
+            {
+              "id": "cf2ebea5-0e66-4478-8851-ba98ea0abbcc",
+              "name": "titulo",
+              "value": "={{ $('jazz-w-j').item.json.seo_titulo }}",
+              "type": "string"
+            },
+            {
+              "id": "f3d4020a-ef20-4d7f-bf38-2050dc9cc398",
+              "name": "nicho",
+              "value": "=jazz-with-jezz",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1888,
+        256
+      ],
+      "id": "e2b8831c-8b98-4db0-b30a-51197bc0028d",
+      "name": "Edit Fields3"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit?gid=1016787741#gid=1016787741",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1623037527,
+          "mode": "list",
+          "cachedResultName": "jazz-with-jezz",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KIpFBaTuBJpcwx1StTwTRK_BuhFx_OXQcAQ0bQDFtWU/edit#gid=1623037527"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "youtube id": "={{ $('campos').item.json.video_id }}",
+            "data/hora publi": "={{ $('campos').item.json.data_publicacao }}",
+            "likes": "={{ $('Get a video').item.json.statistics.likeCount }}",
+            "views": "={{ $json.views }}",
+            "engaged Views": "={{ $json[\"engaged Views\"] || 0 }}",
+            "estimated Minutes Watched": "={{ $json[\"estimated Minutes Watched\"] || 0 }}",
+            "average View Duration": "={{ $json[\"average View Duration\"] || 0}}",
+            "average View Percentage": "={{ $json[\"average View Percentage\"]/100 || 0 }}",
+            "subscribers Gained": "={{ $json[\"subscribers Gained\" ] || 0 }}",
+            "seo_titulo": "={{ $json.titulo }}",
+            "id": "={{ $('tem id').item.json.id }}",
+            "nicho": "jazz-with-jezz"
+          },
+          "matchingColumns": [
+            "youtube id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "seo_titulo",
+              "displayName": "seo_titulo",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "youtube id",
+              "displayName": "youtube id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data/hora publi",
+              "displayName": "data/hora publi",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "views",
+              "displayName": "views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "engaged Views",
+              "displayName": "engaged Views",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "estimated Minutes Watched",
+              "displayName": "estimated Minutes Watched",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Duration",
+              "displayName": "average View Duration",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "average View Percentage",
+              "displayName": "average View Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "subscribers Gained",
+              "displayName": "subscribers Gained",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "likes",
+              "displayName": "likes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "nicho",
+              "displayName": "nicho",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2096,
+        256
+      ],
+      "id": "0c8d1126-1ed0-4f42-8817-2c53bfd8a7a8",
+      "name": "jazz-with-j",
+      "credentials": {
+        "googleApi": {
+          "id": "Y8AfremVEQbtvAyf",
+          "name": "leo"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-03-08T18:20:48.003-03:00",
+          "Readable date": "March 8th 2026, 6:20:48 pm",
+          "Readable time": "6:20:48 pm",
+          "Day of week": "Sunday",
+          "Year": "2026",
+          "Month": "March",
+          "Day of month": "08",
+          "Hour": "18",
+          "Minute": "20",
+          "Second": "48",
+          "Timezone": "America/Sao_Paulo (UTC-03:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "biblico",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "darkside",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "terror",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "jazz-w-j",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "videoid": {
+      "main": [
+        [
+          {
+            "node": "Get a video",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a video": {
+      "main": [
+        [
+          {
+            "node": "é privado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "analytics": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "darkside1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "privado": {
+      "main": [
+        [
+          {
+            "node": "campos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "publico": {
+      "main": [
+        [
+          {
+            "node": "campos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "campos": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "darkside1": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "tem id",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "biblico": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "darkside": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many rows": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "darkside2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "biblico1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "biblico2": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "analytics",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "analytics1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "analytics3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "analytics1": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "tem id": {
+      "main": [
+        [
+          {
+            "node": "videoid",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "é privado": {
+      "main": [
+        [
+          {
+            "node": "privado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "publico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields1": {
+      "main": [
+        [
+          {
+            "node": "biblico2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "terror": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "analytics2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields2": {
+      "main": [
+        [
+          {
+            "node": "terror1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "terror1": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update a row": {
+      "main": [
+        []
+      ]
+    },
+    "jazz-w-j": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "analytics3": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields3": {
+      "main": [
+        [
+          {
+            "node": "jazz-with-j",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "jazz-with-j": {
+      "main": [
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "ac50ecad-b10e-4a30-b140-9665b697880f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "87b81983362bc329b59aad74983599e619ad99e7ae86b5c4358daa7151dce338"
+  },
+  "id": "hQtBD6AuWilZ0ZbW",
+  "tags": []
+}
