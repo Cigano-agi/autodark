@@ -342,6 +342,7 @@ export default function Dashboard() {
                   pendingReview={counts?.pending_review}
                   inProduction={counts?.in_production}
                   onClick={() => handleChannelClick(channel.id)}
+                  onDelete={() => { setDeletingChannel(channel); setDeleteDialogOpen(true); }}
                 />
               );
             })}
