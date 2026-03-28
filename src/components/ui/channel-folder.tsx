@@ -1,7 +1,13 @@
 import { motion } from "framer-motion";
-import { Folder, Trash2, Play, Users, Clock, Clapperboard } from "lucide-react";
+import { Folder, MoreVertical, Play, Users, Clock, Clapperboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "./button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "./dropdown-menu";
 
 interface ChannelFolderProps {
     name: string;
@@ -80,15 +86,27 @@ export function ChannelFolder({
                                 </div>
                             )}
                             {onDelete && (
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 text-white/40 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
-                                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                                    title="Excluir canal"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </Button>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-white/40 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={(e) => e.stopPropagation()}
+                                            title="Opções"
+                                        >
+                                            <MoreVertical className="w-4 h-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                        <DropdownMenuItem
+                                            className="text-destructive focus:text-destructive cursor-pointer"
+                                            onClick={onDelete}
+                                        >
+                                            Remover canal
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             )}
                         </div>
                     </div>
