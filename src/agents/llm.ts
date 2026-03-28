@@ -70,9 +70,8 @@ export async function callUnsplashImage(keywords: string): Promise<string> {
 export async function callPollinationsImage(prompt: string): Promise<string> {
   const encoded = encodeURIComponent(prompt.slice(0, 400));
   const seed = Math.floor(Math.random() * 999999);
-  const isDev = typeof window !== 'undefined' && ["localhost", "127.0.0.1"].includes(window.location.hostname);
-  const base = isDev ? `/api-pollinations/prompt` : `https://image.pollinations.ai/prompt`;
-  const url = `${base}/${encoded}?width=1280&height=720&seed=${seed}&nologo=true`;
+  // Always use Vercel/Vite proxy to avoid CORS issues reading the blob in browser
+  const url = `/api-pollinations/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true`;
 
   // Tenta até 3 vezes com backoff generoso (imagens AI demoram)
   for (let attempt = 1; attempt <= 3; attempt++) {
