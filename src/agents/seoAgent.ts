@@ -35,6 +35,10 @@ Retorne JSON:
   "chapters": [{"time": "0:00", "label": "Introdução"}, ...]
 }`;
 
-  const raw = await callClaude("Você é um especialista em SEO para YouTube.", prompt, true);
+  const raw = await callClaude(
+    `Você é um especialista em SEO para YouTube.\nIMPORTANT: Write ALL output exclusively in ${langLabel}. Never use Portuguese or any other language unless it IS the target language.`,
+    prompt,
+    true
+  );
   return extractJson(raw) as unknown as SEOPackage;
 }

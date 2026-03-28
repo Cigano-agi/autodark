@@ -57,7 +57,7 @@ export function usePipelineOrchestrator(
   }, [channelId, update]);
 
   // ── Generate Ideas ──
-  const runIdeas = useCallback(async () => {
+  const runIdeas = useCallback(async (language: VideoLanguage = "pt-BR") => {
     if (!channel) return;
     update({ stage: "generating_ideas", progress: 10, message: "Gerando ideias..." });
     try {
@@ -69,7 +69,7 @@ export function usePipelineOrchestrator(
         .eq("channel_id", channelId);
       const existingTitles = (existing || []).map((r: Record<string, unknown>) => r.title as string);
 
-      const ideas = await generateIdeasBatch(channel, blueprint, trends, existingTitles);
+      const ideas = await generateIdeasBatch(channel, blueprint, trends, existingTitles, 10, language);
 
       // Save to Supabase
       for (const idea of ideas) {

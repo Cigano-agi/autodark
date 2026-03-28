@@ -26,9 +26,10 @@ async function generateSummary(
   const raw = await callClaude(
     `Você é um roteirista especializado em vídeos de YouTube de alto engajamento.
 Canal: ${channel.name} | Nicho: ${channel.niche || "geral"}
-Persona: ${blueprint?.persona_prompt || "narrador envolvente"}`,
+Persona: ${blueprint?.persona_prompt || "narrador envolvente"}
+IMPORTANT: Write ALL output content exclusively in ${langLabel}. Never respond in Portuguese or any other language unless it IS the target language.`,
     `Crie um sumário estruturado para um vídeo de ${durationMin} minutos sobre: "${idea}"
-Idioma: ${langLabel}
+Idioma obrigatório: ${langLabel}
 
 Retorne JSON:
 {
@@ -71,7 +72,7 @@ async function generateChapterScript(
   const chapterDurationMin = Math.ceil(durationMin / allChapters.length);
 
   const prompt = `Você é um roteirista para o canal "${channel.name}".
-Idioma: ${langLabel}
+Idioma obrigatório: ${langLabel} — escreva TODO o roteiro neste idioma, sem exceção.
 Estilo: ${blueprint?.persona_prompt || "narrador envolvente e direto"}
 Regras: ${blueprint?.script_rules || ""}
 
@@ -88,7 +89,8 @@ Duração alvo: ~${chapterDurationMin} minutos de narração.
 Escreva APENAS o texto da narração. Sem [PAUSA], sem comentários de produção.`;
 
   return await callClaude(
-    blueprint?.persona_prompt || "Você é um roteirista profissional de YouTube.",
+    (blueprint?.persona_prompt || "Você é um roteirista profissional de YouTube.") +
+      `\nIMPORTANT: Write ALL content exclusively in ${langLabel}. Never use Portuguese or any other language unless it IS the target language.`,
     prompt
   );
 }

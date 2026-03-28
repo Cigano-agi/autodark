@@ -93,7 +93,7 @@ export function PipelineTab({ channelId }: PipelineTabProps) {
           {/* Action buttons */}
           <div className="flex gap-2">
             <Button
-              onClick={() => runIdeas()}
+              onClick={() => runIdeas(language)}
               disabled={isRunning || !channel}
               variant="outline"
               className="gap-2 border-white/10"
