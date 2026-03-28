@@ -60,9 +60,14 @@ Deno.serve(async (req) => {
                     enableTranslation: true
                 })
             });
-            if (!res.ok) throw new Error(`Kie.ai Error: ${await res.text()}`);
+            if (!res.ok) throw new Error(`Kie.ai Error ${res.status}: ${await res.text()}`);
             const data = await res.json();
-            return new Response(JSON.stringify({ status: 'success', taskId: data?.data?.taskId }), {
+            const taskId = data?.data?.taskId ?? data?.taskId ?? data?.task_id;
+            if (!taskId) {
+                console.error("[kie-flow] No taskId in response:", JSON.stringify(data));
+                throw new Error(`Kie.ai: taskId not found in response. body=${JSON.stringify(data)}`);
+            }
+            return new Response(JSON.stringify({ status: 'success', taskId }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
 
