@@ -575,17 +575,8 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       const charHint = blueprint?.character_description ? ` Featuring: ${blueprint.character_description}.` : "";
       const fullPrompt = `${scene.visual_prompt}.${charHint} Style: ${styleHint}. No text, no letters, no watermarks.`;
       const rawUrl = await callImageGeneration(fullPrompt);
-      // Convert external URLs to blob URLs to avoid CORS issues in canvas assembler
-      let imageUrl = rawUrl;
-      if (rawUrl.startsWith("http")) {
-        try {
-          const resp = await fetch(rawUrl);
-          const blob = await resp.blob();
-          imageUrl = URL.createObjectURL(blob);
-        } catch {
-          imageUrl = rawUrl;
-        }
-      }
+      // Store original URL — blob URLs don't survive page reloads (ERR_FILE_NOT_FOUND)
+      const imageUrl = rawUrl;
       setChapters(prev => prev.map(ch =>
         ch.id === chapterId
           ? { ...ch, scenes: ch.scenes.map((s, i) => i === sceneIdx ? { ...s, imageUrl } : s) }
