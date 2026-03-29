@@ -278,7 +278,7 @@ export default function ProductionWizard() {
 
   // ── Persistence ──────────────────────────────────────────────────────────
   const [restored, setRestored] = useState(false);
-  const storageKey = `autodark_prod_wizard_v3_${channelId}`;
+  const storageKey = `autodark_prod_wizard_v4_${channelId}`;
 
   useEffect(() => {
     if (!channelId) return;
