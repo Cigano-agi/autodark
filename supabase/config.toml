@@ -40,3 +40,9 @@ verify_jwt = false
 
 [functions.chat-completions]
 verify_jwt = false
+
+[functions.generate-image]
+verify_jwt = false
+
+[functions.youtube-generate-audio]
+verify_jwt = false
