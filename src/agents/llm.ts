@@ -86,8 +86,8 @@ export async function callUnsplashImage(keywords: string): Promise<string> {
 export async function callPollinationsImage(prompt: string): Promise<string> {
   const encoded = encodeURIComponent(prompt.slice(0, 400));
   const seed = Math.floor(Math.random() * 999999);
-  // Use new Pollinations API endpoint (gen.pollinations.ai/image)
-  const url = `https://gen.pollinations.ai/image/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&model=flux`;
+  // Use Vercel proxy /api-pollinations → image.pollinations.ai
+  const url = `/api-pollinations/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&model=flux`;
 
   // Tenta até 3 vezes com backoff generoso (imagens AI demoram)
   for (let attempt = 1; attempt <= 3; attempt++) {
@@ -95,7 +95,12 @@ export async function callPollinationsImage(prompt: string): Promise<string> {
       const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
       if (res.ok) {
         const blob = await res.blob();
-        if (blob.size > 1000) return URL.createObjectURL(blob);
+        // Return a persistent object URL — caller should persist the HTTP URL if needed
+        if (blob.size > 1000) {
+          // Construct the absolute URL so it can be stored without blob lifecycle issues
+          const absUrl = `${window.location.origin}${url}`;
+          return absUrl;
+        }
       }
       if (res.status === 429 && attempt < 3) {
         await new Promise(r => setTimeout(r, 3000 * attempt));
