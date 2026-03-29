@@ -293,9 +293,18 @@ export default function ProductionWizard() {
         setIdea(data.idea || "");
         setTitle(data.title || "");
         setHook(data.hook || "");
-        setChapters(data.chapters || []);
+        // Strip blob: URLs — they don't survive page reloads
+        const chapters = (data.chapters || []).map((ch: any) => ({
+          ...ch,
+          scenes: (ch.scenes || []).map((s: any) => ({
+            ...s,
+            imageUrl: s.imageUrl?.startsWith('blob:') ? undefined : s.imageUrl,
+          })),
+        }));
+        setChapters(chapters);
         setThumbPrompt(data.thumbPrompt || "");
-        setThumbImageUrl(data.thumbImageUrl || null);
+        const thumb = data.thumbImageUrl;
+        setThumbImageUrl(thumb?.startsWith('blob:') ? null : (thumb || null));
         setVideoUrl(data.videoUrl || null);
         console.log("[autodark] State restored for channel", channelId);
       } catch (e) {
