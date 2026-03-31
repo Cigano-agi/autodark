@@ -73,11 +73,15 @@ export function useCompetitors(channelId: string | undefined) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
       toast.success('Concorrente adicionado! Buscando dados...');
-      // Auto-sync right after adding
-      supabase.functions.invoke('sync-youtube-metrics', {
-        body: { channel_id: channelId, action: 'sync-competitors' },
-      }).then(() => {
-        queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
+      // Auto-sync right after adding (fire and forget)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return;
+        supabase.functions.invoke('sync-youtube-metrics', {
+          body: { channel_id: channelId, action: 'sync-competitors' },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
+        });
       });
     },
     onError: (error) => {
@@ -128,8 +132,12 @@ export function useCompetitors(channelId: string | undefined) {
     mutationFn: async () => {
       if (!channelId) throw new Error('Channel ID required');
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão inválida, faça login novamente');
+
       const response = await supabase.functions.invoke('sync-youtube-metrics', {
         body: { channel_id: channelId, action: 'sync-competitors' },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (response.error) throw new Error(response.error.message);
