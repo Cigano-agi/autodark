@@ -228,14 +228,11 @@ export function useBlueprint(channelId: string | undefined) {
     mutationFn: async (updates: UpdateBlueprintData) => {
       if (!channelId) throw new Error('Channel ID required');
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('channel_blueprints')
-        .upsert({ channel_id: channelId, ...updates }, { onConflict: 'channel_id' })
-        .select()
-        .maybeSingle();
+        .upsert({ channel_id: channelId, ...updates }, { onConflict: 'channel_id' });
 
       if (error) throw error;
-      return data as Blueprint;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blueprint', channelId] });
