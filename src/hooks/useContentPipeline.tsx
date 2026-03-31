@@ -65,6 +65,7 @@ export function useContentPipeline(channelId: string | undefined) {
 
     const invalidateContents = useCallback(() => {
         queryClient.invalidateQueries({ queryKey: ['contents', channelId] });
+        queryClient.invalidateQueries({ queryKey: ['content-ideas', channelId] });
     }, [queryClient, channelId]);
 
     const generateIdeas = useCallback(async () => {

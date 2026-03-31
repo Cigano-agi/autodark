@@ -101,70 +101,85 @@ FORMATO DE SAÍDA (JSON PURO):
   ]
 }`;
 
-        const callAI = async (provider: "AI33" | "OpenRouter") => {
-            const key = provider === "AI33" ? AI33_API_KEY : OPENROUTER_API_KEY;
-            const url = provider === "AI33" 
-                ? "https://api.ai33.pro/v1/chat/completions" 
-                : "https://openrouter.ai/api/v1/chat/completions";
-            const model = provider === "AI33" ? "gpt-4o-mini" : "meta-llama/llama-3.3-70b-instruct:free";
+        const messages = [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Gere ${videosPerBatch} ideias de vídeos curtos sobre ${topic}` }
+        ];
 
-            if (!key) throw new Error(`${provider} API key not found`);
+        const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-            const res = await fetch(url, {
+        const callOpenRouterModel = async (model: string) => {
+            if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not found");
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${key}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Gere ${videosPerBatch} ideias de vídeos curtos sobre ${topic}` }
-                    ],
-                    temperature: 0.85,
-                    response_format: { type: "json_object" },
-                }),
+                headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ model, messages, temperature: 0.85, response_format: { type: "json_object" } }),
             });
-
             if (!res.ok) {
                 const errText = await res.text();
-                let exactReason = errText.slice(0, 150);
-                try {
-                    const parsed = JSON.parse(errText);
-                    if (parsed.error && parsed.error.message) exactReason = parsed.error.message;
-                    else if (parsed.message) exactReason = parsed.message;
-                } catch (_) {}
-
-                if (res.status === 401) {
-                    throw new Error(`Credenciais inválidas na ${provider} (401). Detalhe oficial: ${exactReason}`);
-                }
-                if (res.status === 429) {
-                    throw new Error(`Limite atingido na ${provider} (429) - Recarregue saldo. Detalhe oficial: ${exactReason}`);
-                }
-                throw new Error(`A ${provider} recusou a conexão (${res.status}). Detalhe: ${exactReason}`);
+                let reason = errText.slice(0, 200);
+                try { const p = JSON.parse(errText); reason = p.error?.message || p.message || reason; } catch (_) {}
+                if (res.status === 401) throw new Error(`OpenRouter: credenciais inválidas (401). ${reason}`);
+                if (res.status === 429) throw Object.assign(new Error(`OpenRouter: rate limit (429). ${reason}`), { isRateLimit: true });
+                throw new Error(`OpenRouter recusou (${res.status}). ${reason}`);
             }
-
             return await res.json();
+        };
+
+        const callAI33 = async () => {
+            if (!AI33_API_KEY) throw new Error("AI33 API key not found");
+            const res = await fetch("https://api.ai33.pro/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${AI33_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ model: "gpt-4o-mini", messages, temperature: 0.85, response_format: { type: "json_object" } }),
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                let reason = errText.slice(0, 200);
+                try { const p = JSON.parse(errText); reason = p.error?.message || p.message || reason; } catch (_) {}
+                throw new Error(`AI33 falhou (${res.status}). ${reason}`);
+            }
+            return await res.json();
+        };
+
+        // Tenta OpenRouter com retry em rate limit e fallback para segundo modelo
+        const callOpenRouterWithFallback = async () => {
+            const MODELS = [
+                "meta-llama/llama-3.3-70b-instruct",
+                "mistralai/mistral-7b-instruct:free",
+            ];
+            for (const model of MODELS) {
+                try {
+                    return await callOpenRouterModel(model);
+                } catch (e: any) {
+                    if (e.isRateLimit) {
+                        console.warn(`Rate limit em ${model}, aguardando 4s e tentando próximo modelo...`);
+                        await sleep(4000);
+                        continue;
+                    }
+                    throw e;
+                }
+            }
+            throw new Error("Todos os modelos OpenRouter atingiram o rate limit. Tente novamente em alguns minutos.");
         };
 
         let aiData;
         try {
             if (AI33_API_KEY) {
                 try {
-                    aiData = await callAI("AI33");
+                    aiData = await callAI33();
                 } catch (e: any) {
-                    console.warn(`AI33 failed: ${e.message}. Falling back to OpenRouter.`);
+                    console.warn(`AI33 falhou: ${e.message}. Usando OpenRouter.`);
                     if (OPENROUTER_API_KEY) {
-                        aiData = await callAI("OpenRouter");
+                        aiData = await callOpenRouterWithFallback();
                     } else {
                         throw e;
                     }
                 }
             } else if (OPENROUTER_API_KEY) {
-                aiData = await callAI("OpenRouter");
+                aiData = await callOpenRouterWithFallback();
             } else {
-                throw new Error("No AI keys found");
+                throw new Error("Nenhuma chave de API configurada (AI33_API_KEY ou OPENROUTER_API_KEY).");
             }
         } catch (e: any) {
             throw new Error(`AI generation failed: ${e.message}`);
