@@ -90,7 +90,7 @@ FORMATO DE SAÍDA (JSON PURO):
             const url = provider === "AI33" 
                 ? "https://api.ai33.pro/v1/chat/completions" 
                 : "https://openrouter.ai/api/v1/chat/completions";
-            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-exp:free";
+            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-lite:free";
 
             if (!key) throw new Error(`${provider} API key not found`);
 

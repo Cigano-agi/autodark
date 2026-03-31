@@ -54,7 +54,7 @@ Output JSON format:
         const callAI = async (provider: "AI33" | "OpenRouter") => {
             const key = provider === "AI33" ? AI33_API_KEY : OPENROUTER_API_KEY;
             const url = provider === "AI33" ? "https://api.ai33.pro/v1/chat/completions" : "https://openrouter.ai/api/v1/chat/completions";
-            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-exp:free";
+            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-lite:free";
 
             if (!key) throw new Error(`${provider} API key not found`);
 
