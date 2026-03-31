@@ -5,33 +5,38 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Save, Loader2, Sparkles, Youtube, Users, FileText, Settings, Video, Mic } from 'lucide-react';
+import { Save, Loader2, Settings, Users, FileText, Mic, Pencil, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 
 interface BlueprintSettingsProps {
   channelId: string;
 }
 
+function buildFormData(blueprint: NonNullable<ReturnType<typeof useBlueprint>['blueprint']>): UpdateBlueprintData {
+  return {
+    topic: blueprint.topic || '',
+    persona_prompt: blueprint.persona_prompt || '',
+    target_audience: blueprint.target_audience || '',
+    script_rules: blueprint.script_rules || '',
+    upload_frequency: blueprint.upload_frequency || '',
+    videos_per_batch: blueprint.videos_per_batch || 4,
+    visual_style: blueprint.visual_style || '',
+    cta: blueprint.cta || '',
+    voice_id: blueprint.voice_id || '',
+    voice_name: blueprint.voice_name || '',
+    reference: blueprint.reference || '',
+    char_limit: blueprint.char_limit || 2000,
+  };
+}
+
 export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
   const { blueprint, isLoading, updateBlueprint } = useBlueprint(channelId);
   const [formData, setFormData] = useState<UpdateBlueprintData>({});
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (blueprint) {
-      setFormData({
-        topic: blueprint.topic || '',
-        persona_prompt: blueprint.persona_prompt || '',
-        target_audience: blueprint.target_audience || '',
-        script_rules: blueprint.script_rules || '',
-        upload_frequency: blueprint.upload_frequency || '',
-        videos_per_batch: blueprint.videos_per_batch || 4,
-        visual_style: blueprint.visual_style || '',
-        cta: blueprint.cta || '',
-        voice_id: blueprint.voice_id || '',
-        voice_name: blueprint.voice_name || '',
-        reference: blueprint.reference || '',
-        char_limit: blueprint.char_limit || 2000,
-      });
+      setFormData(buildFormData(blueprint));
     }
   }, [blueprint]);
 
@@ -40,7 +45,14 @@ export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
   };
 
   const handleSave = () => {
-    updateBlueprint.mutate(formData);
+    updateBlueprint.mutate(formData, {
+      onSuccess: () => setIsEditing(false),
+    });
+  };
+
+  const handleCancel = () => {
+    if (blueprint) setFormData(buildFormData(blueprint));
+    setIsEditing(false);
   };
 
   if (isLoading) {
@@ -50,6 +62,16 @@ export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
       </div>
     );
   }
+
+  const ro = !isEditing; // shorthand for readOnly
+
+  const inputClass = ro
+    ? 'bg-transparent border-transparent text-muted-foreground cursor-default select-none pointer-events-none'
+    : 'bg-background/50';
+
+  const textareaClass = ro
+    ? 'bg-transparent border-transparent text-muted-foreground cursor-default select-none pointer-events-none resize-none'
+    : 'bg-background/50';
 
   return (
     <div className="space-y-6">
@@ -62,64 +84,81 @@ export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
             Configure a identidade, voz e regras base para a inteligência artificial gerar conteúdo.
           </p>
         </div>
-        <Button 
-          onClick={handleSave} 
-          disabled={updateBlueprint.isPending}
-        >
-          {updateBlueprint.isPending ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+
+        <div className="flex items-center gap-2">
+          {isEditing ? (
+            <>
+              <Button variant="ghost" onClick={handleCancel} disabled={updateBlueprint.isPending}>
+                <X className="w-4 h-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={updateBlueprint.isPending}>
+                {updateBlueprint.isPending ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                Salvar
+              </Button>
+            </>
           ) : (
-            <Save className="w-4 h-4 mr-2" />
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Pencil className="w-4 h-4 mr-2" />
+              Editar
+            </Button>
           )}
-          Salvar Blueprint
-        </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Identidade e Público */}
+        {/* Posicionamento */}
         <Card className="p-5 bg-card/50 border-white/5 space-y-4">
           <div className="flex items-center gap-2 mb-2 text-primary">
             <Users className="w-4 h-4" />
             <h4 className="font-semibold text-sm">Posicionamento</h4>
           </div>
-          
+
           <div className="space-y-2">
             <Label>Tópico / Nicho Principal</Label>
-            <Input 
-              value={formData.topic || ''} 
+            <Input
+              readOnly={ro}
+              value={formData.topic || ''}
               onChange={(e) => handleChange('topic', e.target.value)}
               placeholder="Ex: Finanças para jovens, Motivação diária..."
-              className="bg-background/50"
+              className={inputClass}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Público-Alvo</Label>
-            <Input 
-              value={formData.target_audience || ''} 
+            <Input
+              readOnly={ro}
+              value={formData.target_audience || ''}
               onChange={(e) => handleChange('target_audience', e.target.value)}
               placeholder="Ex: Jovens de 18-25 anos interessados em empreendedorismo"
-              className="bg-background/50"
+              className={inputClass}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Persona / Comportamento da IA</Label>
-            <Textarea 
-              value={formData.persona_prompt || ''} 
+            <Textarea
+              readOnly={ro}
+              value={formData.persona_prompt || ''}
               onChange={(e) => handleChange('persona_prompt', e.target.value)}
               placeholder="Descreva a personalidade (ex: Seja direto, irônico, use gírias...)"
-              className="min-h-[100px] bg-background/50"
+              className={`min-h-[100px] ${textareaClass}`}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Referências / Inspirações</Label>
-            <Textarea 
-              value={formData.reference || ''} 
+            <Textarea
+              readOnly={ro}
+              value={formData.reference || ''}
               onChange={(e) => handleChange('reference', e.target.value)}
               placeholder="Estilo parecido com canal X, ritmo do canal Y..."
-              className="min-h-[80px] bg-background/50"
+              className={`min-h-[80px] ${textareaClass}`}
             />
           </div>
         </Card>
@@ -130,107 +169,123 @@ export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
             <FileText className="w-4 h-4" />
             <h4 className="font-semibold text-sm">Regras Editoriais e Roteiro</h4>
           </div>
-          
+
           <div className="space-y-2">
             <Label>Regras de Roteiro (Do's e Don'ts)</Label>
-            <Textarea 
-              value={formData.script_rules || ''} 
+            <Textarea
+              readOnly={ro}
+              value={formData.script_rules || ''}
               onChange={(e) => handleChange('script_rules', e.target.value)}
               placeholder="Ex: Não use saudações formais. Evite palavras complexas. Comece sempre com um gancho forte."
-              className="min-h-[120px] bg-background/50"
+              className={`min-h-[120px] ${textareaClass}`}
             />
           </div>
 
           <div className="space-y-2">
             <Label>Call to Action (CTA) Padrão</Label>
-            <Input 
-              value={formData.cta || ''} 
+            <Input
+              readOnly={ro}
+              value={formData.cta || ''}
               onChange={(e) => handleChange('cta', e.target.value)}
               placeholder="Ex: Se inscreva no canal para mais vídeos como este!"
-              className="bg-background/50"
+              className={inputClass}
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Limite de Caracteres</Label>
-              <Input 
+              <Input
                 type="number"
-                value={formData.char_limit || ''} 
+                readOnly={ro}
+                value={formData.char_limit || ''}
                 onChange={(e) => handleChange('char_limit', Number(e.target.value))}
                 placeholder="Ex: 2000"
-                className="bg-background/50"
+                className={inputClass}
               />
             </div>
             <div className="space-y-2">
               <Label>Vídeos por Lote</Label>
-              <Input 
+              <Input
                 type="number"
-                value={formData.videos_per_batch || ''} 
+                readOnly={ro}
+                value={formData.videos_per_batch || ''}
                 onChange={(e) => handleChange('videos_per_batch', Number(e.target.value))}
                 placeholder="Ex: 4"
-                className="bg-background/50"
+                className={inputClass}
               />
             </div>
           </div>
         </Card>
 
-        {/* Áudio e Visual */}
+        {/* Produção */}
         <Card className="p-5 bg-card/50 border-white/5 space-y-4 lg:col-span-2">
           <div className="flex items-center gap-2 mb-2 text-purple-400">
             <Mic className="w-4 h-4" />
             <h4 className="font-semibold text-sm">Produção (Audio & Visual)</h4>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>ID da Voz (OpenAI/ElevenLabs)</Label>
-                  <Input 
-                    value={formData.voice_id || ''} 
+                  <Input
+                    readOnly={ro}
+                    value={formData.voice_id || ''}
                     onChange={(e) => handleChange('voice_id', e.target.value)}
                     placeholder="Ex: onyx, alloy, nova..."
-                    className="bg-background/50"
+                    className={inputClass}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Nome da Voz (Exibição)</Label>
-                  <Input 
-                    value={formData.voice_name || ''} 
+                  <Input
+                    readOnly={ro}
+                    value={formData.voice_name || ''}
                     onChange={(e) => handleChange('voice_name', e.target.value)}
                     placeholder="Ex: Narrador Masculino Grave"
-                    className="bg-background/50"
+                    className={inputClass}
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Frequência de Postagem</Label>
-                <Select 
-                  value={formData.upload_frequency || ''} 
-                  onValueChange={(val) => handleChange('upload_frequency', val)}
-                >
-                  <SelectTrigger className="bg-background/50">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Diário (1x ao dia)</SelectItem>
-                    <SelectItem value="twice_daily">2x ao dia</SelectItem>
-                    <SelectItem value="weekly">Semanal</SelectItem>
-                    <SelectItem value="biweekly">Quinzenal</SelectItem>
-                  </SelectContent>
-                </Select>
+                {ro ? (
+                  <Input
+                    readOnly
+                    value={formData.upload_frequency || ''}
+                    placeholder="—"
+                    className={inputClass}
+                  />
+                ) : (
+                  <Select
+                    value={formData.upload_frequency || ''}
+                    onValueChange={(val) => handleChange('upload_frequency', val)}
+                  >
+                    <SelectTrigger className="bg-background/50">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="daily">Diário (1x ao dia)</SelectItem>
+                      <SelectItem value="twice_daily">2x ao dia</SelectItem>
+                      <SelectItem value="weekly">Semanal</SelectItem>
+                      <SelectItem value="biweekly">Quinzenal</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Estilo Visual (B-Rolls / Geração de Imagem)</Label>
-              <Textarea 
-                value={formData.visual_style || ''} 
+              <Textarea
+                readOnly={ro}
+                value={formData.visual_style || ''}
                 onChange={(e) => handleChange('visual_style', e.target.value)}
                 placeholder="Ex: Cinematic, dark lighting, cyberpunk themes. Evite mostrar rostos de pessoas..."
-                className="min-h-[140px] bg-background/50"
+                className={`min-h-[140px] ${textareaClass}`}
               />
             </div>
           </div>

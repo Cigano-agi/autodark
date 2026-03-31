@@ -24,8 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let initialSessionResolved = false;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         initialSessionResolved = true;
+        if (event === 'SIGNED_OUT' || (!session && event !== 'INITIAL_SESSION')) {
+          // Clear any stale tokens from localStorage
+          Object.keys(localStorage).forEach((key) => {
+            if (key.startsWith('sb-')) localStorage.removeItem(key);
+          });
+        }
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
