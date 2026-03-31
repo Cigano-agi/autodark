@@ -29,7 +29,7 @@ function formatNumber(num: number): string {
 }
 
 export function CompetitorMonitor({ channelId }: { channelId?: string }) {
-    const { competitors, isLoading, addCompetitor, toggleTracking, removeCompetitor } = useCompetitors(channelId);
+    const { competitors, isLoading, addCompetitor, toggleTracking, removeCompetitor, syncCompetitors } = useCompetitors(channelId);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [newChannelUrl, setNewChannelUrl] = useState('');
     const [newName, setNewName] = useState('');
@@ -81,7 +81,17 @@ export function CompetitorMonitor({ channelId }: { channelId?: string }) {
                     </p>
                 </div>
 
-                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant="outline"
+                        className="gap-2"
+                        onClick={() => syncCompetitors.mutate()}
+                        disabled={syncCompetitors.isPending || competitors.length === 0}
+                    >
+                        <RefreshCw className={`w-4 h-4 ${syncCompetitors.isPending ? 'animate-spin' : ''}`} />
+                        {syncCompetitors.isPending ? 'Sincronizando...' : 'Sincronizar'}
+                    </Button>
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                         <Button className="gap-2">
                             <Plus className="w-4 h-4" />
@@ -127,6 +137,7 @@ export function CompetitorMonitor({ channelId }: { channelId?: string }) {
                         </div>
                     </DialogContent>
                 </Dialog>
+                </div>
             </div>
 
             {/* Stats */}

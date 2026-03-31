@@ -167,12 +167,71 @@ async function handleSyncMetrics(
 
 // ─── Action: sync-competitors ─────────────────────────────
 
+async function syncCompetitorViaYouTubeAPI(
+  comp: Record<string, unknown>,
+  ytApiKey: string
+): Promise<Record<string, unknown> | null> {
+  const handle = String(comp.handle || '').replace('@', '');
+  if (!handle) return null;
+
+  // 1. Fetch channel info by handle
+  const channelRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle=${encodeURIComponent(handle)}&key=${ytApiKey}`
+  );
+  if (!channelRes.ok) return null;
+  const channelData = await channelRes.json();
+  const item = channelData.items?.[0];
+  if (!item) return null;
+
+  const ytChannelId = item.id;
+  const subscribers = parseInt(item.statistics?.subscriberCount ?? '0') || 0;
+
+  // 2. Fetch recent videos
+  const searchRes = await fetch(
+    `https://www.googleapis.com/youtube/v3/search?channelId=${ytChannelId}&order=date&maxResults=5&part=snippet&type=video&key=${ytApiKey}`
+  );
+  const searchData = searchRes.ok ? await searchRes.json() : { items: [] };
+  const videoItems: Array<{ id: { videoId: string }; snippet: { title: string; publishedAt: string } }> = searchData.items ?? [];
+
+  let avgViews = 0;
+  let lastVideo = 'N/A';
+  let lastVideoDate: string | null = null;
+
+  if (videoItems.length > 0) {
+    lastVideo = videoItems[0].snippet.title;
+    lastVideoDate = videoItems[0].snippet.publishedAt;
+
+    const videoIds = videoItems.map(v => v.id.videoId).join(',');
+    const statsRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?id=${videoIds}&part=statistics&key=${ytApiKey}`
+    );
+    if (statsRes.ok) {
+      const statsData = await statsRes.json();
+      const viewCounts: number[] = (statsData.items ?? []).map((v: Record<string, Record<string, string>>) =>
+        parseInt(v.statistics?.viewCount ?? '0') || 0
+      );
+      if (viewCounts.length) {
+        avgViews = Math.round(viewCounts.reduce((a, b) => a + b, 0) / viewCounts.length);
+      }
+    }
+  }
+
+  // 3. Calculate growth vs previous value
+  const prevSubscribers = Number(comp.subscribers) || 0;
+  let growth = '+0%';
+  if (prevSubscribers > 0 && subscribers !== prevSubscribers) {
+    const pct = ((subscribers - prevSubscribers) / prevSubscribers) * 100;
+    growth = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+  }
+
+  return { subscribers, avg_views: avgViews, last_video: lastVideo, last_video_date: lastVideoDate, growth, youtube_channel_id: ytChannelId };
+}
+
 async function handleSyncCompetitors(
   supabase: ReturnType<typeof createClient>,
   channelId: string,
   userId: string
 ) {
-  // Verify channel ownership
   const { data: channel } = await supabase
     .from('channels')
     .select('id')
@@ -182,7 +241,6 @@ async function handleSyncCompetitors(
 
   if (!channel) throw new Error('Channel not found or not authorized');
 
-  // Get all competitors
   const { data: competitors, error } = await supabase
     .from('channel_competitors')
     .select('*')
@@ -191,87 +249,59 @@ async function handleSyncCompetitors(
   if (error) throw error;
   if (!competitors?.length) return { updated: 0 };
 
-  // We use the Apify scraper approach (same as scrape-youtube-channel) for public data
+  const ytApiKey = Deno.env.get('YOUTUBE_API_KEY');
   const apifyToken = Deno.env.get('APIFY_API_TOKEN');
-  
+
   let updated = 0;
 
   for (const comp of competitors) {
     try {
-      const url = comp.youtube_url || `https://www.youtube.com/@${comp.handle}`;
-      
-      if (apifyToken) {
-        // Use Apify scraper for public data
+      let updateData: Record<string, unknown> | null = null;
+
+      if (ytApiKey) {
+        updateData = await syncCompetitorViaYouTubeAPI(comp, ytApiKey);
+      } else if (apifyToken) {
+        const url = comp.youtube_url || `https://www.youtube.com/@${comp.handle}`;
         const runRes = await fetch(
           `https://api.apify.com/v2/acts/streamers~youtube-scraper/runs?token=${apifyToken}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              startUrls: [{ url }],
-              maxResults: 3,
-              sortingOrder: 'date',
-            }),
+            body: JSON.stringify({ startUrls: [{ url }], maxResults: 5, sortingOrder: 'date' }),
           }
         );
-
-        if (!runRes.ok) {
-          console.error(`Apify run failed for ${comp.handle}:`, await runRes.text());
-          continue;
-        }
-
+        if (!runRes.ok) continue;
         const runData = await runRes.json();
         const runId = runData?.data?.id;
         if (!runId) continue;
 
-        // Wait for completion (max 60s)
         let status = 'RUNNING';
         for (let i = 0; i < 12 && status === 'RUNNING'; i++) {
           await new Promise(r => setTimeout(r, 5000));
-          const statusRes = await fetch(
-            `https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`
-          );
-          const statusData = await statusRes.json();
-          status = statusData?.data?.status;
+          const statusRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}?token=${apifyToken}`);
+          status = (await statusRes.json())?.data?.status;
         }
+        if (status !== 'SUCCEEDED') continue;
 
-        if (status !== 'SUCCEEDED') {
-          console.error(`Apify run ${runId} ended with status ${status}`);
-          continue;
-        }
-
-        // Get results
-        const datasetRes = await fetch(
-          `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apifyToken}`
-        );
+        const datasetRes = await fetch(`https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apifyToken}`);
         const items = await datasetRes.json();
-
         if (items?.length > 0) {
-          const channelItem = items.find((i: Record<string, unknown>) => i.type === 'channel') || items[0];
-          const videoItems = items.filter((i: Record<string, unknown>) => i.type === 'video');
-
-          const updateData: Record<string, unknown> = {};
-
-          if (channelItem.subscriberCountText || channelItem.subscriberCount) {
-            const subText = String(channelItem.subscriberCountText || channelItem.subscriberCount);
-            const subNum = parseSubscriberCount(subText);
-            if (subNum > 0) updateData.subscribers = subNum;
-          }
-
-          if (videoItems.length > 0) {
-            const totalViews = videoItems.reduce((sum: number, v: Record<string, unknown>) => sum + (Number(v.viewCount) || 0), 0);
-            updateData.avg_views = Math.round(totalViews / videoItems.length);
-            updateData.last_video = String(videoItems[0].title || 'N/A');
-          }
-
-          if (Object.keys(updateData).length > 0) {
-            await supabase
-              .from('channel_competitors')
-              .update(updateData)
-              .eq('id', comp.id);
-            updated++;
-          }
+          const videoItems = items.filter((i: Record<string, unknown>) => i.type !== 'channel');
+          const subText = String(items[0].subscriberCountText || items[0].subscriberCount || '0');
+          const subscribers = parseSubscriberCount(subText);
+          const totalViews = videoItems.reduce((s: number, v: Record<string, unknown>) => s + (Number(v.viewCount) || 0), 0);
+          updateData = {
+            subscribers,
+            avg_views: videoItems.length ? Math.round(totalViews / videoItems.length) : 0,
+            last_video: videoItems[0] ? String(videoItems[0].title || 'N/A') : 'N/A',
+            last_video_date: videoItems[0] ? String(videoItems[0].date || '') : null,
+          };
         }
+      }
+
+      if (updateData && Object.keys(updateData).length > 0) {
+        await supabase.from('channel_competitors').update(updateData).eq('id', comp.id);
+        updated++;
       }
     } catch (err) {
       console.error(`Error syncing competitor ${comp.handle}:`, err);
@@ -284,11 +314,9 @@ async function handleSyncCompetitors(
 function parseSubscriberCount(text: string): number {
   const cleaned = text.replace(/[^\d.,kKmMbB]/g, '').trim();
   const lower = cleaned.toLowerCase();
-  
   if (lower.includes('k')) return Math.round(parseFloat(lower) * 1000);
   if (lower.includes('m')) return Math.round(parseFloat(lower) * 1000000);
   if (lower.includes('b')) return Math.round(parseFloat(lower) * 1000000000);
-  
   return parseInt(cleaned.replace(/[.,]/g, '')) || 0;
 }
 

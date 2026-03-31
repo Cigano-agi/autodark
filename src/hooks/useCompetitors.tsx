@@ -42,7 +42,9 @@ export function useCompetitors(channelId: string | undefined) {
         avgViews: c.avg_views ?? 0,
         uploadFrequency: c.upload_frequency ?? '?',
         lastVideo: c.last_video ?? 'N/A',
-        lastVideoDate: new Date(c.created_at).toLocaleDateString(),
+        lastVideoDate: c.last_video_date
+          ? new Date(c.last_video_date).toLocaleDateString('pt-BR')
+          : 'Sem dados',
         growth: c.growth || '+0%',
       })) as CompetitorChannel[];
     },
@@ -70,7 +72,13 @@ export function useCompetitors(channelId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
-      toast.success('Concorrente adicionado!');
+      toast.success('Concorrente adicionado! Buscando dados...');
+      // Auto-sync right after adding
+      supabase.functions.invoke('sync-youtube-metrics', {
+        body: { channel_id: channelId, action: 'sync-competitors' },
+      }).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
+      });
     },
     onError: (error) => {
       toast.error(`Erro ao adicionar concorrente: ${error.message}`);
