@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -85,7 +86,7 @@ export function useCompetitors(channelId: string | undefined) {
       });
     },
     onError: (error) => {
-      toast.error(`Erro ao adicionar concorrente: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao adicionar concorrente"));
     },
   });
 
@@ -106,7 +107,7 @@ export function useCompetitors(channelId: string | undefined) {
       toast.success(data.tracking ? 'Alertas ativados' : 'Alertas desativados');
     },
     onError: (error) => {
-      toast.error(`Erro ao atualizar alertas: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao atualizar alertas"));
     },
   });
 
@@ -124,7 +125,7 @@ export function useCompetitors(channelId: string | undefined) {
       toast.success('Concorrente removido');
     },
     onError: (error) => {
-      toast.error(`Erro ao remover concorrente: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao remover concorrente"));
     },
   });
 
@@ -148,7 +149,7 @@ export function useCompetitors(channelId: string | undefined) {
       toast.success(`${data?.data?.updated || 0} concorrentes atualizados!`);
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao sincronizar concorrentes: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao sincronizar concorrentes"));
     },
   });
 

@@ -37,6 +37,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Loader2, Search, Folder, ShieldAlert, ArrowRight, CheckCircle2, Wand2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 
 // Premium Components
 import { BeamsBackground } from "@/components/ui/beams-background";
@@ -282,7 +283,7 @@ export default function Dashboard() {
                   <Button
                     onClick={() => {
                       if (!newChannelName || !newChannelNiche) {
-                        toast.error('Preencha os campos obrigatórios primeiro.');
+                        toast.error(getFriendlyErrorMessage(null, "Preencha os campos obrigatórios primeiro"));
                         return;
                       }
                       setCreateStep(2);

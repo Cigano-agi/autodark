@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { Loader2, Play, Wand2, Video, Volume2, ShieldAlert, Image as ImageIcon, CheckCircle2, Clapperboard, ArrowRight, ArrowLeft, LayoutTemplate, Download, FileAudio, Zap, FolderArchive, GalleryHorizontalEnd } from "lucide-react";
 import { useChannel } from "@/hooks/useChannels";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { RemotionPreview } from "@/remotion/RemotionPreview";
 import type { SlideData } from "@/remotion/types";
 import { callImageGeneration } from "@/agents/llm";
@@ -178,7 +179,7 @@ export default function LongVideoStudio() {
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Erro desconhecido";
             logStep("script_generation", "error", "Falha na geração do roteiro", { error_details: msg });
-            toast.error(`Erro na IA: ${msg}`);
+            toast.error(getFriendlyErrorMessage(e, "na IA ao criar estrutura"));
         } finally {
             setGeneratingScript(false);
         }
@@ -228,6 +229,7 @@ export default function LongVideoStudio() {
                     return audioUrl;
                 } catch (fallbackErr) {
                     setProcessingVoices(prev => ({ ...prev, [sceneId]: false }));
+                    toast.error(getFriendlyErrorMessage(fallbackErr, "ao gerar áudio"));
                     throw fallbackErr;
                 }
             }
@@ -386,14 +388,14 @@ export default function LongVideoStudio() {
                 } catch (uploadErr: unknown) {
                     const msg = uploadErr instanceof Error ? uploadErr.message : "Erro no upload";
                     logStep("video_upload", "error", "Falha no upload para Storage", { error_details: msg });
-                    toast.error(`Upload falhou: ${msg}. O vídeo local ainda está disponível.`);
+                    toast.error(getFriendlyErrorMessage(uploadErr, "no upload para o Supabase Storage. O vídeo ainda pode ser baixado do seu navegador."));
                 }
             }
 
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Erro de Renderização";
             logStep("video_render", "error", "Falha na renderização", { error_details: msg });
-            toast.error(msg);
+            toast.error(getFriendlyErrorMessage(e, "ao montar/salvar o vídeo"));
         }
     };
 
@@ -463,7 +465,7 @@ export default function LongVideoStudio() {
             URL.revokeObjectURL(url);
             toast.success('ZIP baixado! Arraste as imagens em ordem no CapCut.');
         } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Erro ao gerar ZIP");
+            toast.error(getFriendlyErrorMessage(e, "ao gerar ZIP"));
         } finally {
             setExportingZip(false);
         }
@@ -649,7 +651,7 @@ export default function LongVideoStudio() {
                                                         try {
                                                             await generateSceneImage(scene.id, scene.visual_prompt_for_image_ai);
                                                         } catch(e) {
-                                                            toast.error("Falha ao gerar imagem. Revise o prompt ou tente novamente.");
+                                                            toast.error(getFriendlyErrorMessage(e, "ao gerar imagem da cena"));
                                                         }
                                                     }}
                                                     disabled={generatingImage[scene.id]}

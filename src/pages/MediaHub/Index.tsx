@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BeamsBackground } from "@/components/ui/beams-background";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -590,26 +591,30 @@ export default function MediaHub() {
   };
 
   const handleSetVoiceDefault = (provider: VoiceProvider) => {
-    if (pendingVoiceProvider === provider.id && pendingVoiceId) {
-      updateDefault({ voice: provider.id, voiceId: pendingVoiceId });
+    if (pendingVoiceProvider === provider.id) {
+      // Toggle off if clicking again
       setPendingVoiceProvider(null);
       setPendingVoiceId("");
     } else {
       setPendingVoiceProvider(provider.id);
-      setPendingVoiceId(provider.voices[0]?.id ?? "");
+      // Initialize to current default if this is the active provider, otherwise the first voice of the provider
+      const initialVoiceId = currentDefaults.voice === provider.id 
+          ? currentDefaults.voiceId 
+          : (provider.voices[0]?.id ?? "");
+      setPendingVoiceId(initialVoiceId);
+      // Immediately set the default to that initial voice
+      updateDefault({ voice: provider.id, voiceId: initialVoiceId });
     }
   };
 
   const confirmVoiceDefault = (provider: VoiceProvider) => {
-    if (!pendingVoiceId) return;
-    updateDefault({ voice: provider.id, voiceId: pendingVoiceId });
     setPendingVoiceProvider(null);
     setPendingVoiceId("");
   };
 
   const testVoice = async (provider: VoiceProvider, voiceId: string) => {
     if (!provider.available) {
-      toast.error("API não configurada.");
+      toast.error(getFriendlyErrorMessage("API não configurada", "ao testar voz"));
       return;
     }
     setTestingVoice(voiceId);
@@ -629,7 +634,7 @@ export default function MediaHub() {
         toast.info("API não disponível no momento.");
       }
     } catch {
-      toast.error("Erro ao testar voz.");
+      toast.error(getFriendlyErrorMessage("Erro de áudio", "ao testar voz"));
     } finally {
       setTestingVoice(null);
     }
@@ -812,7 +817,10 @@ export default function MediaHub() {
                           </label>
                           <Select
                             value={pendingVoiceId}
-                            onValueChange={setPendingVoiceId}
+                            onValueChange={(v) => {
+                              setPendingVoiceId(v);
+                              updateDefault({ voice: provider.id, voiceId: v });
+                            }}
                           >
                             <SelectTrigger className="h-7 text-xs bg-black/30 border-white/10 text-white">
                               <SelectValue />
@@ -831,7 +839,7 @@ export default function MediaHub() {
                             onClick={() => confirmVoiceDefault(provider)}
                           >
                             <CheckCircle2 className="w-3 h-3" />
-                            Confirmar padrão
+                            Pronto
                           </Button>
                         </div>
                       )}

@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
@@ -26,7 +27,7 @@ export default function Login() {
     setLoading(false);
 
     if (error) {
-      toast.error('Erro ao entrar: ' + error.message);
+      toast.error(getFriendlyErrorMessage(error, "ao entrar"));
     } else {
       toast.success('Login realizado com sucesso!');
       navigate('/dashboard');
@@ -38,7 +39,7 @@ export default function Login() {
     const { error } = await signInWithGoogle();
     if (error) {
       setGoogleLoading(false);
-      toast.error('Erro ao entrar com Google: ' + error.message);
+      toast.error(getFriendlyErrorMessage(error, "ao entrar com Google"));
     }
   };
 

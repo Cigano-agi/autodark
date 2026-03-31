@@ -23,8 +23,9 @@ import {
   Loader2, Wand2, Image as ImageIcon, FileText,
   Zap, ArrowRight, Lightbulb, Mic, Film,
   Video, Play, Download, CheckCircle2, ChevronDown, ChevronRight,
-  Pencil, X, Globe, Clock, DollarSign, RefreshCw,
+  Pencil, X, Globe, Clock, DollarSign, RefreshCw, PenLine, Bot,
 } from "lucide-react";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { toast } from "sonner";
 import { BeamsBackground } from "@/components/ui/beams-background";
 import { KieGenerator } from "@/components/ui/kie-generator";
@@ -111,6 +112,16 @@ function loadHubDefaults(channelId: string): HubDefaults {
   } catch {
     return { voice: "browser", voiceId: "browser_pt", slidesImage: "pexels", thumbImage: "kie_flux", videoModel: "none" };
   }
+}
+
+// Maps Google Chirp voice IDs per language; OpenAI voices are multilingual by default
+function getVoiceIdForLanguage(voice: string, voiceId: string, language: VideoLanguage): string {
+  if (voice === "google_chirp") {
+    if (language === "en") return "en-US-Chirp3-HD-Aoede";
+    if (language === "es") return "es-ES-Chirp3-HD-Aoede";
+    return "pt-BR-Chirp3-HD-Aoede";
+  }
+  return voiceId; // OpenAI, ElevenLabs, Fish, Browser — use configured voiceId
 }
 
 function durationToChapters(durationMin: number): number {
@@ -218,6 +229,10 @@ export default function ProductionWizard() {
   const [customMinutes, setCustomMinutes] = useState(25);
   const [idea, setIdea] = useState<string>(location.state?.idea || "");
   const [showIdeas, setShowIdeas] = useState(false);
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(location.state?.ideaId || null);
+
+  // ── Script mode: 'auto' (AI generates) | 'manual' (user writes) ──
+  const [scriptMode, setScriptMode] = useState<'auto' | 'manual'>('auto');
 
   const effectiveDuration = duration === "custom" ? customMinutes : duration;
   const hub = loadHubDefaults(channelId);
@@ -349,7 +364,7 @@ export default function ProductionWizard() {
 
       const raw = await callClaude(
         `Você é um roteirista especializado em vídeos de YouTube de alto engajamento.
-Canal: ${channel?.name || "Canal"} | Nicho: ${(channel as Record<string, unknown>)?.niche || "geral"}
+Canal: ${channel?.name || "Canal"} | Nicho: ${(channel as any)?.niche || "geral"}
 Persona: ${blueprint?.persona_prompt || "narrador envolvente"}
 Regras: ${blueprint?.script_rules || ""}`,
         `Crie um sumário estruturado para um vídeo de ${effectiveDuration} minutos sobre: "${idea}"
@@ -368,15 +383,16 @@ Retorne JSON:
   ]
 }
 
+CRÍTICO E OBRIGATÓRIO: Todo o conteúdo gerado (title, hook, title do chapter, summary) DEVE ser escrito estritamente no idioma selecionado (${langLabel}).
 Gere exatamente ${numChapters} capítulos.`,
         true
       );
 
-      const parsed = extractJson(raw);
+      const parsed = extractJson(raw) as { title?: string, hook?: string, chapters?: { id?: string; title: string; summary: string }[] };
       setTitle(parsed.title || "");
       setHook(parsed.hook || "");
       setChapters(
-        (parsed.chapters || []).map((ch: { id?: string; title: string; summary: string }) => ({
+        (parsed.chapters || []).map((ch) => ({
           id: ch.id || generateId(),
           title: ch.title,
           summary: ch.summary,
@@ -387,7 +403,7 @@ Gere exatamente ${numChapters} capítulos.`,
       setStep(2);
       toast.success(`Sumário gerado com ${parsed.chapters?.length || 0} capítulos!`);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao gerar sumário.");
+      toast.error(getFriendlyErrorMessage(e, "ao gerar sumário"));
     } finally {
       setLoading(false);
       setStatusMessage("");
@@ -424,7 +440,9 @@ ${isFirst ? "Este é o capítulo de ABERTURA — comece com o hook: capture a at
 ${isLast ? "Este é o capítulo FINAL — feche com CTA forte (like, inscrição, próximo vídeo)." : ""}
 
 Duração alvo: ~${chapterDurationMin} minutos de narração.
-Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentários de produção.`;
+Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentários de produção.
+
+CRÍTICO E OBRIGATÓRIO: O roteiro narrado DEVE ser escrito estritamente no idioma selecionado (${langLabel}). Não escreva em português se o idioma selecionado for outro.`;
 
     return await callClaude(systemPrompt, prompt);
   };
@@ -440,7 +458,7 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
       ));
       toast.success(`Roteiro do capítulo "${chapter.title}" gerado!`);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao gerar roteiro.");
+      toast.error(getFriendlyErrorMessage(e, "ao gerar roteiro"));
     } finally {
       setGeneratingChapter(null);
     }
@@ -473,13 +491,14 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
 
   // ── Step 3 → Step 4: TTS per Chapter ──────────────────────────────────
 
-  const handleGenerateChapterAudio = async (chapterId: string) => {
+  const handleGenerateChapterAudio = async (chapterId: string): Promise<boolean> => {
     const chapter = chapters.find(c => c.id === chapterId);
-    if (!chapter || !chapter.script.trim()) return;
+    if (!chapter || !chapter.script.trim()) return false;
     setGeneratingAudio(chapterId);
     try {
       const text = stripMarkdown(chapter.script);
-      const { blob, durationSec } = await callTTSHelper(text, hub.voice, hub.voiceId);
+      const effectiveVoiceId = getVoiceIdForLanguage(hub.voice, hub.voiceId, language);
+      const { blob, durationSec } = await callTTSHelper(text, hub.voice, effectiveVoiceId);
 
       const audioUrl = URL.createObjectURL(blob);
       audioBlobsRef.current[chapterId] = blob;
@@ -487,8 +506,10 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
         ch.id === chapterId ? { ...ch, audioUrl, audioDurationSec: durationSec } : ch
       ));
       toast.success(`Áudio de "${chapter.title}" gerado!`);
+      return true;
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao gerar áudio.");
+      toast.error(getFriendlyErrorMessage(e, "ao gerar áudio"));
+      return false;
     } finally {
       setGeneratingAudio(null);
     }
@@ -496,16 +517,27 @@ Escreva APENAS o texto da narração. Sem estágios, sem [PAUSA], sem comentári
 
   const handleGenerateAllAudio = async () => {
     setLoading(true);
+    let successCount = 0;
     try {
       for (const chapter of chapters) {
-        if (chapter.audioUrl && chapter.audioUrl !== "browser_tts") continue;
+        if (chapter.audioUrl && chapter.audioUrl !== "browser_tts") {
+          successCount++;
+          continue;
+        }
         setStatusMessage(`Narrando "${chapter.title}"...`);
-        await handleGenerateChapterAudio(chapter.id);
+        const ok = await handleGenerateChapterAudio(chapter.id);
+        if (ok) successCount++;
       }
       setStep(4);
-      toast.success("Narração completa!");
+      if (successCount === chapters.length) {
+        toast.success("Narração completa!");
+      } else if (successCount > 0) {
+        toast.warning(`Narração concluída com erros (${successCount}/${chapters.length} gerados). Você pode pular os que falharam.`);
+      } else {
+        toast.error("Erro na narração de todos os capítulos. Pule ou tente novamente.");
+      }
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro na narração.");
+      toast.error(getFriendlyErrorMessage(e, "na narração"));
     } finally {
       setLoading(false);
       setStatusMessage("");
@@ -554,17 +586,17 @@ Para cada cena, retorne JSON:
 Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`,
           true
         );
-        const parsed = extractJson(raw);
+        const parsed = extractJson(raw) as { scenes?: Scene[] };
         updatedChapters[i] = {
           ...chapter,
-          scenes: (parsed.scenes || []).map((s: Scene) => ({ ...s, chapterId: chapter.id })),
+          scenes: (parsed.scenes || []).map(s => ({ ...s, chapterId: chapter.id })),
         };
         setChapters([...updatedChapters]);
       }
       setStep(5);
       toast.success("Cenas extraídas!");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao extrair cenas.");
+      toast.error(getFriendlyErrorMessage(e, "ao extrair cenas"));
     } finally {
       setLoading(false);
       setStatusMessage("");
@@ -593,7 +625,7 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       ));
       toast.success(`Imagem gerada!`);
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem.");
+      toast.error(getFriendlyErrorMessage(e, "ao gerar imagem"));
     } finally {
       const key = `${chapterId}_${sceneIdx}`;
       setGeneratingSceneImage(prev => ({ ...prev, [key]: false }));
@@ -649,7 +681,7 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       );
       setThumbPrompt(raw);
       toast.success("Conceito criado!");
-    } catch { toast.error("Erro ao gerar conceito."); }
+    } catch (e) { toast.error(getFriendlyErrorMessage(e, "ao gerar conceito")); }
     finally { setLoading(false); setStatusMessage(""); }
   };
 
@@ -663,7 +695,7 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       setStep(7);
       toast.success("Thumbnail gerada!");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem.");
+      toast.error(getFriendlyErrorMessage(e, "ao gerar imagem"));
     } finally { setLoading(false); setStatusMessage(""); }
   };
 
@@ -699,7 +731,7 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       setStep(8);
       toast.success("Vídeo montado!");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao montar vídeo.");
+      toast.error(getFriendlyErrorMessage(e, "ao montar vídeo"));
     }
   };
 
@@ -719,7 +751,7 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       setMp4Url(mp4);
       toast.success("MP4 exportado!");
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Erro ao exportar MP4.");
+      toast.error(getFriendlyErrorMessage(e, "ao exportar MP4"));
     }
   };
 
@@ -744,11 +776,11 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
         video_path: mp4Url || videoUrl || undefined,
         thumbnail_path: thumbImageUrl || undefined,
         scenes: allScenes as any,
-      });
+      } as any);
 
       toast.success("Conteúdo salvo!");
       setTimeout(() => navigate(`/channel/${channelId}`), 1500);
-    } catch { toast.error("Erro ao salvar conteúdo."); }
+    } catch (e) { toast.error(getFriendlyErrorMessage(e, "ao salvar conteúdo")); }
     finally { setLoading(false); setStatusMessage(""); }
   };
 
@@ -882,39 +914,63 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
               </div>
 
               {/* Idea */}
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <Label className="text-white flex items-center gap-2"><Lightbulb className="w-4 h-4" /> Tópico / Ideia</Label>
+
+                {/* Approved ideas as clickable cards */}
+                {approvedIdeas.length > 0 && step === 1 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">Selecione uma ideia aprovada:</p>
+                    <div className="grid grid-cols-1 gap-2 max-h-52 overflow-y-auto pr-1">
+                      {approvedIdeas.map(i => (
+                        <button
+                          key={i.id}
+                          onClick={() => {
+                            setSelectedIdeaId(i.id);
+                            setIdea(i.title + (i.concept ? '\n\n' + i.concept : ''));
+                          }}
+                          className={`w-full text-left p-3 rounded-lg border transition-all ${
+                            selectedIdeaId === i.id
+                              ? 'border-primary bg-primary/10 ring-1 ring-primary/40'
+                              : 'border-white/10 bg-black/30 hover:bg-white/5 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="text-sm font-medium text-white">{i.title}</span>
+                            {selectedIdeaId === i.id && <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />}
+                          </div>
+                          {i.concept && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{i.concept}</p>}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-2 py-1">
+                      <div className="flex-1 h-px bg-white/10" />
+                      <span className="text-xs text-muted-foreground">ou escreva sua própria</span>
+                      <div className="flex-1 h-px bg-white/10" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Free text idea */}
                 <Textarea
                   value={idea}
-                  onChange={e => setIdea(e.target.value)}
-                  placeholder="Sobre o que será o vídeo?"
+                  onChange={e => { setIdea(e.target.value); if (selectedIdeaId) setSelectedIdeaId(null); }}
+                  placeholder="Descreva a ideia do seu vídeo aqui..."
                   disabled={step > 1}
-                  className="bg-black/40 border-white/10 text-white min-h-[80px]"
+                  className={`bg-black/40 border-white/10 text-white min-h-[80px] transition-all ${
+                    selectedIdeaId ? 'border-primary/30 bg-primary/5' : ''
+                  }`}
                 />
-                {approvedIdeas.length > 0 && step === 1 && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setShowIdeas(!showIdeas)}
-                      className="gap-1.5 text-muted-foreground hover:text-white"
+                {selectedIdeaId && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-primary flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Ideia aprovada selecionada</span>
+                    <button
+                      onClick={() => { setSelectedIdeaId(null); setIdea(''); }}
+                      className="text-xs text-muted-foreground hover:text-white flex items-center gap-1"
                     >
-                      <Lightbulb className="w-4 h-4 text-yellow-500" /> {approvedIdeas.length} ideias aprovadas
-                    </Button>
-                    {showIdeas && (
-                      <div className="space-y-1 p-3 bg-card/30 border border-white/10 rounded-xl max-h-48 overflow-y-auto">
-                        {approvedIdeas.map(i => (
-                          <button
-                            key={i.id}
-                            onClick={() => { setIdea(i.title); setShowIdeas(false); }}
-                            className="w-full text-left text-sm text-white/80 hover:text-white p-2 rounded hover:bg-white/5"
-                          >
-                            {i.title}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </>
+                      <X className="w-3 h-3" /> Limpar
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1072,6 +1128,36 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
+                {/* Script mode selector */}
+                {step === 3 && (
+                  <div className="flex gap-2 p-1 bg-black/30 rounded-xl border border-white/10">
+                    <button
+                      onClick={() => setScriptMode('auto')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        scriptMode === 'auto'
+                          ? 'bg-primary text-white shadow'
+                          : 'text-muted-foreground hover:text-white'
+                      }`}
+                    >
+                      <Bot className="w-4 h-4" /> Gerar com IA
+                    </button>
+                    <button
+                      onClick={() => setScriptMode('manual')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                        scriptMode === 'manual'
+                          ? 'bg-primary text-white shadow'
+                          : 'text-muted-foreground hover:text-white'
+                      }`}
+                    >
+                      <PenLine className="w-4 h-4" /> Escrever Manualmente
+                    </button>
+                  </div>
+                )}
+                {scriptMode === 'manual' && step === 3 && (
+                  <p className="text-xs text-muted-foreground px-1">
+                    Escreva o roteiro de cada capítulo manualmente. O vídeo será gerado baseado no que você escrever.
+                  </p>
+                )}
                 {chapters.map((ch, i) => {
                   const isOpen = openChapters[ch.id] ?? (step === 3);
                   return (
@@ -1116,6 +1202,22 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
                                   <RefreshCw className="w-3.5 h-3.5" /> Regenerar
                                 </Button>
                               </>
+                            ) : scriptMode === 'manual' ? (
+                              <>
+                                <textarea
+                                  value={ch.script}
+                                  onChange={e => setChapters(prev => prev.map(c =>
+                                    c.id === ch.id ? { ...c, script: e.target.value } : c
+                                  ))}
+                                  placeholder={`Escreva o roteiro do capítulo "${ch.title}" aqui...\n\nDica: escreva exatamente o texto que será narrado, sem marcações de produção.`}
+                                  className="w-full min-h-[200px] text-sm bg-black/40 border border-white/10 rounded-lg p-3 text-muted-foreground resize-y leading-relaxed placeholder:text-white/20"
+                                />
+                                {ch.script.trim() && (
+                                  <p className="text-xs text-muted-foreground">
+                                    ~{Math.ceil(ch.script.length / 15 / 60)} min de narração estimada
+                                  </p>
+                                )}
+                              </>
                             ) : (
                               <Button
                                 size="sm"
@@ -1152,7 +1254,7 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
           )}
 
           {/* ═══════════════════════════ STEP 4: TTS PER CHAPTER ═══════════════════════════ */}
-          {step === 4 && !allChaptersHaveAudio && chapters.some(ch => ch.audioUrl) && (
+          {step >= 4 && (
             <Card className="transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 bg-card/30 backdrop-blur border-white/10 ring-1 ring-primary/50 border-primary/30">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-white">

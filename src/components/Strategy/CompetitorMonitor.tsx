@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import {
     Plus,
     Users,
     TrendingUp,
+    TrendingDown,
     ExternalLink,
     Trash2,
     RefreshCw,
@@ -37,7 +39,7 @@ export function CompetitorMonitor({ channelId }: { channelId?: string }) {
 
     const handleAddChannel = async () => {
         if (!newChannelUrl && (!newName || !newHandle)) {
-            toast.error('Preencha as informações do canal');
+            toast.error(getFriendlyErrorMessage(null, "Por favor, insira o arroba do canal"));
             return;
         }
 
@@ -219,13 +221,13 @@ export function CompetitorMonitor({ channelId }: { channelId?: string }) {
                                     </TableCell>
                                     <TableCell>
                                         <Badge variant="outline" className="text-xs">
-                                            {channel.niche}
+                                            {channel.niche || '—'}
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right font-medium">
                                         <div className="flex items-center justify-end gap-1">
                                             <Users className="w-3 h-3 text-muted-foreground" />
-                                            {formatNumber(channel.subscribers)}
+                                            {channel.subscribers > 0 ? formatNumber(channel.subscribers) : 'Oculto'}
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-right">
@@ -238,10 +240,27 @@ export function CompetitorMonitor({ channelId }: { channelId?: string }) {
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-center">
-                                        <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
-                                            <TrendingUp className="w-3 h-3 mr-1" />
-                                            {channel.growth}
-                                        </Badge>
+                                        {(() => {
+                                            const isNegative = channel.growth.startsWith('-');
+                                            const isZero = channel.growth === '+0%' || channel.growth === '0%';
+                                            if (isNegative) return (
+                                                <Badge className="bg-red-500/10 text-red-500 border-red-500/20">
+                                                    <TrendingDown className="w-3 h-3 mr-1" />
+                                                    {channel.growth}
+                                                </Badge>
+                                            );
+                                            if (isZero) return (
+                                                <Badge variant="outline" className="text-xs text-muted-foreground">
+                                                    {channel.growth}
+                                                </Badge>
+                                            );
+                                            return (
+                                                <Badge className="bg-green-500/10 text-green-500 border-green-500/20">
+                                                    <TrendingUp className="w-3 h-3 mr-1" />
+                                                    {channel.growth}
+                                                </Badge>
+                                            );
+                                        })()}
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center justify-end gap-1">

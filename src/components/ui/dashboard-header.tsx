@@ -18,7 +18,7 @@ export function DashboardHeader() {
                             <Zap className="w-4 h-4 text-white fill-current" />
                         </div>
                         <span className="font-bold text-lg tracking-tight text-white">
-                            Auto<span className="text-primary">Dark</span>
+                            Auto<span className="text-black">Dark</span>
                         </span>
                     </Link>
 

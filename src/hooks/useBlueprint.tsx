@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -239,7 +240,7 @@ export function useBlueprint(channelId: string | undefined) {
       toast.success('Blueprint salvo! As configurações do canal foram atualizadas.');
     },
     onError: (error) => {
-      toast.error(`Erro ao salvar blueprint: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao salvar blueprint"));
     },
   });
 

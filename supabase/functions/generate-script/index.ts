@@ -1,3 +1,4 @@
+// @ts-nocheck
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
@@ -6,7 +7,7 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -90,7 +91,7 @@ FORMATO DE SAÍDA (JSON PURO):
             const url = provider === "AI33" 
                 ? "https://api.ai33.pro/v1/chat/completions" 
                 : "https://openrouter.ai/api/v1/chat/completions";
-            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-lite:free";
+            const model = provider === "AI33" ? "gpt-4o-mini" : "meta-llama/llama-3.3-70b-instruct:free";
 
             if (!key) throw new Error(`${provider} API key not found`);
 
@@ -112,8 +113,21 @@ FORMATO DE SAÍDA (JSON PURO):
             });
 
             if (!res.ok) {
-                const err = await res.text();
-                throw new Error(`${provider} failed (${res.status}): ${err.slice(0, 100)}`);
+                const errText = await res.text();
+                let exactReason = errText.slice(0, 150);
+                try {
+                    const parsed = JSON.parse(errText);
+                    if (parsed.error && parsed.error.message) exactReason = parsed.error.message;
+                    else if (parsed.message) exactReason = parsed.message;
+                } catch (_) {}
+
+                if (res.status === 401) {
+                    throw new Error(`Credenciais inválidas na ${provider} (401). Detalhe oficial: ${exactReason}`);
+                }
+                if (res.status === 429) {
+                    throw new Error(`Limite atingido na ${provider} (429) - Recarregue saldo. Detalhe oficial: ${exactReason}`);
+                }
+                throw new Error(`A ${provider} recusou a conexão (${res.status}). Detalhe: ${exactReason}`);
             }
 
             return await res.json();
@@ -124,7 +138,7 @@ FORMATO DE SAÍDA (JSON PURO):
             if (AI33_API_KEY) {
                 try {
                     aiData = await callAI("AI33");
-                } catch (e) {
+                } catch (e: any) {
                     console.warn(`AI33 failed: ${e.message}. Falling back to OpenRouter.`);
                     if (OPENROUTER_API_KEY) {
                         aiData = await callAI("OpenRouter");
@@ -137,7 +151,7 @@ FORMATO DE SAÍDA (JSON PURO):
             } else {
                 throw new Error("No AI keys found");
             }
-        } catch (e) {
+        } catch (e: any) {
             throw new Error(`AI generation failed: ${e.message}`);
         }
 

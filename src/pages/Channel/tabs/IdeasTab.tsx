@@ -114,7 +114,12 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
                       <Button
                         size="sm"
                         className="ml-auto h-8 gap-1.5 bg-primary/20 text-primary hover:bg-primary/30 border border-primary/20"
-                        onClick={() => navigate(`/channel/${channelId}/production`, { state: { idea: idea.title } })}
+                        onClick={() => navigate(`/channel/${channelId}/production`, {
+                          state: {
+                            idea: idea.title + (idea.concept ? '\n\n' + idea.concept : ''),
+                            ideaId: idea.id,
+                          }
+                        })}
                       >
                         <Play className="w-3 h-3" /> Produzir
                       </Button>

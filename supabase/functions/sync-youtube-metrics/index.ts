@@ -174,9 +174,9 @@ async function syncCompetitorViaYouTubeAPI(
   const handle = String(comp.handle || '').replace('@', '');
   if (!handle) return null;
 
-  // 1. Fetch channel info by handle
+  // 1. Fetch channel info by handle (include topicDetails for niche)
   const channelRes = await fetch(
-    `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics&forHandle=${encodeURIComponent(handle)}&key=${ytApiKey}`
+    `https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,topicDetails&forHandle=${encodeURIComponent(handle)}&key=${ytApiKey}`
   );
   if (!channelRes.ok) return null;
   const channelData = await channelRes.json();
@@ -185,6 +185,24 @@ async function syncCompetitorViaYouTubeAPI(
 
   const ytChannelId = item.id;
   const subscribers = parseInt(item.statistics?.subscriberCount ?? '0') || 0;
+
+  // Derive niche from topicCategories (e.g. "Entertainment", "Technology", "Gaming")
+  const topicCategories: string[] = item.topicDetails?.topicCategories ?? [];
+  const nicheMap: Record<string, string> = {
+    'Entertainment': 'Entretenimento', 'Gaming': 'Games', 'Music': 'Música',
+    'Sports': 'Esportes', 'Technology': 'Tecnologia', 'Science': 'Ciência',
+    'Education': 'Educação', 'FilmAnimation': 'Cinema', 'Comedy': 'Comédia',
+    'HowtoStyle': 'Tutorial', 'Lifestyle': 'Lifestyle', 'Automotive': 'Automóveis',
+    'Travel': 'Viagem', 'Food': 'Culinária', 'News': 'Notícias',
+    'Fashion': 'Moda', 'Health': 'Saúde', 'Business': 'Negócios',
+  };
+  const niche = topicCategories.length > 0
+    ? (() => {
+        const raw = topicCategories[0].split('/').pop() ?? '';
+        const cleaned = raw.replace(/_/g, '');
+        return nicheMap[cleaned] ?? raw.replace(/_/g, ' ');
+      })()
+    : null;
 
   // 2. Fetch recent videos
   const searchRes = await fetch(
@@ -224,7 +242,15 @@ async function syncCompetitorViaYouTubeAPI(
     growth = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
   }
 
-  return { subscribers, avg_views: avgViews, last_video: lastVideo, last_video_date: lastVideoDate, growth, youtube_channel_id: ytChannelId };
+  return {
+    subscribers,
+    avg_views: avgViews,
+    last_video: lastVideo,
+    last_video_date: lastVideoDate,
+    growth,
+    youtube_channel_id: ytChannelId,
+    ...(niche ? { niche } : {}),
+  };
 }
 
 async function handleSyncCompetitors(

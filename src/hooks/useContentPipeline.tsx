@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { toast } from 'sonner';
 
 export type ContentStatus =
@@ -81,7 +82,7 @@ export function useContentPipeline(channelId: string | undefined) {
                 body: { channelId },
             });
 
-            if (error) throw new Error(error.message);
+            if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
             toast.success(`💡 Ideias Geradas! ${data.count} ideias criadas com sucesso.`);
@@ -89,7 +90,7 @@ export function useContentPipeline(channelId: string | undefined) {
             invalidateContents();
             return data;
         } catch (e: any) {
-            toast.error(`Erro ao gerar ideias: ${e.message}`);
+            toast.error(getFriendlyErrorMessage(e, "ao gerar ideias"));
             return null;
         } finally {
             setGeneratingIdeas(false);
@@ -104,7 +105,7 @@ export function useContentPipeline(channelId: string | undefined) {
                 body: { contentId },
             });
 
-            if (error) throw new Error(error.message);
+            if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
             toast.success(`📜 Roteiro Gerado! ${data.char_used || '?'} caracteres utilizados.`);
@@ -112,7 +113,7 @@ export function useContentPipeline(channelId: string | undefined) {
             invalidateContents();
             return data;
         } catch (e: any) {
-            toast.error(`Erro ao gerar roteiro: ${e.message}`);
+            toast.error(getFriendlyErrorMessage(e, "ao gerar roteiro"));
             return null;
         } finally {
             setGeneratingScript(prev => ({ ...prev, [contentId]: false }));
@@ -126,7 +127,7 @@ export function useContentPipeline(channelId: string | undefined) {
                 body: { contentId },
             });
 
-            if (error) throw new Error(error.message);
+            if (error) throw error;
             if (data?.error) throw new Error(data.error);
 
             toast.success(`🎵 Áudio Processado! Duração: ~${data.estimatedDuration?.toFixed(1)}s${data.hasSubtitle ? ' | Legenda gerada' : ''}`);
@@ -134,7 +135,7 @@ export function useContentPipeline(channelId: string | undefined) {
             invalidateContents();
             return data;
         } catch (e: any) {
-            toast.error(`Erro no processamento de áudio: ${e.message}`);
+            toast.error(getFriendlyErrorMessage(e, "no processamento de áudio"));
             return null;
         } finally {
             setProcessingAudio(prev => ({ ...prev, [contentId]: false }));

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "./button";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Loader2, Sparkles, Video, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./card";

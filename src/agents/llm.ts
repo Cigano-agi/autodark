@@ -194,15 +194,55 @@ export async function callTTS(text: string, voice: string, voiceId: string): Pro
     return { blob: new Blob(), durationSec: Math.ceil(text.length / 15) };
   }
 
-  const { data, error } = await supabase.functions.invoke("youtube-generate-audio", {
-    body: { text, voice: voiceId, provider: voice === "google" || voice === "google_chirp" ? "google" : "ai33" }
+  const session = await supabase.auth.getSession();
+  const token = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-generate-audio`;
+
+  const payload = {
+    text,
+    voice: voiceId,
+    provider: voice === "google" || voice === "google_chirp" ? "google" : "ai33",
+    ai33Key: import.meta.env.VITE_AI33_API_KEY,
+    openaiKey: import.meta.env.VITE_OPENAI_API_KEY || "",
+    googleKey: import.meta.env.VITE_GOOGLE_TTS_API_KEY || ""
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
   });
 
-  if (error) throw error;
-  if (!data) throw new Error("TTS edge function returned no data");
+  if (!res.ok) {
+    let errMsg = `Edge Function Error (${res.status})`;
+    try {
+      const errBody = await res.json();
+      if (errBody.error) errMsg = errBody.error;
+    } catch {
+      errMsg = await res.text();
+    }
+    throw new Error(errMsg);
+  }
 
-  // Supabase client automatically converts audio response to Blob
-  const blob = data instanceof Blob ? data : new Blob([data], { type: "audio/mpeg" });
+  // Edge Function V12 successfully intercepts auth bugs and returns 200 with {error: "msg"}
+  const contentType = res.headers.get("Content-Type") || "";
+  if (contentType.includes("application/json")) {
+    const jsonBody = await res.json();
+    if (jsonBody.error) {
+      throw new Error(jsonBody.error);
+    }
+    throw new Error("Invalid format: TTS returned JSON without audio data.");
+  }
+
+  const arrayBuffer = await res.arrayBuffer();
+  if (arrayBuffer.byteLength === 0) {
+      throw new Error("TTS retornou áudio vazio.");
+  }
+
+  const blob = new Blob([arrayBuffer], { type: "audio/mpeg" });
   const durationSec = await getAudioDuration(blob);
   return { blob, durationSec };
 }

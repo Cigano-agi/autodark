@@ -4,6 +4,7 @@ import { BeamsBackground } from '@/components/ui/beams-background';
 
 import { useChannels } from '@/hooks/useChannels';
 import { useChannelPrompts } from '@/hooks/useChannelPrompts';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -80,7 +81,7 @@ export default function ChannelPrompts() {
         try {
             parsedVars = JSON.parse(variables);
         } catch (e) {
-            toast.error('Variáveis devem ser um JSON válido');
+            toast.error(getFriendlyErrorMessage(null, "Variáveis devem ser um JSON válido"));
             return;
         }
 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -94,7 +95,7 @@ export function useChannels() {
       toast.success('Canal criado! Seu novo canal foi adicionado com sucesso.');
     },
     onError: (error) => {
-      toast.error(`Erro ao criar canal: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao criar canal"));
     },
   });
 
@@ -120,7 +121,7 @@ export function useChannels() {
       toast.success('Canal atualizado! As informações do canal foram atualizadas.');
     },
     onError: (error) => {
-      toast.error(`Erro ao atualizar canal: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao atualizar canal"));
     },
   });
 
@@ -148,7 +149,7 @@ export function useChannels() {
       toast.success('Canal removido. O canal foi excluído com sucesso.');
     },
     onError: (error) => {
-      toast.error(`Erro ao excluir canal: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao excluir canal"));
     },
   });
 

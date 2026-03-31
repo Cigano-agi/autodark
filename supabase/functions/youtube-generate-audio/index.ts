@@ -50,7 +50,10 @@ Deno.serve(async (req) => {
                 });
             }
             const voiceName = voice || "pt-BR-Chirp3-HD-Algenib";
-            const languageCode = voiceName.startsWith("en-") ? "en-US" : "pt-BR";
+            // Derive languageCode from the voice name prefix (e.g. "pt-BR-Chirp3..." → "pt-BR")
+            const langPrefix = voiceName.split("-").slice(0, 2).join("-"); // "pt-BR" | "en-US" | "es-ES"
+            const supportedLangs = ["pt-BR", "en-US", "en-GB", "es-ES", "es-US", "fr-FR", "de-DE"];
+            const languageCode = supportedLangs.includes(langPrefix) ? langPrefix : "pt-BR";
             const res = await fetch(
                 `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`,
                 {

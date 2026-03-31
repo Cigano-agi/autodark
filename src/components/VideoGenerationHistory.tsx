@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -89,7 +90,7 @@ export function VideoGenerationHistory({ channelId, onRestore }: VideoGeneration
     setDeletingId(id);
     const { error } = await supabase.from("video_generations").delete().eq("id", id);
     if (error) {
-      toast.error(`Erro ao excluir: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao deletar log"));
     } else {
       setGenerations((prev) => prev.filter((g) => g.id !== id));
       toast.success(`"${title}" excluído.`);
