@@ -41,8 +41,8 @@ function buildSupabaseClients(supabaseUrl: string, serviceKey: string, anonKey: 
   return { userClient, serviceClient };
 }
 
-async function authenticateUser(userClient: ReturnType<typeof createClient>) {
-  const { data: { user }, error } = await userClient.auth.getUser();
+async function authenticateUser(userClient: ReturnType<typeof createClient>, token: string) {
+  const { data: { user }, error } = await userClient.auth.getUser(token);
   if (error || !user) throw new Error('Unauthorized');
   return user;
 }
@@ -338,8 +338,9 @@ Deno.serve(async (req) => {
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    const token = authHeader.replace('Bearer ', '');
     const { userClient, serviceClient } = buildSupabaseClients(supabaseUrl, serviceKey, anonKey, authHeader);
-    const user = await authenticateUser(userClient);
+    const user = await authenticateUser(userClient, token);
 
     const { channel_id, action = 'sync-metrics' } = await req.json();
     if (!channel_id) {
