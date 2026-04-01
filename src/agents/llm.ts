@@ -198,10 +198,15 @@ export async function callTTS(text: string, voice: string, voiceId: string): Pro
   const token = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-generate-audio`;
 
+  // Detect language from voiceId (e.g. "pt-BR-Chirp3-HD-Aoede" → "pt-BR", "en-US-..." → "en-US")
+  const langMatch = voiceId.match(/^([a-z]{2}-[A-Z]{2})/);
+  const detectedLang = langMatch ? langMatch[1] : "pt-BR";
+
   const payload = {
     text,
     voice: voiceId,
     provider: voice === "google" || voice === "google_chirp" ? "google" : "ai33",
+    language: detectedLang,
     ai33Key: import.meta.env.VITE_AI33_API_KEY,
     openaiKey: import.meta.env.VITE_OPENAI_API_KEY || "",
     googleKey: import.meta.env.VITE_GOOGLE_TTS_API_KEY || ""

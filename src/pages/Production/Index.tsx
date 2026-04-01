@@ -115,13 +115,17 @@ function loadHubDefaults(channelId: string): HubDefaults {
 }
 
 // Maps Google Chirp voice IDs per language; OpenAI voices are multilingual by default
+export const CHIRP_VOICES: Record<VideoLanguage, { code: string; voices: string[] }> = {
+  "pt-BR": { code: "pt-BR", voices: ["pt-BR-Chirp3-HD-Aoede", "pt-BR-Chirp3-HD-Charon", "pt-BR-Chirp3-HD-Fenrir", "pt-BR-Chirp3-HD-Kore"] },
+  "en":    { code: "en-US", voices: ["en-US-Chirp3-HD-Aoede", "en-US-Chirp3-HD-Fenrir", "en-US-Chirp3-HD-Charon", "en-US-Chirp3-HD-Kore"] },
+  "es":    { code: "es-ES", voices: ["es-ES-Chirp3-HD-Aoede", "es-ES-Chirp3-HD-Charon", "es-ES-Chirp3-HD-Fenrir", "es-ES-Chirp3-HD-Kore"] },
+};
+
 function getVoiceIdForLanguage(voice: string, voiceId: string, language: VideoLanguage): string {
   if (voice === "google_chirp") {
-    if (language === "en") return "en-US-Chirp3-HD-Aoede";
-    if (language === "es") return "es-ES-Chirp3-HD-Aoede";
-    return "pt-BR-Chirp3-HD-Aoede";
+    return CHIRP_VOICES[language]?.voices[0] ?? "pt-BR-Chirp3-HD-Aoede";
   }
-  return voiceId; // OpenAI, ElevenLabs, Fish, Browser — use configured voiceId
+  return voiceId;
 }
 
 function durationToChapters(durationMin: number): number {

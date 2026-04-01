@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
             });
         }
 
-        const { text, voice, provider } = await req.json();
+        const { text, voice, provider, language } = await req.json();
 
         if (!text) {
             return new Response(JSON.stringify({ error: "Text is required" }), {
@@ -109,9 +109,30 @@ Deno.serve(async (req) => {
             return await res.arrayBuffer();
         };
 
-        const callGoogleTTSFallback = async () => {
+        // Best Chirp3-HD voice per language (Aoede = highest quality)
+        const CHIRP_VOICE_MAP: Record<string, string> = {
+            "pt-BR": "pt-BR-Chirp3-HD-Aoede",
+            "en-US": "en-US-Chirp3-HD-Aoede",
+            "en-GB": "en-GB-Chirp3-HD-Aoede",
+            "es-ES": "es-ES-Chirp3-HD-Aoede",
+            "es-US": "es-US-Chirp3-HD-Aoede",
+            "de-DE": "de-DE-Chirp3-HD-Aoede",
+            "fr-FR": "fr-FR-Chirp3-HD-Aoede",
+            "it-IT": "it-IT-Chirp3-HD-Aoede",
+            "ja-JP": "ja-JP-Chirp3-HD-Aoede",
+            "ko-KR": "ko-KR-Chirp3-HD-Aoede",
+            "zh-CN": "zh-CN-Chirp3-HD-Aoede",
+        };
+
+        const callGoogleTTSFallback = async (langOverride?: string) => {
             if (!GOOGLE_TTS_API_KEY) throw new Error("GOOGLE_TTS_API_KEY não configurada");
-            const voiceName = "pt-BR-Chirp3-HD-Algenib";
+            // Priority: explicit langOverride → language from request → detect from voice ID → pt-BR
+            const lang = langOverride
+                || language
+                || (voice?.match(/^([a-z]{2}-[A-Z]{2})/) ? voice.match(/^([a-z]{2}-[A-Z]{2})/)[1] : null)
+                || "pt-BR";
+            const voiceName = CHIRP_VOICE_MAP[lang] ?? CHIRP_VOICE_MAP["pt-BR"];
+            const languageCode = lang;
             const res = await fetch(
                 `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`,
                 {
@@ -119,7 +140,7 @@ Deno.serve(async (req) => {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         input: { text },
-                        voice: { languageCode: "pt-BR", name: voiceName },
+                        voice: { languageCode, name: voiceName },
                         audioConfig: { audioEncoding: "MP3", speakingRate: 0.95 },
                     }),
                 }
