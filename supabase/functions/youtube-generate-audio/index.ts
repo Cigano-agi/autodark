@@ -1,3 +1,4 @@
+// @ts-nocheck
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
@@ -108,25 +109,53 @@ Deno.serve(async (req) => {
             return await res.arrayBuffer();
         };
 
+        const callGoogleTTSFallback = async () => {
+            if (!GOOGLE_TTS_API_KEY) throw new Error("GOOGLE_TTS_API_KEY não configurada");
+            const voiceName = "pt-BR-Chirp3-HD-Algenib";
+            const res = await fetch(
+                `https://texttospeech.googleapis.com/v1/text:synthesize?key=${GOOGLE_TTS_API_KEY}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        input: { text },
+                        voice: { languageCode: "pt-BR", name: voiceName },
+                        audioConfig: { audioEncoding: "MP3", speakingRate: 0.95 },
+                    }),
+                }
+            );
+            if (!res.ok) {
+                const err = await res.text();
+                throw new Error(`Google TTS fallback failed (${res.status}): ${err.slice(0, 200)}`);
+            }
+            const { audioContent } = await res.json();
+            return Uint8Array.from(atob(audioContent), c => c.charCodeAt(0)).buffer;
+        };
+
         let audioBuffer;
         try {
             if (AI33_API_KEY) {
                 try {
                     audioBuffer = await callTTS("AI33");
-                } catch (e) {
-                    console.warn(`AI33 TTS failed: ${e.message}. Falling back to OpenAI.`);
+                } catch (e: any) {
+                    console.warn(`AI33 TTS failed: ${e.message}. Trying fallback.`);
                     if (OPENAI_API_KEY) {
                         audioBuffer = await callTTS("OpenAI");
+                    } else if (GOOGLE_TTS_API_KEY) {
+                        console.warn("Falling back to Google TTS.");
+                        audioBuffer = await callGoogleTTSFallback();
                     } else {
                         throw e;
                     }
                 }
             } else if (OPENAI_API_KEY) {
                 audioBuffer = await callTTS("OpenAI");
+            } else if (GOOGLE_TTS_API_KEY) {
+                audioBuffer = await callGoogleTTSFallback();
             } else {
-                throw new Error("No TTS API keys found (AI33 or OpenAI)");
+                throw new Error("Nenhuma chave de TTS configurada (AI33, OpenAI ou Google)");
             }
-        } catch (e) {
+        } catch (e: any) {
             throw new Error(`TTS generation failed: ${e.message}`);
         }
 
