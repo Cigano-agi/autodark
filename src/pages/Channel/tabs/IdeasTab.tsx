@@ -44,6 +44,16 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
         </Card>
       ) : (
         <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button
+              onClick={() => handleHeadAgent()}
+              disabled={isAiLoading}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-2"
+            >
+              <BrainCircuit className="w-4 h-4" />
+              {isAiLoading ? "Gerando..." : "Gerar Ideias"}
+            </Button>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ideas.map(idea => (
               <Card key={idea.id} className="bg-card/30 backdrop-blur border-white/10 hover:border-primary/30 transition-all">
