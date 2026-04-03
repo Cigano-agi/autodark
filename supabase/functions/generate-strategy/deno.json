@@ -1,0 +1,8 @@
+{
+  "imports": {
+    "https://": "https://"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window"]
+  }
+}
