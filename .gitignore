@@ -45,6 +45,10 @@ bun.lockb
 # MCP config (contains access tokens)
 .mcp.json
 
+# Claude Code Skills (user-specific)
+Claude Code Skills/
+.claude/skills/
+
 
 
 .vercel
