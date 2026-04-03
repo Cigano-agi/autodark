@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  Lightbulb, BrainCircuit, Trash2, Check, X, Play,
+  Lightbulb, BrainCircuit, Trash2, Check, X, Play, TrendingUp,
 } from "lucide-react";
 
 interface IdeasTabProps {
@@ -17,7 +17,7 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { ideas, updateIdeaStatus, deleteIdea } = useContentIdeas(channelId);
-  const { generateStrategy, isLoading: isAiLoading } = useHeadAgent();
+  const { generateStrategy, strategy, isLoading: isAiLoading } = useHeadAgent();
 
   const handleHeadAgent = async () => {
     await generateStrategy(channelId);
@@ -44,6 +44,22 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
         </Card>
       ) : (
         <div className="space-y-4">
+          {/* Estratégia Gerada */}
+          {strategy && (
+            <Card className="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 border-purple-500/20">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <TrendingUp className="w-5 h-5 text-purple-400 mt-0.5 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-white mb-2">Estratégia Gerada</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{strategy.strategy}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Botão Gerar Ideias */}
           <div className="flex justify-end">
             <Button
               onClick={() => handleHeadAgent()}
@@ -54,6 +70,8 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
               {isAiLoading ? "Gerando..." : "Gerar Ideias"}
             </Button>
           </div>
+
+          {/* Grid de Ideias */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ideas.map(idea => (
               <Card key={idea.id} className="bg-card/30 backdrop-blur border-white/10 hover:border-primary/30 transition-all">
