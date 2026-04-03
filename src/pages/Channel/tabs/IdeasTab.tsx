@@ -59,15 +59,15 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
             </Card>
           )}
 
-          {/* Botão Gerar Ideias */}
+          {/* Botão Gerar Mais Ideias */}
           <div className="flex justify-end">
             <Button
               onClick={() => handleHeadAgent()}
               disabled={isAiLoading}
-              className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white gap-2"
+              className="bg-gradient-to-r from-indigo-600 to-cyan-600 text-white gap-2"
             >
-              <BrainCircuit className="w-4 h-4" />
-              {isAiLoading ? "Gerando..." : "Gerar Ideias"}
+              <Lightbulb className="w-4 h-4" />
+              {isAiLoading ? "Analisando..." : "Gerar Mais Ideias"}
             </Button>
           </div>
 
