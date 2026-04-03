@@ -176,9 +176,32 @@ function generateCanvasDarkImage(prompt: string): string {
 }
 
 export function extractJson(text: string): Record<string, unknown> {
-  const match = text.match(/\{[\s\S]*\}/);
-  if (!match) throw new Error("JSON não encontrado na resposta");
-  return JSON.parse(match[0]);
+  // Tenta encontrar JSON dentro do texto
+  let match = text.match(/\{[\s\S]*\}/);
+
+  if (!match) {
+    console.error("[extractJson] JSON não encontrado no texto:", text.substring(0, 200));
+    throw new Error("JSON não encontrado na resposta");
+  }
+
+  // Tenta parsear o JSON encontrado
+  try {
+    return JSON.parse(match[0]);
+  } catch (e) {
+    // Se falhar, tenta remover caracteres inválidos no final
+    let jsonStr = match[0];
+
+    // Remove caracteres problemáticos no final (como ``` ou ```json)
+    jsonStr = jsonStr.replace(/```[\s\S]*$/, "").trim();
+
+    // Tenta novamente
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e2) {
+      console.error("[extractJson] Falha ao parsear JSON:", jsonStr.substring(0, 200));
+      throw new Error(`JSON inválido: ${(e as Error).message}`);
+    }
+  }
 }
 
 export function stripMarkdown(text: string): string {
