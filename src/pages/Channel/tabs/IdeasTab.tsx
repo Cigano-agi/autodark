@@ -4,6 +4,7 @@ import { useHeadAgent } from "@/hooks/useHeadAgent";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Lightbulb, BrainCircuit, Trash2, Check, X, Play,
 } from "lucide-react";
@@ -14,8 +15,15 @@ interface IdeasTabProps {
 
 export function IdeasTab({ channelId }: IdeasTabProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { ideas, updateIdeaStatus, deleteIdea } = useContentIdeas(channelId);
   const { generateStrategy, isLoading: isAiLoading } = useHeadAgent();
+
+  const handleHeadAgent = async () => {
+    await generateStrategy(channelId);
+    // Refetch ideias após gerar estratégia
+    queryClient.invalidateQueries({ queryKey: ['content-ideas', channelId] });
+  };
 
   return (
     <div className="space-y-4">
@@ -25,7 +33,7 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
           <p className="text-muted-foreground mb-4">Nenhuma ideia gerada ainda.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Button
-              onClick={() => generateStrategy(channelId)}
+              onClick={() => handleHeadAgent()}
               disabled={isAiLoading}
               className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
             >
