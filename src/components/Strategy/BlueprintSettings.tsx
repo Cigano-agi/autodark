@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Save, Loader2, Settings, Users, FileText, Mic, Pencil, X } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { TTSVoice } from '@/types/tts';
+import { toast } from 'sonner';
 
 interface BlueprintSettingsProps {
   channelId: string;
@@ -33,6 +35,48 @@ export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
   const { blueprint, isLoading, updateBlueprint } = useBlueprint(channelId);
   const [formData, setFormData] = useState<UpdateBlueprintData>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [voices, setVoices] = useState<TTSVoice[]>([]);
+  const [loadingVoices, setLoadingVoices] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<'pt' | 'en' | 'es'>('pt');
+
+  // Busca vozes ao abrir modo de edição
+  useEffect(() => {
+    if (isEditing && voices.length === 0) {
+      fetchVoices('pt');
+    }
+  }, [isEditing]);
+
+  const fetchVoices = async (language: 'pt' | 'en' | 'es') => {
+    setLoadingVoices(true);
+    try {
+      const res = await fetch('/.netlify/functions/list-tts-voices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language }),
+      });
+
+      if (!res.ok) throw new Error(`Falha ao buscar vozes: ${res.status}`);
+      const data = await res.json();
+      setVoices(data.voices || []);
+      setSelectedLanguage(language);
+    } catch (err) {
+      toast.error('Erro ao carregar vozes do ElevenLabs');
+      console.error('[BlueprintSettings] fetchVoices error:', err);
+    } finally {
+      setLoadingVoices(false);
+    }
+  };
+
+  const handleVoiceSelect = (voiceId: string) => {
+    const selected = voices.find(v => v.voice_id === voiceId);
+    if (selected) {
+      setFormData((prev) => ({
+        ...prev,
+        voice_id: voiceId,
+        voice_name: selected.name,
+      }));
+    }
+  };
 
   useEffect(() => {
     if (blueprint) {
@@ -227,27 +271,50 @@ export function BlueprintSettings({ channelId }: BlueprintSettingsProps) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              {/* Filtro de Idioma para Vozes */}
+              {isEditing && (
                 <div className="space-y-2">
-                  <Label>ID da Voz (OpenAI/ElevenLabs)</Label>
-                  <Input
-                    readOnly={ro}
-                    value={formData.voice_id || ''}
-                    onChange={(e) => handleChange('voice_id', e.target.value)}
-                    placeholder="Ex: onyx, alloy, nova..."
-                    className={inputClass}
-                  />
+                  <Label>Idioma da Voz</Label>
+                  <Select
+                    value={selectedLanguage}
+                    onValueChange={(lang) => fetchVoices(lang as 'pt' | 'en' | 'es')}
+                  >
+                    <SelectTrigger className="bg-background/50">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pt">Português (PT)</SelectItem>
+                      <SelectItem value="en">English (EN)</SelectItem>
+                      <SelectItem value="es">Español (ES)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Nome da Voz (Exibição)</Label>
+              )}
+
+              {/* Seletor de Voz */}
+              <div className="space-y-2">
+                <Label>Voz do ElevenLabs</Label>
+                {ro ? (
                   <Input
-                    readOnly={ro}
+                    readOnly
                     value={formData.voice_name || ''}
-                    onChange={(e) => handleChange('voice_name', e.target.value)}
-                    placeholder="Ex: Narrador Masculino Grave"
+                    placeholder="—"
                     className={inputClass}
                   />
-                </div>
+                ) : (
+                  <Select value={formData.voice_id || ''} onValueChange={handleVoiceSelect}>
+                    <SelectTrigger className="bg-background/50">
+                      <SelectValue placeholder={loadingVoices ? "Carregando vozes..." : "Selecione uma voz"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {voices.map((voice) => (
+                        <SelectItem key={voice.voice_id} value={voice.voice_id}>
+                          {voice.name} ({voice.gender})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">
