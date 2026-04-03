@@ -97,7 +97,7 @@ Respond ONLY with valid JSON. All text must be in Portuguese (BR).`
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: 'openai/gpt-4-turbo',
         messages: [
           { role: 'system', content: systemPrompt },
         ],
@@ -105,13 +105,20 @@ Respond ONLY with valid JSON. All text must be in Portuguese (BR).`
       })
     })
 
+    if (!response.ok) {
+      const errorData = await response.json()
+      console.error('OpenRouter API error:', errorData)
+      throw new Error(`OpenRouter API failed: ${errorData.error?.message || 'Unknown error'}`)
+    }
+
     const aiData = await response.json()
     const rawContent = aiData.choices?.[0]?.message?.content || '{}'
 
     let parsed
     try {
       parsed = JSON.parse(rawContent)
-    } catch {
+    } catch (parseError) {
+      console.error('JSON parse error:', parseError, 'Content:', rawContent)
       parsed = { strategy: rawContent, ideas: [] }
     }
 
