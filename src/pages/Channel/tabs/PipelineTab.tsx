@@ -1,20 +1,28 @@
 import { useState } from "react";
-import { ContentPipeline } from "@/components/ContentPipeline";
-import { usePipelineOrchestrator } from "@/agents/pipelineOrchestrator";
 import { useChannels } from "@/hooks/useChannels";
 import { useBlueprint } from "@/hooks/useBlueprint";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
+import { usePipelineOrchestrator } from "@/agents/pipelineOrchestrator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Zap, Loader2, CheckCircle2, XCircle, RefreshCw,
-  Lightbulb, TrendingUp, Play, AlertCircle,
+  Zap, Loader2, CheckCircle2, AlertCircle, Trash2,
+  Clock, Play, Pause,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { GeneratedIdea, VideoLanguage } from "@/agents/types";
+
+interface BatchJob {
+  id: string;
+  idea: GeneratedIdea;
+  status: "pending" | "processing" | "done" | "error";
+  progress: number;
+  message: string;
+}
 
 interface PipelineTabProps {
   channelId: string;
@@ -24,184 +32,202 @@ export function PipelineTab({ channelId }: PipelineTabProps) {
   const { channels } = useChannels();
   const channel = channels?.find(c => c.id === channelId);
   const { blueprint } = useBlueprint(channelId);
-  const { ideas, updateIdeaStatus } = useContentIdeas(channelId);
-
+  const { ideas } = useContentIdeas(channelId);
   const channelData = channel ? { id: channel.id, name: channel.name, niche: (channel as Record<string, unknown>).niche as string } : undefined;
-  const { state, reset, runIdeas, runSemiAuto } = usePipelineOrchestrator(channelId, channelData, blueprint);
+  const { state, runSemiAuto } = usePipelineOrchestrator(channelId, channelData, blueprint);
 
-  const [language, setLanguage] = useState<VideoLanguage>("en");
+  const [selectedIdeas, setSelectedIdeas] = useState<Set<string>>(new Set());
+  const [batchJobs, setBatchJobs] = useState<BatchJob[]>([]);
+  const [language, setLanguage] = useState<VideoLanguage>("pt-BR");
   const [duration, setDuration] = useState(15);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const pendingIdeas = ideas.filter(i => i.status === "pending" || i.status === "approved");
-  const isRunning = state.stage !== "idle" && state.stage !== "done" && state.stage !== "error" && state.stage !== "waiting_approval";
+  const approvedIdeas = ideas.filter(i => i.status === "approved");
 
-  const handleApproveAndProduce = async (idea: GeneratedIdea) => {
-    toast.info(`Iniciando produção: "${idea.title}"`);
-    await runSemiAuto(idea, language, duration);
+  const toggleIdea = (ideaId: string) => {
+    const newSelected = new Set(selectedIdeas);
+    if (newSelected.has(ideaId)) newSelected.delete(ideaId);
+    else newSelected.add(ideaId);
+    setSelectedIdeas(newSelected);
   };
 
-  const stageLabel: Record<string, string> = {
-    idle: "Pronto",
-    analyzing_trends: "Analisando concorrentes...",
-    generating_ideas: "Gerando ideias...",
-    waiting_approval: "Aguardando aprovação",
-    generating_script: "Escrevendo roteiro...",
-    generating_audio: "Gerando narração...",
-    extracting_scenes: "Extraindo cenas...",
-    generating_visuals: "Gerando imagens...",
-    assembling: "Montando vídeo...",
-    generating_seo: "Otimizando SEO...",
-    saving: "Salvando...",
-    done: "Concluído!",
-    error: "Erro",
+  const handleStartBatch = async () => {
+    if (selectedIdeas.size === 0) {
+      toast.error("Selecione pelo menos uma ideia");
+      return;
+    }
+
+    const selectedIdeasList = approvedIdeas.filter(i => selectedIdeas.has(i.id));
+    const jobs: BatchJob[] = selectedIdeasList.map(idea => ({
+      id: idea.id,
+      idea,
+      status: "pending",
+      progress: 0,
+      message: "Aguardando processamento",
+    }));
+
+    setBatchJobs(jobs);
+    setIsProcessing(true);
+    toast.info(`Iniciando produção de ${jobs.length} vídeo(s)...`);
+
+    // Processa vídeos sequencialmente
+    for (let i = 0; i < jobs.length; i++) {
+      const job = jobs[i];
+      try {
+        setBatchJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "processing", message: "Processando..." } : j));
+        await runSemiAuto(job.idea, language, duration);
+        setBatchJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "done", progress: 100, message: "Concluído!" } : j));
+      } catch (error) {
+        setBatchJobs(prev => prev.map(j => j.id === job.id ? { ...j, status: "error", message: `Erro: ${(error as Error).message}` } : j));
+      }
+    }
+
+    setIsProcessing(false);
   };
+
+  const clearBatch = () => {
+    setBatchJobs([]);
+    setSelectedIdeas(new Set());
+  };
+
+  const completedCount = batchJobs.filter(j => j.status === "done").length;
+  const errorCount = batchJobs.filter(j => j.status === "error").length;
 
   return (
     <div className="space-y-6">
-      {/* Semi-Auto Pipeline Card */}
+      {/* Batch Processor Card */}
       <Card className="bg-card/30 backdrop-blur border-white/10">
         <CardHeader>
-          <CardTitle className="flex items-center justify-between text-white">
-            <span className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-primary" /> Pipeline Semi-Auto
-            </span>
-            <div className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Zap className="w-5 h-5 text-primary" /> Produtor em Lote
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Settings */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">Idioma</label>
               <Select value={language} onValueChange={v => setLanguage(v as VideoLanguage)}>
-                <SelectTrigger className="w-28 h-8 text-xs bg-black/20 border-white/10">
+                <SelectTrigger className="h-8 text-xs bg-black/20 border-white/10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="pt-BR">Português</SelectItem>
                   <SelectItem value="en">English</SelectItem>
                   <SelectItem value="es">Español</SelectItem>
-                  <SelectItem value="pt-BR">Português</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground block mb-1.5">Duração</label>
               <Select value={String(duration)} onValueChange={v => setDuration(Number(v))}>
-                <SelectTrigger className="w-24 h-8 text-xs bg-black/20 border-white/10">
+                <SelectTrigger className="h-8 text-xs bg-black/20 border-white/10">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="1">1 min</SelectItem>
+                  <SelectItem value="5">5 min</SelectItem>
                   <SelectItem value="8">8 min</SelectItem>
                   <SelectItem value="15">15 min</SelectItem>
                   <SelectItem value="20">20 min</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Action buttons */}
-          <div className="flex gap-2">
-            <Button
-              onClick={() => runIdeas(language)}
-              disabled={isRunning || !channel}
-              variant="outline"
-              className="gap-2 border-white/10"
-            >
-              {state.stage === "generating_ideas"
-                ? <Loader2 className="w-4 h-4 animate-spin" />
-                : <Lightbulb className="w-4 h-4 text-yellow-500" />}
-              Gerar Ideias
-            </Button>
-            {state.stage === "done" && (
-              <Button onClick={reset} variant="ghost" size="sm" className="gap-1.5 text-muted-foreground">
-                <RefreshCw className="w-3.5 h-3.5" /> Novo
+            <div className="flex items-end gap-2">
+              <Button
+                onClick={handleStartBatch}
+                disabled={isProcessing || selectedIdeas.size === 0}
+                className="w-full bg-primary gap-2"
+              >
+                {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                Iniciar Lote
               </Button>
-            )}
+            </div>
           </div>
 
-          {/* Pipeline progress */}
-          {isRunning && (
-            <div className="space-y-2 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+          {/* Ideias Disponíveis */}
+          {approvedIdeas.length > 0 && (
+            <div className="space-y-2 pt-4 border-t border-white/10">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-white font-medium flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  {stageLabel[state.stage] || state.stage}
-                </span>
-                <span className="text-xs text-muted-foreground">{state.progress}%</span>
-              </div>
-              <Progress value={state.progress} className="h-2" />
-              {state.message && (
-                <p className="text-xs text-muted-foreground">{state.message}</p>
-              )}
-            </div>
-          )}
-
-          {/* Error state */}
-          {state.stage === "error" && (
-            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm text-red-400 font-medium">Erro no pipeline</p>
-                <p className="text-xs text-muted-foreground mt-1">{state.message}</p>
-                <Button onClick={reset} size="sm" variant="ghost" className="mt-2 text-muted-foreground">
-                  <RefreshCw className="w-3 h-3 mr-1" /> Tentar novamente
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Done state */}
-          {state.stage === "done" && (
-            <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl flex items-start gap-3">
-              <CheckCircle2 className="w-5 h-5 text-green-400 mt-0.5 shrink-0" />
-              <div>
-                <p className="text-sm text-green-400 font-medium">{state.message}</p>
-                {state.seo && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Título SEO: {state.seo.title}
-                  </p>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase">Ideias Aprovadas ({selectedIdeas.size} selecionadas)</h4>
+                {selectedIdeas.size > 0 && (
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedIdeas(new Set())} className="h-6 text-xs text-muted-foreground">
+                    Desselecionar
+                  </Button>
                 )}
               </div>
-            </div>
-          )}
-
-          {/* Generated ideas list */}
-          {((state.ideas && state.ideas.length > 0) || pendingIdeas.length > 0) && (
-            <div className="space-y-2">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                <TrendingUp className="w-3 h-3" /> Ideias para Produção
-              </h4>
-              {(state.ideas && state.ideas.length > 0 ? state.ideas : pendingIdeas.map(i => ({
-                title: i.title,
-                concept: i.concept || "",
-                reasoning: i.reasoning || "",
-                score: i.score || 0,
-                angle: "",
-              }))).map((idea, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 bg-black/30 border border-white/10 rounded-lg flex items-start justify-between gap-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white font-medium truncate">{idea.title}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{idea.concept}</p>
-                    {idea.score > 0 && (
-                      <Badge
-                        variant="outline"
-                        className={`mt-1.5 text-[10px] ${idea.score >= 80 ? 'border-green-500/30 text-green-400' : idea.score >= 60 ? 'border-yellow-500/30 text-yellow-400' : 'border-white/10 text-muted-foreground'}`}
-                      >
-                        Score: {idea.score}
-                      </Badge>
-                    )}
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={() => handleApproveAndProduce(idea)}
-                    disabled={isRunning}
-                    className="gap-1.5 bg-primary shrink-0"
+              <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                {approvedIdeas.map(idea => (
+                  <div
+                    key={idea.id}
+                    className="flex items-center gap-2.5 p-2 bg-black/30 border border-white/10 rounded-lg hover:border-white/20 transition-all cursor-pointer"
+                    onClick={() => toggleIdea(idea.id)}
                   >
-                    <Play className="w-3 h-3" /> Produzir
-                  </Button>
-                </div>
-              ))}
+                    <Checkbox checked={selectedIdeas.has(idea.id)} className="w-4 h-4" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white font-medium truncate">{idea.title}</p>
+                      {idea.score && <Badge variant="outline" className="text-[10px] mt-0.5">{idea.score}/100</Badge>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* Existing ContentPipeline below */}
-      <ContentPipeline channelId={channelId} />
+      {/* Fila de Processamento */}
+      {batchJobs.length > 0 && (
+        <Card className="bg-card/30 backdrop-blur border-white/10">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2 text-white text-base">
+                <Clock className="w-4 h-4 text-primary" /> Fila de Produção ({completedCount}/{batchJobs.length})
+              </CardTitle>
+              {!isProcessing && (
+                <Button size="sm" variant="ghost" onClick={clearBatch} className="h-6 gap-1 text-muted-foreground">
+                  <Trash2 className="w-3 h-3" /> Limpar
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {batchJobs.map((job) => (
+              <div key={job.id} className="p-3 bg-black/30 border border-white/10 rounded-lg space-y-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-white truncate flex-1">{job.idea.title}</p>
+                  <Badge variant="outline" className={`text-[10px] ${
+                    job.status === "done" ? "border-green-500/30 text-green-400" :
+                    job.status === "error" ? "border-red-500/30 text-red-400" :
+                    job.status === "processing" ? "border-blue-500/30 text-blue-400" :
+                    "border-white/10 text-muted-foreground"
+                  }`}>
+                    {job.status === "done" ? "✓ Pronto" : job.status === "error" ? "✗ Erro" : job.status === "processing" ? "⟳ Processando" : "⏳ Aguardando"}
+                  </Badge>
+                </div>
+                {job.status === "processing" && (
+                  <>
+                    <Progress value={job.progress} className="h-1.5" />
+                    <p className="text-xs text-muted-foreground">{job.message}</p>
+                  </>
+                )}
+                {job.status === "error" && (
+                  <p className="text-xs text-red-400">{job.message}</p>
+                )}
+                {job.status === "done" && (
+                  <p className="text-xs text-green-400">{job.message}</p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {approvedIdeas.length === 0 && (
+        <Card className="bg-card/60 border-dashed border-white/10 p-8 text-center">
+          <p className="text-muted-foreground">Nenhuma ideia aprovada. Vá para a aba Ideias para gerar e aprovar.</p>
+        </Card>
+      )}
     </div>
   );
 }
