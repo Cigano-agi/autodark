@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { BeamsBackground } from "@/components/ui/beams-background";
+import { TTSVoice, TTSVoiceListResponse } from "@/types/tts";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { useChannels } from "@/hooks/useChannels";
 import {
   Select,
@@ -141,16 +144,12 @@ const VOICE_PROVIDERS: VoiceProvider[] = [
     id: "elevenlabs",
     name: "ElevenLabs",
     provider: "ElevenLabs API",
-    description: "Qualidade premium com clonagem de voz. Requer API key.",
-    pricePerMin: 9.0,
+    description: "Qualidade premium com múltiplos idiomas. Vozes carregadas dinamicamente.",
+    pricePerMin: 0.40,
     quality: "premium",
-    voices: [
-      { id: "Rachel", label: "Rachel (feminino EN)", lang: "en-US" },
-      { id: "Adam", label: "Adam (masculino EN)", lang: "en-US" },
-      { id: "Bella", label: "Bella (feminino suave)", lang: "en-US" },
-    ],
-    available: false,
-    badge: "R$ 9,00/min",
+    voices: [], // Será preenchido dinamicamente
+    available: true,
+    badge: "R$ 0,40/min",
   },
   {
     id: "google_chirp",
@@ -354,7 +353,7 @@ function QualityStars({ quality }: { quality: string }) {
 }
 
 // ─── Duration Pill Selector ────────────────────────────────────────────────────
-const DURATION_PRESETS = [8, 15, 20] as const;
+const DURATION_PRESETS = [1, 5, 8, 15, 20] as const;
 
 function DurationSelector({
   value,
@@ -363,7 +362,7 @@ function DurationSelector({
   value: number;
   onChange: (v: number) => void;
 }) {
-  const [custom, setCustom] = useState("");
+  const [custom, setCustom] = useState("1");
   const isPreset = (DURATION_PRESETS as readonly number[]).includes(value);
 
   const handleCustomChange = (raw: string) => {
@@ -377,7 +376,7 @@ function DurationSelector({
       {DURATION_PRESETS.map((d) => (
         <button
           key={d}
-          onClick={() => { onChange(d); setCustom(""); }}
+          onClick={() => { onChange(d); setCustom(String(d)); }}
           className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
             value === d && isPreset
               ? "bg-primary/20 text-primary border-primary/40"
@@ -389,7 +388,7 @@ function DurationSelector({
       ))}
       <div className="flex items-center gap-1.5">
         <button
-          onClick={() => { if (!isPreset) return; onChange(0); setCustom(""); }}
+          onClick={() => { if (!isPreset) return; onChange(1); setCustom("1"); }}
           className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
             !isPreset
               ? "bg-primary/20 text-primary border-primary/40"
@@ -399,14 +398,25 @@ function DurationSelector({
           Personalizado
         </button>
         {!isPreset && (
-          <Input
-            type="number"
-            min={1}
-            value={custom}
-            onChange={(e) => handleCustomChange(e.target.value)}
-            placeholder="min"
-            className="w-16 h-7 text-xs bg-black/30 border-white/10 text-white text-center"
-          />
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <Slider
+                min={1}
+                max={120}
+                step={1}
+                value={[parseInt(custom) || 1]}
+                onValueChange={(val) => {
+                  const newVal = val[0];
+                  setCustom(String(newVal));
+                  onChange(newVal);
+                }}
+                className="w-40"
+              />
+            </div>
+            <div className="text-sm font-semibold text-primary px-3 py-1 rounded-md bg-primary/10 border border-primary/30 min-w-max">
+              {custom || 1} min
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -573,6 +583,16 @@ export default function MediaHub() {
   const [pendingVoiceProvider, setPendingVoiceProvider] = useState<string | null>(null);
   const [pendingVoiceId, setPendingVoiceId] = useState<string>("");
 
+  // Vozes dinâmicas do ElevenLabs
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<VoiceOption[]>([]);
+  const [loadingElevenLabsVoices, setLoadingElevenLabsVoices] = useState(false);
+
+  // Ref para reproduzir samples de áudio
+  const sampleAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Mapa de vozes ElevenLabs com sample_audio_url
+  const elevenLabsVoicesSamples = useRef<Record<string, string | undefined>>({});
+
   const currentDefaults: ChannelDefaults =
     defaults[selectedChannelId] ?? { ...DEFAULT_CHANNEL };
 
@@ -590,6 +610,61 @@ export default function MediaHub() {
     );
   };
 
+  // Carrega vozes do ElevenLabs quando selecionado
+  const loadElevenLabsVoices = async () => {
+    if (elevenLabsVoices.length > 0) return; // Já carregou
+    setLoadingElevenLabsVoices(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("list-tts-voices", {
+        body: { language: "pt" }, // Começa com PT
+      });
+      if (error) throw error;
+      const voiceData = data as TTSVoiceListResponse;
+      const voices: VoiceOption[] = (voiceData.voices || []).map((v: TTSVoice) => ({
+        id: v.voice_id,
+        label: `${v.name} (${v.gender})`,
+        lang: v.language,
+      }));
+      setElevenLabsVoices(voices);
+
+      // Guarda sample_audio_url de cada voz para later
+      const samples: Record<string, string | undefined> = {};
+      (voiceData.voices || []).forEach((v: TTSVoice) => {
+        samples[v.voice_id] = v.sample_audio_url;
+      });
+      elevenLabsVoicesSamples.current = samples;
+
+      // Atualiza VOICE_PROVIDERS com as vozes carregadas
+      const elevenLabsProvider = VOICE_PROVIDERS.find((p) => p.id === "elevenlabs");
+      if (elevenLabsProvider) {
+        elevenLabsProvider.voices = voices;
+      }
+    } catch (err) {
+      console.error("[MediaHub] Erro ao carregar vozes ElevenLabs:", err);
+      toast.error(getFriendlyErrorMessage(err, "ao carregar vozes do ElevenLabs"));
+    } finally {
+      setLoadingElevenLabsVoices(false);
+    }
+  };
+
+  // Testa voz ElevenLabs tocando o sample
+  const handleTestElevenLabsVoice = (voiceId: string) => {
+    const sampleUrl = elevenLabsVoicesSamples.current[voiceId];
+    if (!sampleUrl) {
+      toast.error("Sample de áudio não disponível para esta voz");
+      return;
+    }
+    if (sampleAudioRef.current) {
+      sampleAudioRef.current.pause();
+    }
+    const audio = new Audio(sampleUrl);
+    sampleAudioRef.current = audio;
+    audio.play().catch((err) => {
+      console.error("[MediaHub] Erro ao reproduzir sample:", err);
+      toast.error("Erro ao reproduzir sample de áudio");
+    });
+  };
+
   const handleSetVoiceDefault = (provider: VoiceProvider) => {
     if (pendingVoiceProvider === provider.id) {
       // Toggle off if clicking again
@@ -597,9 +672,15 @@ export default function MediaHub() {
       setPendingVoiceId("");
     } else {
       setPendingVoiceProvider(provider.id);
+
+      // Se é ElevenLabs, carrega as vozes dinamicamente
+      if (provider.id === "elevenlabs") {
+        loadElevenLabsVoices();
+      }
+
       // Initialize to current default if this is the active provider, otherwise the first voice of the provider
-      const initialVoiceId = currentDefaults.voice === provider.id 
-          ? currentDefaults.voiceId 
+      const initialVoiceId = currentDefaults.voice === provider.id
+          ? currentDefaults.voiceId
           : (provider.voices[0]?.id ?? "");
       setPendingVoiceId(initialVoiceId);
       // Immediately set the default to that initial voice
@@ -630,11 +711,14 @@ export default function MediaHub() {
           utterance.onend = () => resolve();
           speechSynthesis.speak(utterance);
         });
+      } else if (provider.id === "elevenlabs") {
+        // Toca sample de áudio do ElevenLabs
+        handleTestElevenLabsVoice(voiceId);
       } else {
         toast.info("API não disponível no momento.");
       }
-    } catch {
-      toast.error(getFriendlyErrorMessage("Erro de áudio", "ao testar voz"));
+    } catch (err) {
+      toast.error(getFriendlyErrorMessage(err, "ao testar voz"));
     } finally {
       setTestingVoice(null);
     }
@@ -778,30 +862,47 @@ export default function MediaHub() {
                       )}
 
                       <div className="space-y-1">
-                        {provider.voices.slice(0, 3).map((v) => (
-                          <div
-                            key={v.id}
-                            className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-white/5 group"
-                          >
-                            <span className="text-xs text-white">{v.label}</span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-[10px] text-muted-foreground group-hover:text-white gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => testVoice(provider, v.id)}
-                              disabled={
-                                testingVoice === v.id || !provider.available
-                              }
-                            >
-                              {testingVoice === v.id ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <Play className="w-3 h-3" />
-                              )}
-                              Testar
-                            </Button>
+                        {provider.id === "elevenlabs" && loadingElevenLabsVoices && (
+                          <div className="flex items-center gap-2 py-2 px-2">
+                            <Loader2 className="w-3 h-3 animate-spin text-primary" />
+                            <span className="text-xs text-muted-foreground">
+                              Carregando vozes...
+                            </span>
                           </div>
-                        ))}
+                        )}
+                        {provider.voices.length === 0 && provider.id !== "elevenlabs" ? (
+                          <p className="text-xs text-muted-foreground py-2">
+                            Nenhuma voz disponível
+                          </p>
+                        ) : (
+                          provider.voices.slice(0, 3).map((v) => (
+                            <div
+                              key={v.id}
+                              className="flex items-center justify-between py-1 px-2 rounded-lg hover:bg-white/5 group"
+                            >
+                              <span className="text-xs text-white">{v.label}</span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 px-2 text-[10px] text-muted-foreground group-hover:text-white gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => testVoice(provider, v.id)}
+                                disabled={
+                                  testingVoice === v.id ||
+                                  !provider.available ||
+                                  (provider.id === "elevenlabs" &&
+                                    !elevenLabsVoicesSamples.current[v.id])
+                                }
+                              >
+                                {testingVoice === v.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Play className="w-3 h-3" />
+                                )}
+                                Testar
+                              </Button>
+                            </div>
+                          ))
+                        )}
                         {provider.voices.length > 3 && (
                           <p className="text-[10px] text-muted-foreground pl-2">
                             +{provider.voices.length - 3} vozes...

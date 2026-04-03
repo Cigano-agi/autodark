@@ -198,13 +198,6 @@ const renderMarkdown = (text: string): string =>
     .replace(/^\d+\. (.+)$/gm, '<li class="ml-4 list-decimal">$1</li>')
     .replace(/\n{2,}/g, '<br/><br/>').replace(/\n/g, '<br/>');
 
-async function getAudioDuration(blob: Blob): Promise<number> {
-  return new Promise((resolve) => {
-    const audio = new Audio(URL.createObjectURL(blob));
-    audio.addEventListener("loadedmetadata", () => resolve(audio.duration));
-  });
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProductionWizard() {
@@ -253,7 +246,7 @@ export default function ProductionWizard() {
 
   // ── Step 4: TTS per chapter ──
   const [generatingAudio, setGeneratingAudio] = useState<string | null>(null);
-  const audioBlobsRef = useRef<Record<string, Blob>>({});
+  // LEGACY: audioBlobsRef removida — áudio agora é URL CDN, não blob
 
   // ── Step 5: Scenes + Images ──
   const [generatingSceneImage, setGeneratingSceneImage] = useState<Record<string, boolean>>({});
@@ -352,7 +345,7 @@ export default function ProductionWizard() {
     setThumbPrompt(""); setThumbImageUrl(null);
     setVideoUrl(null); setMp4Url(null); setStep(1);
     webmBlobRef.current = null;
-    audioBlobsRef.current = {};
+    // LEGACY: audioBlobsRef.current reset removido
     if (channelId) localStorage.removeItem(storageKey);
   };
 
@@ -502,10 +495,9 @@ CRÍTICO E OBRIGATÓRIO: O roteiro narrado DEVE ser escrito estritamente no idio
     try {
       const text = stripMarkdown(chapter.script);
       const effectiveVoiceId = getVoiceIdForLanguage(hub.voice, hub.voiceId, language);
-      const { blob, durationSec } = await callTTSHelper(text, hub.voice, effectiveVoiceId);
+      const { audioUrl, durationSec } = await callTTSHelper(text, hub.voice, effectiveVoiceId);
 
-      const audioUrl = URL.createObjectURL(blob);
-      audioBlobsRef.current[chapterId] = blob;
+      // audioUrl agora é uma URL permanente (CDN ou data:), não blob
       setChapters(prev => prev.map(ch =>
         ch.id === chapterId ? { ...ch, audioUrl, audioDurationSec: durationSec } : ch
       ));
@@ -711,26 +703,20 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
       const totalChars = allScenes.reduce((sum, s) => sum + s.narration.length, 0);
       const fullNarration = chapters.map(ch => stripMarkdown(ch.script)).join(" ");
 
-      // Combine all audio blobs into one if available
-      const audioBlobs = chapters
-        .map(ch => audioBlobsRef.current[ch.id])
-        .filter(Boolean);
-      const combinedBlob = audioBlobs.length > 0
-        ? new Blob(audioBlobs, { type: audioBlobs[0].type })
-        : null;
-
+      // Audio URLs agora vêm de CDN (ElevenLabs via AI33)
+      // Duração é estimada baseada no texto e disponível em chapter.audioDurationSec
       const assemblyScenes = allScenes
         .filter(s => s.imageUrl)
         .map(s => ({
           imageUrl: s.imageUrl!,
-          durationSec: combinedBlob && totalChars > 0
+          durationSec: totalChars > 0
             ? Math.min(15, Math.max(4, Math.round((s.narration.length / totalChars) * (fullNarration.length / 2.5))))
             : 6,
           subtitle: s.narration,
           emotion: s.emotion,
         }));
 
-      const url = await assembleVideo(assemblyScenes, combinedBlob);
+      const url = await assembleVideo(assemblyScenes, null);
       setVideoUrl(url);
       setStep(8);
       toast.success("Vídeo montado!");
@@ -877,8 +863,8 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
               {/* Duration */}
               <div className="space-y-2">
                 <Label className="text-white flex items-center gap-2"><Clock className="w-4 h-4" /> Duração</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {([8, 15, 20] as const).map(d => (
+                <div className="grid grid-cols-5 gap-2">
+                  {([1, 5, 8, 15, 20] as const).map(d => (
                     <Button
                       key={d}
                       variant={duration === d ? "default" : "outline"}
@@ -902,9 +888,9 @@ Escolha a emotion que melhor representa o tom emocional dominante de cada cena.`
                   <div className="flex items-center gap-3 mt-2">
                     <Slider
                       value={[customMinutes]}
-                      min={20}
-                      max={60}
-                      step={5}
+                      min={1}
+                      max={120}
+                      step={1}
                       onValueChange={([v]) => setCustomMinutes(v)}
                       className="flex-1"
                       disabled={step > 1}

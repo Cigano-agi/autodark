@@ -1,12 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
-import { useContentPipeline } from "@/hooks/useContentPipeline";
 import { useHeadAgent } from "@/hooks/useHeadAgent";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Lightbulb, BrainCircuit, Sparkles, Loader2, Trash2, Check, X, Play,
+  Lightbulb, BrainCircuit, Trash2, Check, X, Play,
 } from "lucide-react";
 
 interface IdeasTabProps {
@@ -16,7 +15,6 @@ interface IdeasTabProps {
 export function IdeasTab({ channelId }: IdeasTabProps) {
   const navigate = useNavigate();
   const { ideas, updateIdeaStatus, deleteIdea } = useContentIdeas(channelId);
-  const pipeline = useContentPipeline(channelId);
   const { generateStrategy, isLoading: isAiLoading } = useHeadAgent();
 
   return (
@@ -32,30 +30,12 @@ export function IdeasTab({ channelId }: IdeasTabProps) {
               className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
             >
               <BrainCircuit className="w-4 h-4 mr-2" />
-              Head Agent
-            </Button>
-            <Button
-              onClick={() => pipeline.generateIdeas()}
-              disabled={pipeline.generatingIdeas || !channelId}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-500/20 gap-2"
-            >
-              {pipeline.generatingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {pipeline.generatingIdeas ? "Gerando..." : "Gerar Batch de Ideias"}
+              {isAiLoading ? "Analisando..." : "Head Agent"}
             </Button>
           </div>
         </Card>
       ) : (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button
-              onClick={() => pipeline.generateIdeas()}
-              disabled={pipeline.generatingIdeas || !channelId}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
-            >
-              {pipeline.generatingIdeas ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              {pipeline.generatingIdeas ? "Gerando..." : "Gerar Batch"}
-            </Button>
-          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ideas.map(idea => (
               <Card key={idea.id} className="bg-card/30 backdrop-blur border-white/10 hover:border-primary/30 transition-all">
