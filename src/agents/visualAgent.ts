@@ -60,35 +60,48 @@ export async function generateVisuals(
 ): Promise<VideoChapter[]> {
   const style = resolveVisualStyle(blueprint?.visual_style);
   const charHint = blueprint?.character_description ? `Featuring: ${blueprint.character_description}. ` : "";
-  const updatedChapters = [...chapters];
+  const result: VideoChapter[] = JSON.parse(JSON.stringify(chapters));
 
-  const totalScenes = updatedChapters.reduce((sum, ch) => sum + ch.scenes.length, 0);
+  // Achatar todas as cenas num array pra processar em lotes
+  const allScenesData: { chapterIndex: number; sceneIndex: number; scene: SceneData }[] = [];
+  result.forEach((chapter, chapterIndex) => {
+    chapter.scenes.forEach((scene, sceneIndex) => {
+      // Ignora as que já tiverem imagem mapeada
+      if (!scene.imageUrl) {
+        allScenesData.push({ chapterIndex, sceneIndex, scene });
+      }
+    });
+  });
+
+  const totalScenesToProcess = allScenesData.length;
   let done = 0;
 
-  for (let ci = 0; ci < updatedChapters.length; ci++) {
-    const chapter = updatedChapters[ci];
-    for (let si = 0; si < chapter.scenes.length; si++) {
-      if (chapter.scenes[si].imageUrl) {
+  // Processamento em lotes concorrentes
+  const CONCURRENCY = 4; // Ajuste pra evitar overflow no proxy/API
+  for (let i = 0; i < allScenesData.length; i += CONCURRENCY) {
+    const chunk = allScenesData.slice(i, i + CONCURRENCY);
+
+    await Promise.all(
+      chunk.map(async ({ chapterIndex, sceneIndex, scene }) => {
+        const fullPrompt = `${charHint}${scene.visual_prompt}. Style: ${style}. No text, no letters, no watermarks. 16:9.`;
+
+        try {
+          const imageUrl = await callImageGeneration(fullPrompt);
+          result[chapterIndex].scenes[sceneIndex] = { ...scene, imageUrl };
+        } catch (err) {
+          console.error(`Error generating visual for scene:`, err);
+        }
+
         done++;
-        continue;
-      }
-
-      const scene = chapter.scenes[si];
-      const fullPrompt = `${charHint}${scene.visual_prompt}. Style: ${style}. No text, no letters, no watermarks. 16:9.`;
-
-      try {
-        const imageUrl = await callImageGeneration(fullPrompt);
-        chapter.scenes[si] = { ...scene, imageUrl };
-      } catch {
-        // Geração de imagem falhou para esta cena; continua sem imagem
-      }
-
-      done++;
-      onProgress?.(done, totalScenes);
-    }
+        if (onProgress) {
+          // Mantém o progresso proporcional como no orchestrator
+          onProgress(done, totalScenesToProcess);
+        }
+      })
+    );
   }
 
-  return updatedChapters;
+  return result;
 }
 
 export async function extractAndGenerateVisuals(

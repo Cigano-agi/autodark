@@ -223,7 +223,7 @@ export function usePipelineOrchestrator(
             hub,
             (done, total) => update({ progress: 45 + Math.round((done / total) * 15), message: `Narrando cena ${done}/${total}...` }),
           ),
-          120000,
+          300000,
           "Síntese de Áudio"
         );
       }, { provider: hub.voice });

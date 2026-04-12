@@ -47,28 +47,36 @@ export async function callKieImage(prompt: string): Promise<string> {
 }
 
 export async function callAI33Image(prompt: string): Promise<string> {
-  const { data, error } = await supabase.functions.invoke("generate-image", {
-    body: { prompt }
-  });
-  if (error) throw error;
-  if (!data?.url) throw new Error("AI33: no image URL returned");
-  return data.url as string;
+  const maxRetries = 3;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: { prompt }
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error(data?.error || "AI33: no image URL returned");
+      return data.url as string;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < maxRetries) {
+        console.warn(`[callAI33Image] Falha na tentativa ${attempt}/${maxRetries} (${msg}). Refazendo em ${attempt * 3}s...`);
+        await new Promise(r => setTimeout(r, attempt * 3000));
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw new Error("AI33: failed after retries");
 }
 
 export async function callImageGeneration(prompt: string): Promise<string> {
-  // 1. Kie.ai (best quality)
-  try {
-    return await callKieImage(prompt);
-  } catch (e) {
-    console.warn("[autodark] Kie.ai failed:", e instanceof Error ? e.message : e);
-  }
-  // 2. AI33 DALL-E 3 (server-side, same chain as b44b45b Cigano commit)
+  // 1. AI33 SeedDream (server-side, task-based)
   try {
     return await callAI33Image(prompt);
   } catch (e) {
     console.warn("[autodark] AI33 image failed:", e instanceof Error ? e.message : e);
   }
-  // 3. Pollinations.ai — free, no API key
+  // 2. Pollinations.ai — free, no API key needed
   return callPollinationsImage(prompt);
 }
 
@@ -225,6 +233,7 @@ export async function callTTS(text: string, _voice: string, voiceId: string): Pr
     body: {
       text: text.trim(),
       voice_id: voiceId,
+      provider: _voice,
     },
   });
 

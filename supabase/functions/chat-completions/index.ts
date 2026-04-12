@@ -1,16 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
-const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
-if (!AI33_API_KEY && !OPENROUTER_API_KEY) {
-    throw new Error("Nenhuma API key configurada (AI33_API_KEY ou OPENROUTER_API_KEY)");
-}
 
 const AI33_URL = "https://api.ai33.pro/v1/chat/completions";
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -21,19 +14,14 @@ Deno.serve(async (req) => {
     }
 
     try {
-        // Auth guard
-        const authHeader = req.headers.get("Authorization");
-        const token = authHeader?.replace("Bearer ", "") ?? "";
-        const supabase = createClient(
-            Deno.env.get("SUPABASE_URL") ?? "",
-            Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-            { global: { headers: { Authorization: authHeader! } } }
-        );
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-        if (!user || authError) {
-            return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        // API keys resolved inside handler to avoid startup crashes
+        const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
+        const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+
+        if (!AI33_API_KEY && !OPENROUTER_API_KEY) {
+            return new Response(JSON.stringify({ error: "Nenhuma API key configurada." }), {
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
-                status: 401,
+                status: 500,
             });
         }
 

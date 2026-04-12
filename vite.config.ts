@@ -24,6 +24,12 @@ export default defineConfig(({ mode }) => ({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api-pollinations/, ''),
         configure: (proxy) => {
+          // Strip auth headers so Pollinations treats the request as anonymous.
+          // The legacy endpoint blocks any request that looks authenticated.
+          proxy.on('proxyReq', (proxyReq) => {
+            proxyReq.removeHeader('authorization');
+            proxyReq.removeHeader('cookie');
+          });
           proxy.on('proxyRes', (proxyRes) => {
             proxyRes.headers['cross-origin-resource-policy'] = 'cross-origin';
           });

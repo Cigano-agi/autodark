@@ -936,7 +936,8 @@ export default function MediaHub() {
                           </Select>
                           <Button
                             size="sm"
-                            className="w-full text-xs bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 gap-1.5"
+                            variant="outline"
+                            className="w-full text-xs bg-primary/20 text-white border border-primary/30 hover:bg-primary/30 gap-1.5"
                             onClick={() => confirmVoiceDefault(provider)}
                           >
                             <CheckCircle2 className="w-3 h-3" />
@@ -950,10 +951,10 @@ export default function MediaHub() {
                           {provider.available ? (
                             <Button
                               size="sm"
-                              variant={isDefault ? "default" : "outline"}
+                              variant="outline"
                               className={`w-full text-xs gap-1.5 ${
                                 isDefault
-                                  ? "bg-primary/20 text-primary border-primary/30 hover:bg-primary/30"
+                                  ? "bg-primary/20 text-white border-primary/30 hover:bg-primary/30"
                                   : "border-white/10 text-muted-foreground hover:text-white"
                               }`}
                               onClick={() => handleSetVoiceDefault(provider)}
@@ -1133,10 +1134,10 @@ export default function MediaHub() {
                       {provider.available ? (
                         <Button
                           size="sm"
-                          variant={isDefault ? "default" : "outline"}
+                          variant="outline"
                           className={`w-full text-xs gap-1.5 ${
                             isDefault
-                              ? "bg-purple-500/20 text-purple-400 border-purple-500/30 hover:bg-purple-500/30"
+                              ? "bg-purple-500/20 !text-purple-300 border-purple-500/30 hover:bg-purple-500/30"
                               : "border-white/10 text-muted-foreground hover:text-white"
                           }`}
                           onClick={() =>
@@ -1281,7 +1282,7 @@ function ImageProviderCard({
         {provider.available ? (
           <Button
             size="sm"
-            variant={isDefault ? "default" : "outline"}
+            variant="outline"
             className={`w-full text-xs gap-1.5 ${
               isDefault
                 ? accent.button
