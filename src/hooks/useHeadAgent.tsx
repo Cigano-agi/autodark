@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { HeadAgentData } from '@/types/headAgent';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -29,7 +31,7 @@ export function useHeadAgent() {
             toast.success('Estratégia gerada com sucesso!');
             return data;
         } catch (error) {
-            console.error('Error generating strategy:', error);
+            toast.error(getFriendlyErrorMessage(error, "ao atualizar Head Agent"));
             toast.error('Falha ao gerar estratégia. Tente novamente.');
             return null;
         } finally {

@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Shared LLM and image generation helpers.
- * Calls Supabase Edge Functions with multi-layer fallback.
+ * Calls Supabase Edge Functions instead of direct APIs to keep keys secure server-side.
  */
 
 export async function callClaude(systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> {
@@ -10,111 +10,274 @@ export async function callClaude(systemPrompt: string, userPrompt: string, requi
     const { data, error } = await supabase.functions.invoke("chat-completions", {
       body: { systemPrompt, userPrompt, requireJson, temperature: 0.7 }
     });
-    if (!error && data?.content) return data.content;
-  } catch {
-    // Edge Function indisponível, tentando fallback
+    if (error) throw error;
+    return data.content || "";
+  } catch (err: unknown) {
+    console.error("[autodark] callClaude failed:", err);
+    throw err;
   }
+}
 
-  try {
-    const fullPrompt = `${systemPrompt}\n\nUser Request: ${userPrompt}\n\nIMPORTANT: Return ONLY the raw content or valid JSON as requested. No talk.`;
-    const res = await fetch(`https://text.pollinations.ai/${encodeURIComponent(fullPrompt)}?model=openai&json=${requireJson}`);
-    if (res.ok) {
-      const text = await res.text();
-      return text;
-    }
-  } catch (e) {
-    console.error("[autodark] Pollinations.ai indisponível:", e);
+export async function callOpenRouter(systemPrompt: string, userPrompt: string, requireJson = false): Promise<string> {
+  // Edge Function chat-completions should handle fallbacks
+  return callClaude(systemPrompt, userPrompt, requireJson);
+}
+
+export async function callKieImage(prompt: string): Promise<string> {
+  const { data: submitData, error: submitError } = await supabase.functions.invoke("generate-kie-flow", {
+    body: { action: "generate", prompt, aspectRatio: "16:9" }
+  });
+  if (submitError) throw submitError;
+  const taskId = submitData?.taskId;
+  if (!taskId) throw new Error("Kie.ai: no taskId returned from edge function");
+
+  const start = Date.now();
+  while (Date.now() - start < 200_000) {
+    await new Promise(r => setTimeout(r, 5_000));
+    const { data: pollData, error: pollError } = await supabase.functions.invoke("generate-kie-flow", {
+      body: { action: "poll", taskId }
+    });
+    if (pollError) continue;
+    const result = pollData?.data;
+    if (!result) continue;
+    if (result.successFlag === 1 && result.response?.resultImageUrl) return result.response.resultImageUrl;
+    if (result.errorCode) throw new Error(`Kie.ai failed: ${result.errorMessage || result.errorCode}`);
   }
+  throw new Error("Kie.ai: timeout");
+}
 
-  throw new Error("Todos os provedores de IA falharam. Verifique a conectividade.");
+export async function callAI33Image(prompt: string): Promise<string> {
+  const { data, error } = await supabase.functions.invoke("generate-image", {
+    body: { prompt }
+  });
+  if (error) throw error;
+  if (!data?.url) throw new Error("AI33: no image URL returned");
+  return data.url as string;
 }
 
 export async function callImageGeneration(prompt: string): Promise<string> {
+  // 1. Kie.ai (best quality)
   try {
-    const { data: submitData, error: submitError } = await supabase.functions.invoke("generate-kie-flow", {
-      body: { action: "generate", prompt, aspectRatio: "16:9" }
-    });
-    if (!submitError && submitData?.taskId) {
-      const taskId = submitData.taskId;
-      const start = Date.now();
-      while (Date.now() - start < 150_000) {
-        await new Promise(r => setTimeout(r, 5000));
-        const { data: pollData } = await supabase.functions.invoke("generate-kie-flow", {
-          body: { action: "poll", taskId }
-        });
-        const result = pollData?.data;
-        if (result?.successFlag === 1 && result.response?.resultImageUrl) return result.response.resultImageUrl;
-        if (result?.errorCode) break;
+    return await callKieImage(prompt);
+  } catch (e) {
+    console.warn("[autodark] Kie.ai failed:", e instanceof Error ? e.message : e);
+  }
+  // 2. AI33 DALL-E 3 (server-side, same chain as b44b45b Cigano commit)
+  try {
+    return await callAI33Image(prompt);
+  } catch (e) {
+    console.warn("[autodark] AI33 image failed:", e instanceof Error ? e.message : e);
+  }
+  // 3. Pollinations.ai — free, no API key
+  return callPollinationsImage(prompt);
+}
+
+export async function callUnsplashImage(keywords: string): Promise<string> {
+  // Picsum.photos — ultra-confiável, sem auth, seed único por cena = imagem diferente sempre
+  const seed = Math.floor(Math.random() * 9999) + 1;
+  const url = `https://picsum.photos/seed/${seed}/1280/720`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+  if (!res.ok) throw new Error(`Picsum ${res.status}`);
+  const blob = await res.blob();
+  if (blob.size < 5000) throw new Error("Picsum retornou blob vazio");
+  return URL.createObjectURL(blob);
+}
+
+export async function callPollinationsImage(prompt: string): Promise<string> {
+  const encoded = encodeURIComponent(prompt.slice(0, 400));
+  const seed = Math.floor(Math.random() * 999999);
+  // Use Vercel proxy /api-pollinations → image.pollinations.ai
+  const url = `/api-pollinations/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&model=flux`;
+
+  // Tenta até 3 vezes com backoff generoso (imagens AI demoram)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+      if (res.ok) {
+        const blob = await res.blob();
+        // Return a persistent object URL — caller should persist the HTTP URL if needed
+        if (blob.size > 1000) {
+          // Construct the absolute URL so it can be stored without blob lifecycle issues
+          const absUrl = `${window.location.origin}${url}`;
+          return absUrl;
+        }
+      }
+      if (res.status === 429 && attempt < 3) {
+        await new Promise(r => setTimeout(r, 3000 * attempt));
+        continue;
+      }
+    } catch {
+      if (attempt < 3) {
+        await new Promise(r => setTimeout(r, 2000 * attempt));
+        continue;
       }
     }
-  } catch {
-    // Kie.ai indisponível, tentando fallback
   }
-
-  try {
-    const seed = Math.floor(Math.random() * 999999);
-    const encoded = encodeURIComponent(prompt.slice(0, 400));
-    const url = `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const blob = await res.blob();
-      return URL.createObjectURL(blob);
-    }
-  } catch (e) {
-    console.error("[autodark] Pollinations (imagem) indisponível:", e);
-  }
-
+  // Fallback: gera imagem dark cinematográfica via Canvas (100% offline)
   return generateCanvasDarkImage(prompt);
 }
 
+/** Gera background dark cinematográfico via Canvas — sem API, sempre funciona */
 function generateCanvasDarkImage(prompt: string): string {
+  const W = 1280, H = 720;
   const canvas = document.createElement('canvas');
-  canvas.width = 1280; canvas.height = 720;
+  canvas.width = W;
+  canvas.height = H;
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#050508'; ctx.fillRect(0, 0, 1280, 720);
-  ctx.fillStyle = '#ff8c00'; ctx.font = 'bold 32px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText("AutoDark Engine", 640, 300);
-  ctx.fillStyle = '#ffffff'; ctx.font = '20px sans-serif';
-  ctx.fillText(prompt.slice(0, 60) + "...", 640, 380);
-  return canvas.toDataURL('image/jpeg');
-}
 
-export async function callTTS(text: string, voice: string = "ai33", voiceId: string = "onyx"): Promise<{ blob: Blob; durationSec: number }> {
-  try {
-    const { data, error } = await supabase.functions.invoke("youtube-generate-audio", {
-      body: { text, voice: voiceId, provider: voice === "google" ? "google" : "ai33" }
-    });
-    if (!error && data) {
-      const blob = data instanceof Blob ? data : new Blob([data], { type: "audio/mpeg" });
-      const durationSec = await getAudioDuration(blob);
-      return { blob, durationSec };
-    }
-  } catch {
-    // TTS Edge indisponível, usando estimativa de duração por caracteres
+  // Paleta baseada em keywords do prompt
+  const isBlood = /blood|gore|kill|murder|death/i.test(prompt);
+  const isMystery = /mystery|secret|unknown|ancient|forbidden/i.test(prompt);
+  const isHaunted = /ghost|haunted|spirit|phantom|mansion|aband/i.test(prompt);
+
+  const c1 = isBlood ? '#1a0000' : isMystery ? '#00001a' : '#050508';
+  const c2 = isBlood ? '#3d0000' : isMystery ? '#0a0030' : '#0d0d15';
+  const accent = isBlood ? '#8b0000' : isMystery ? '#1a006b' : isHaunted ? '#1a1a3e' : '#111122';
+
+  // Fundo gradiente
+  const grad = ctx.createRadialGradient(W * 0.5, H * 0.4, 0, W * 0.5, H * 0.4, W * 0.75);
+  grad.addColorStop(0, accent);
+  grad.addColorStop(0.6, c2);
+  grad.addColorStop(1, c1);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Vinheta pesada nas bordas
+  const vignette = ctx.createRadialGradient(W / 2, H / 2, H * 0.2, W / 2, H / 2, W * 0.8);
+  vignette.addColorStop(0, 'rgba(0,0,0,0)');
+  vignette.addColorStop(1, 'rgba(0,0,0,0.85)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, W, H);
+
+  // Partículas/estrelas atmosféricas
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  for (let i = 0; i < 80; i++) {
+    const x = Math.random() * W;
+    const y = Math.random() * H * 0.7;
+    const r = Math.random() * 1.2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  return { blob: new Blob(), durationSec: Math.ceil(text.length / 15) };
+  // Barras cinematográficas (letterbox)
+  ctx.fillStyle = 'rgba(0,0,0,0.9)';
+  ctx.fillRect(0, 0, W, 60);
+  ctx.fillRect(0, H - 60, W, 60);
+
+  // Texto do prompt (limitado, estilo legenda)
+  const shortText = prompt.replace(/Style:.*$/i, '').trim().slice(0, 80);
+  ctx.font = 'italic 18px Georgia, serif';
+  ctx.fillStyle = 'rgba(200,180,150,0.7)';
+  ctx.textAlign = 'center';
+  ctx.fillText(shortText, W / 2, H - 25);
+
+  return canvas.toDataURL('image/jpeg', 0.85);
 }
 
-async function getAudioDuration(blob: Blob): Promise<number> {
-  return new Promise((resolve) => {
-    const audio = new Audio(URL.createObjectURL(blob));
-    audio.addEventListener("loadedmetadata", () => resolve(audio.duration || 5));
-    setTimeout(() => resolve(5), 2000);
-  });
-}
+export function extractJson(text: string): Record<string, unknown> {
+  // Tenta encontrar JSON dentro do texto
+  let match = text.match(/\{[\s\S]*\}/);
 
-export function extractJson(text: string): Record<string, any> {
+  if (!match) {
+    console.error("[extractJson] JSON não encontrado no texto:", text.substring(0, 200));
+    throw new Error("JSON não encontrado na resposta");
+  }
+
+  // Tenta parsear o JSON encontrado
   try {
-    const match = text.match(/\{[\s\S]*\}/);
-    if (!match) return JSON.parse(text);
     return JSON.parse(match[0]);
   } catch (e) {
-    console.error("[autodark] Falha ao parsear JSON:", text.slice(0, 200));
-    throw e;
+    // Se falhar, tenta remover caracteres inválidos no final
+    let jsonStr = match[0];
+
+    // Remove caracteres problemáticos no final (como ``` ou ```json)
+    jsonStr = jsonStr.replace(/```[\s\S]*$/, "").trim();
+
+    // Tenta novamente
+    try {
+      return JSON.parse(jsonStr);
+    } catch (e2) {
+      console.error("[extractJson] Falha ao parsear JSON:", jsonStr.substring(0, 200));
+      throw new Error(`JSON inválido: ${(e as Error).message}`);
+    }
   }
 }
 
 export function stripMarkdown(text: string): string {
-  return text.replace(/^#{1,6}\s+/gm, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1").trim();
+  return text.replace(/^#{1,6}\s+/gm, "").replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1")
+    .replace(/~~(.+?)~~/g, "$1").replace(/`(.+?)`/g, "$1").replace(/^[-*_]{3,}\s*$/gm, "")
+    .replace(/^[-*+]\s+/gm, "").replace(/^\d+\.\s+/gm, "").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\n{3,}/g, "\n\n").trim();
+}
+
+/**
+ * ElevenLabs TTS via youtube-generate-audio Edge Function
+ * Retorna audio_url (CDN permanente) ao invés de blob
+ */
+export async function callTTS(text: string, _voice: string, voiceId: string): Promise<{ audioUrl: string; durationSec: number }> {
+  // browser mode — usa estimativa
+  if (_voice === "browser") {
+    return { audioUrl: "", durationSec: Math.ceil(text.length / 15) };
+  }
+
+  const session = await supabase.auth.getSession();
+  const token = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-generate-audio`;
+
+  const payload = {
+    text: text.trim(),
+    voice_id: voiceId,
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!res.ok) {
+    let errMsg = `TTS Error (${res.status})`;
+    try {
+      const errBody = await res.json();
+      if (errBody.error) errMsg = errBody.error;
+    } catch {
+      errMsg = await res.text();
+    }
+    throw new Error(errMsg);
+  }
+
+  const jsonBody = await res.json();
+  if (!jsonBody.audio_url) {
+    throw new Error(jsonBody.error || "Edge Function não retornou audio_url");
+  }
+
+  // Estima duração baseado no texto (fallback se não conseguir fazer HEAD request)
+  const durationSec = await estimateAudioDuration(jsonBody.audio_url) || Math.ceil(text.length / 15);
+
+  return { audioUrl: jsonBody.audio_url, durationSec };
+}
+
+/**
+ * Estima duração do áudio baseado na URL
+ * Para URLs CDN, tenta fazer um HEAD request para obter Content-Length
+ * Se falhar, retorna null (fallback no caller)
+ */
+async function estimateAudioDuration(audioUrl: string): Promise<number | null> {
+  try {
+    const res = await fetch(audioUrl, { method: "HEAD" });
+    const contentLength = parseInt(res.headers.get("Content-Length") || "0", 10);
+    // Estimativa: MP3 a 128kbps = 128000 bits/sec = 16000 bytes/sec
+    // duração (sec) = bytes / 16000
+    if (contentLength > 0) {
+      return Math.ceil(contentLength / 16000);
+    }
+  } catch (err) {
+    // HEAD request falhou (CORS ou outro erro) — fallback será usado
+    console.warn("[estimateAudioDuration] HEAD request failed:", err);
+  }
+  return null;
 }

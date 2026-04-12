@@ -1,140 +1,44 @@
-/**
- * TTS via Web Speech API (browser nativo, gratuito, zero dependência).
- * Fallback: Google Translate TTS endpoint (sem API key).
- */
+import { TTSRequest, TTSResponse } from "@/types/tts";
 
 /**
- * Captura speechSynthesis em um blob de áudio usando AudioContext + MediaRecorder.
- * Retorna um blob URL usável como <Audio src={...}> no Remotion.
+ * ElevenLabs TTS via Edge Function youtube-generate-audio
+ * Retorna uma URL permanente (CDN ou data URL)
  */
-export async function generateTTSAudio(text: string): Promise<string> {
-  // 1. StreamElements TTS — gratuito, sem key, voz pt-BR "Vitoria" (Amazon Polly)
+export async function generateTTSAudio(text: string, voiceId: string): Promise<string> {
+  // Valida entrada
+  if (!text || !text.trim()) {
+    throw new Error("Texto não pode ser vazio");
+  }
+  if (!voiceId || !voiceId.trim()) {
+    throw new Error("voice_id é obrigatório");
+  }
+
   try {
-    return await fetchStreamElementsTTS(text);
-  } catch (err) {
-    console.warn("[tts] StreamElements falhou:", err);
-  }
+    // Chama Edge Function ElevenLabs
+    const payload: TTSRequest = { text: text.trim(), voice_id: voiceId };
+    const res = await fetch("/.netlify/functions/youtube-generate-audio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
 
-  // 2. Google Translate TTS via proxy Vite
-  try {
-    return await fetchGoogleTTS(text);
-  } catch (err) {
-    console.warn("[tts] Google TTS falhou:", err);
-  }
-
-  // 3. Sem áudio — timing vem do durationSec, narração via Web Speech overlay
-  return "";
-}
-
-/** StreamElements TTS — gratuito, sem auth, voz Vitoria (pt-BR) */
-async function fetchStreamElementsTTS(text: string): Promise<string> {
-  const chunks = splitIntoChunks(text, 200);
-  const blobs: Blob[] = [];
-
-  for (const chunk of chunks) {
-    const encoded = encodeURIComponent(chunk);
-    // Vitoria = pt-BR (Amazon Polly), Filipa = pt-PT
-    const isDevMode = ["localhost", "127.0.0.1"].includes(window.location.hostname);
-    const base = isDevMode ? `/api-streamelements` : `https://api.streamelements.com`;
-    const url = `${base}/kappa/v2/speech?voice=Vitoria&text=${encoded}`;
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-    if (!res.ok) throw new Error(`StreamElements TTS ${res.status}`);
-    const blob = await res.blob();
-    if (blob.size < 500) throw new Error("StreamElements retornou blob vazio");
-    blobs.push(blob);
-  }
-
-  const merged = new Blob(blobs, { type: "audio/mpeg" });
-  return URL.createObjectURL(merged);
-}
-
-async function captureWebSpeechAudio(text: string): Promise<string> {
-  const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-  const audioCtx = new AudioCtx();
-  const dest = audioCtx.createMediaStreamDestination();
-
-  // MediaRecorder captura o stream de saída do contexto de áudio
-  const recorder = new MediaRecorder(dest.stream, { mimeType: getSupportedMimeType() });
-  const chunks: BlobPart[] = [];
-
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
-  };
-
-  return new Promise<string>((resolve, reject) => {
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = "pt-BR";
-    utter.rate = 0.95;
-    utter.pitch = 1.0;
-
-    // Seleciona voz pt-BR se disponível
-    const voices = window.speechSynthesis.getVoices();
-    const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
-    if (ptVoice) utter.voice = ptVoice;
-
-    utter.onstart = () => recorder.start(100);
-
-    utter.onend = () => {
-      recorder.stop();
-      audioCtx.close();
-    };
-
-    utter.onerror = (e) => {
-      audioCtx.close();
-      reject(new Error(`SpeechSynthesis error: ${e.error}`));
-    };
-
-    recorder.onstop = () => {
-      const blob = new Blob(chunks, { type: recorder.mimeType });
-      if (blob.size < 100) {
-        // Blob vazio — captura falhou (browser não roteia audio do speechSynthesis para AudioContext)
-        reject(new Error("Blob de áudio vazio — fallback necessário"));
-        return;
-      }
-      resolve(URL.createObjectURL(blob));
-    };
-
-    window.speechSynthesis.speak(utter);
-  });
-}
-
-/**
- * Google Translate TTS — sem autenticação, CORS ok via proxy no dev.
- * Produção: requisição direta funciona como redirect para CDN do Google.
- */
-async function fetchGoogleTTS(text: string): Promise<string> {
-  // Divide texto longo em chunks de 200 chars (limite da API)
-  const chunks = splitIntoChunks(text, 200);
-  const blobs: Blob[] = [];
-
-  for (const chunk of chunks) {
-    const encoded = encodeURIComponent(chunk);
-    const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encoded}&tl=pt&client=tw-ob`;
-    const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!res.ok) throw new Error(`Google TTS falhou: ${res.status}`);
-    blobs.push(await res.blob());
-  }
-
-  const merged = new Blob(blobs, { type: "audio/mpeg" });
-  return URL.createObjectURL(merged);
-}
-
-function splitIntoChunks(text: string, maxLen: number): string[] {
-  const words = text.split(" ");
-  const chunks: string[] = [];
-  let current = "";
-
-  for (const word of words) {
-    if ((current + " " + word).trim().length > maxLen) {
-      if (current) chunks.push(current.trim());
-      current = word;
-    } else {
-      current = (current + " " + word).trim();
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || `Falha na geração de áudio: ${res.status}`);
     }
+
+    const data = (await res.json()) as TTSResponse;
+    if (!data.audio_url) {
+      throw new Error("Edge Function não retornou audio_url");
+    }
+
+    return data.audio_url;
+  } catch (err) {
+    console.error("[tts] ElevenLabs falhou:", err);
+    throw err;
   }
-  if (current) chunks.push(current.trim());
-  return chunks;
 }
+
 
 /** Gera WAV silencioso com duração exata — garante sincronismo de slides no Remotion */
 export function generateSilentAudio(durationSec: number): string {
@@ -151,11 +55,6 @@ export function generateSilentAudio(durationSec: number): string {
   write(36, 'data'); v.setUint32(40, numSamples * 2, true);
   // bytes 44+ são zeros = silêncio
   return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
-}
-
-function getSupportedMimeType(): string {
-  const types = ["audio/webm;codecs=opus", "audio/webm", "audio/ogg;codecs=opus", "audio/ogg"];
-  return types.find((t) => MediaRecorder.isTypeSupported(t)) ?? "audio/webm";
 }
 
 /**

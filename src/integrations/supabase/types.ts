@@ -106,12 +106,14 @@ export type Database = {
           handle: string
           id: string
           last_video: string | null
+          last_video_date: string | null
           name: string
           niche: string | null
           subscribers: number | null
           tracking: boolean | null
           updated_at: string | null
           upload_frequency: string | null
+          youtube_channel_id: string | null
           youtube_url: string | null
         }
         Insert: {
@@ -122,12 +124,14 @@ export type Database = {
           handle: string
           id?: string
           last_video?: string | null
+          last_video_date?: string | null
           name: string
           niche?: string | null
           subscribers?: number | null
           tracking?: boolean | null
           updated_at?: string | null
           upload_frequency?: string | null
+          youtube_channel_id?: string | null
           youtube_url?: string | null
         }
         Update: {
@@ -138,12 +142,14 @@ export type Database = {
           handle?: string
           id?: string
           last_video?: string | null
+          last_video_date?: string | null
           name?: string
           niche?: string | null
           subscribers?: number | null
           tracking?: boolean | null
           updated_at?: string | null
           upload_frequency?: string | null
+          youtube_channel_id?: string | null
           youtube_url?: string | null
         }
         Relationships: [

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -52,7 +53,7 @@ export function useContentIdeas(channelId: string | undefined) {
             toast.success('Ideia atualizada!');
         },
         onError: (error) => {
-            toast.error('Erro ao atualizar ideia: ' + error.message);
+            toast.error(getFriendlyErrorMessage(error, "ao atualizar ideia"));
         },
     });
 
@@ -70,7 +71,7 @@ export function useContentIdeas(channelId: string | undefined) {
             toast.success('Ideia removida.');
         },
         onError: (error) => {
-            toast.error('Erro ao remover ideia: ' + error.message);
+            toast.error(getFriendlyErrorMessage(error, "ao remover ideia"));
         },
     });
 

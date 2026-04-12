@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 
 interface ScrapeResult {
   success: boolean;
@@ -47,7 +48,7 @@ export function useYouTubeMetrics() {
       toast.success(`YouTube conectado! ${data.data?.channel_name}: ${data.data?.subscribers.toLocaleString()} inscritos, ${data.data?.videos_imported} vídeos importados`);
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao conectar YouTube: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao obter métricas do YouTube"));
     },
   });
 

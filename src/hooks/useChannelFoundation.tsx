@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { toast } from "sonner";
 
 export interface VisualSignature {
@@ -142,7 +143,7 @@ export function useSaveFoundation() {
       qc.invalidateQueries({ queryKey: ["channel_foundation", vars.channel_id] });
       toast.success("Fundação salva.");
     },
-    onError: (e: Error) => toast.error(`Erro ao salvar: ${e.message}`),
+    onError: (error: Error) => toast.error(getFriendlyErrorMessage(error, "ao salvar as fundações do canal")),
   });
 }
 

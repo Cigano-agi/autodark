@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -107,7 +108,7 @@ export function useContents(channelId: string | undefined) {
       toast.success('Conteúdo criado! Novo vídeo adicionado à lista.');
     },
     onError: (error) => {
-      toast.error(`Erro ao criar conteúdo: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao criar conteúdo"));
     },
   });
 
@@ -127,7 +128,7 @@ export function useContents(channelId: string | undefined) {
       queryClient.invalidateQueries({ queryKey: ['contents', channelId] });
     },
     onError: (error) => {
-      toast.error(`Erro ao atualizar conteúdo: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao atualizar conteúdo"));
     },
   });
 
@@ -145,7 +146,7 @@ export function useContents(channelId: string | undefined) {
       toast.success('Conteúdo removido. O vídeo foi excluído da lista.');
     },
     onError: (error) => {
-      toast.error(`Erro ao excluir conteúdo: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao excluir conteúdo"));
     },
   });
 

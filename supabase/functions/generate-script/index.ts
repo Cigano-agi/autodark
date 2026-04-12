@@ -1,3 +1,4 @@
+// @ts-nocheck
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.39.3";
 
@@ -6,7 +7,7 @@ const corsHeaders = {
     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
     if (req.method === "OPTIONS") {
         return new Response("ok", { headers: corsHeaders });
     }
@@ -85,59 +86,86 @@ FORMATO DE SAÍDA (JSON PURO):
         const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
         const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
-        const callAI = async (provider: "AI33" | "OpenRouter") => {
-            const key = provider === "AI33" ? AI33_API_KEY : OPENROUTER_API_KEY;
-            const url = provider === "AI33" 
-                ? "https://api.ai33.pro/v1/chat/completions" 
-                : "https://openrouter.ai/api/v1/chat/completions";
-            const model = provider === "AI33" ? "gpt-4o-mini" : "google/gemini-2.0-flash-exp:free";
+        const messages = [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: `Gere o roteiro para o vídeo sobre: ${content.topic || content.title}` }
+        ];
 
-            if (!key) throw new Error(`${provider} API key not found`);
+        const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-            const res = await fetch(url, {
+        const callOpenRouterModel = async (model: string) => {
+            if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not found");
+            const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${key}`,
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    model,
-                    messages: [
-                        { role: "system", content: systemPrompt },
-                        { role: "user", content: `Gere o roteiro para o vídeo sobre: ${content.topic || content.title}` }
-                    ],
-                    temperature: 0.7,
-                    response_format: { type: "json_object" },
-                }),
+                headers: { "Authorization": `Bearer ${OPENROUTER_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ model, messages, temperature: 0.7, response_format: { type: "json_object" } }),
             });
-
             if (!res.ok) {
-                const err = await res.text();
-                throw new Error(`${provider} failed (${res.status}): ${err.slice(0, 100)}`);
+                const errText = await res.text();
+                let reason = errText.slice(0, 200);
+                try { const p = JSON.parse(errText); reason = p.error?.message || p.message || reason; } catch (_) {}
+                if (res.status === 401) throw new Error(`OpenRouter: credenciais inválidas (401). ${reason}`);
+                if (res.status === 429) throw Object.assign(new Error(`OpenRouter: rate limit (429). ${reason}`), { isRateLimit: true });
+                throw new Error(`OpenRouter recusou (${res.status}). ${reason}`);
             }
-
             return await res.json();
+        };
+
+        const callAI33 = async () => {
+            if (!AI33_API_KEY) throw new Error("AI33 API key not found");
+            const res = await fetch("https://api.ai33.pro/v1/chat/completions", {
+                method: "POST",
+                headers: { "Authorization": `Bearer ${AI33_API_KEY}`, "Content-Type": "application/json" },
+                body: JSON.stringify({ model: "gpt-4o-mini", messages, temperature: 0.7, response_format: { type: "json_object" } }),
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                let reason = errText.slice(0, 200);
+                try { const p = JSON.parse(errText); reason = p.error?.message || p.message || reason; } catch (_) {}
+                throw new Error(`AI33 falhou (${res.status}). ${reason}`);
+            }
+            return await res.json();
+        };
+
+        const callOpenRouterWithFallback = async () => {
+            const MODELS = [
+                "meta-llama/llama-3.3-70b-instruct",
+                "mistralai/mistral-7b-instruct:free",
+            ];
+            for (const model of MODELS) {
+                try {
+                    return await callOpenRouterModel(model);
+                } catch (e: any) {
+                    if (e.isRateLimit) {
+                        console.warn(`Rate limit em ${model}, aguardando 4s e tentando próximo modelo...`);
+                        await sleep(4000);
+                        continue;
+                    }
+                    throw e;
+                }
+            }
+            throw new Error("Todos os modelos OpenRouter atingiram o rate limit. Tente novamente em alguns minutos.");
         };
 
         let aiData;
         try {
             if (AI33_API_KEY) {
                 try {
-                    aiData = await callAI("AI33");
-                } catch (e) {
-                    console.warn(`AI33 failed: ${e.message}. Falling back to OpenRouter.`);
+                    aiData = await callAI33();
+                } catch (e: any) {
+                    console.warn(`AI33 falhou: ${e.message}. Usando OpenRouter.`);
                     if (OPENROUTER_API_KEY) {
-                        aiData = await callAI("OpenRouter");
+                        aiData = await callOpenRouterWithFallback();
                     } else {
                         throw e;
                     }
                 }
             } else if (OPENROUTER_API_KEY) {
-                aiData = await callAI("OpenRouter");
+                aiData = await callOpenRouterWithFallback();
             } else {
-                throw new Error("No AI keys found");
+                throw new Error("Nenhuma chave de API configurada (AI33_API_KEY ou OPENROUTER_API_KEY).");
             }
-        } catch (e) {
+        } catch (e: any) {
             throw new Error(`AI generation failed: ${e.message}`);
         }
 

@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { getFriendlyErrorMessage } from "@/utils/errorHandler";
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 
@@ -42,7 +43,9 @@ export function useCompetitors(channelId: string | undefined) {
         avgViews: c.avg_views ?? 0,
         uploadFrequency: c.upload_frequency ?? '?',
         lastVideo: c.last_video ?? 'N/A',
-        lastVideoDate: new Date(c.created_at).toLocaleDateString(),
+        lastVideoDate: c.last_video_date
+          ? new Date(c.last_video_date).toLocaleDateString('pt-BR')
+          : 'Sem dados',
         growth: c.growth || '+0%',
       })) as CompetitorChannel[];
     },
@@ -70,10 +73,20 @@ export function useCompetitors(channelId: string | undefined) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
-      toast.success('Concorrente adicionado!');
+      toast.success('Concorrente adicionado! Buscando dados...');
+      // Auto-sync right after adding (fire and forget)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) return;
+        supabase.functions.invoke('sync-youtube-metrics', {
+          body: { channel_id: channelId, action: 'sync-competitors' },
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['competitors', channelId] });
+        });
+      });
     },
     onError: (error) => {
-      toast.error(`Erro ao adicionar concorrente: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao adicionar concorrente"));
     },
   });
 
@@ -94,7 +107,7 @@ export function useCompetitors(channelId: string | undefined) {
       toast.success(data.tracking ? 'Alertas ativados' : 'Alertas desativados');
     },
     onError: (error) => {
-      toast.error(`Erro ao atualizar alertas: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao atualizar alertas"));
     },
   });
 
@@ -112,7 +125,7 @@ export function useCompetitors(channelId: string | undefined) {
       toast.success('Concorrente removido');
     },
     onError: (error) => {
-      toast.error(`Erro ao remover concorrente: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao remover concorrente"));
     },
   });
 
@@ -120,8 +133,12 @@ export function useCompetitors(channelId: string | undefined) {
     mutationFn: async () => {
       if (!channelId) throw new Error('Channel ID required');
 
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão inválida, faça login novamente');
+
       const response = await supabase.functions.invoke('sync-youtube-metrics', {
         body: { channel_id: channelId, action: 'sync-competitors' },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (response.error) throw new Error(response.error.message);
@@ -132,7 +149,7 @@ export function useCompetitors(channelId: string | undefined) {
       toast.success(`${data?.data?.updated || 0} concorrentes atualizados!`);
     },
     onError: (error: Error) => {
-      toast.error(`Erro ao sincronizar concorrentes: ${error.message}`);
+      toast.error(getFriendlyErrorMessage(error, "ao sincronizar concorrentes"));
     },
   });
 
