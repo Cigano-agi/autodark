@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useChannels, Channel } from '@/hooks/useChannels';
-import { formatNumber, nicheOptions } from '@/lib/mock-data';
+import { formatNumber } from '@/lib/utils';
+import { nicheOptions } from '@/lib/constants';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogFooter,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -26,28 +26,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Loader2, Search, Folder, ShieldAlert, ArrowRight, CheckCircle2, Wand2 } from 'lucide-react';
+import { Plus, Loader2, Folder, ShieldAlert, ArrowRight, CheckCircle2, Wand2, Zap, Sparkles, LayoutDashboard, Search } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Premium Components
-import { BeamsBackground } from "@/components/ui/beams-background";
 
 import { ChannelFolder } from "@/components/ui/channel-folder";
 import { GlobalQueueSection } from "@/components/Dashboard/GlobalQueueSection";
 import { useGlobalQueue } from "@/hooks/useGlobalQueue";
+import { SkeletonList } from "@/components/ui/skeleton-card";
+import { cn } from "@/lib/utils";
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { userName } = useAuth();
+  const { user, userName } = useAuth();
   const { channels, isLoading, createChannel, deleteChannel } = useChannels();
   const { queueItems, channelCounts } = useGlobalQueue();
 
@@ -60,6 +51,9 @@ export default function Dashboard() {
   const [toneOfVoice, setToneOfVoice] = useState('');
   const [targetAudience, setTargetAudience] = useState('');
   const [requiresReview, setRequiresReview] = useState(false);
+
+  // Search state
+  const [searchTerm, setSearchFiltered] = useState('');
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -93,9 +87,6 @@ export default function Dashboard() {
     toast.success('Canal criado com sucesso!');
   };
 
-
-
-  // Re-implementing delete confirmation for safety if needed later
   const handleConfirmDelete = async () => {
     if (!deletingChannel) return;
     await deleteChannel.mutateAsync(deletingChannel.id);
@@ -107,269 +98,321 @@ export default function Dashboard() {
     navigate(`/channel/${channelId}`);
   };
 
+  const filteredChannels = channels?.filter(c => 
+    c.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    c.niche.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <BeamsBackground intensity="medium" className="bg-background">
-      <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
-
-        {/* Hero / Header Section */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-          <div className="space-y-2">
-            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-white">
-              {userName ? `Olá, ${userName.split(' ')[0]}` : 'Seus Canais'}
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-xl">
-              Gerencie seus impérios de conteúdo. Selecione um canal para começar a produzir.
-            </p>
-          </div>
-
-          <Dialog open={createDialogOpen} onOpenChange={(open) => {
-            setCreateDialogOpen(open);
-            if (!open) {
-              setCreateStep(1);
-              setNewChannelName('');
-              setNewChannelNiche('');
-              setIsCustomNiche(false);
-              setToneOfVoice('');
-              setTargetAudience('');
-              setRequiresReview(false);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button size="lg" className="rounded-full px-8 shadow-xl shadow-primary/20 hover:shadow-primary/40 transition-all duration-300 relative overflow-hidden group">
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                <Plus className="w-5 h-5 mr-2 relative z-10" />
-                <span className="relative z-10">Novo Canal</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] bg-card border-white/10 shadow-2xl transition-all duration-300">
-              <DialogHeader>
-                <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-                  {createStep === 1 ? '1. Estrutura do Canal' : '2. Cérebro da IA (Opcional)'}
-                </DialogTitle>
-                <DialogDescription>
-                  {createStep === 1
-                    ? 'Inicie sua jornada no YouTube. Configure a base do seu robô produtor.'
-                    : 'Ajuste fino do comportamento do roteirista automático.'}
-                </DialogDescription>
-              </DialogHeader>
-
-              {createStep === 1 && (
-                <div className="space-y-6 mt-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="space-y-2">
-                    <Label htmlFor="channel-name" className="text-white/90">Nome do Canal *</Label>
-                    <Input
-                      id="channel-name"
-                      placeholder="Ex: Curiosidades Terror"
-                      value={newChannelName}
-                      onChange={(e) => setNewChannelName(e.target.value)}
-                      className="bg-background/50 border-white/10 focus:ring-primary/50"
-                    />
-                  </div>
-
-                  <div className="space-y-3">
-                    <Label className="text-white/90">Categoria *</Label>
-                    <div className="flex flex-wrap gap-2">
-                      {nicheOptions.map((niche) => (
-                        <Button
-                          key={niche.value}
-                          type="button"
-                          variant={!isCustomNiche && newChannelNiche === niche.value ? "default" : "outline"}
-                          className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${!isCustomNiche && newChannelNiche === niche.value ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
-                          onClick={() => {
-                            setNewChannelNiche(niche.value);
-                            setIsCustomNiche(false);
-                          }}
-                        >
-                          {niche.label}
-                        </Button>
-                      ))}
-                      <Button
-                        type="button"
-                        variant={isCustomNiche ? "default" : "outline"}
-                        className={`rounded-full text-xs h-8 bg-background/50 border-white/10 border ${isCustomNiche ? 'bg-primary border-primary hover:bg-primary/90' : 'hover:bg-white/5'}`}
-                        onClick={() => {
-                          setNewChannelNiche('');
-                          setIsCustomNiche(true);
-                        }}
-                      >
-                        Outro (Personalizado)
-                      </Button>
-                    </div>
-                    {isCustomNiche && (
-                      <Input
-                        autoFocus
-                        placeholder="Digite a categoria do seu canal..."
-                        value={newChannelNiche}
-                        onChange={(e) => setNewChannelNiche(e.target.value)}
-                        className="mt-3 bg-background/50 border-white/10 focus:ring-primary/50"
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {createStep === 2 && (
-                <div className="space-y-4 mt-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                  <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg flex items-start gap-3">
-                    <div className="p-2 bg-primary/20 rounded-full mt-0.5">
-                      <Wand2 className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold text-primary">Predefinição Recomendada (Status Quo)</h4>
-                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">A IA já possui um perfil vencedor treinado para retenção. Você pode clicar em <strong>Criar Canal</strong> diretamente para usar as configs padrões de sucesso ou ajustar os detalhes manuais abaixo.</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 mt-4">
-                    <Label htmlFor="tone-of-voice" className="text-xs text-muted-foreground">Tom de Voz</Label>
-                    <Input
-                      id="tone-of-voice"
-                      placeholder="Ex: Tenebroso, misterioso e objetivo..."
-                      value={toneOfVoice}
-                      onChange={(e) => setToneOfVoice(e.target.value)}
-                      className="bg-background/20 h-9 border-white/5 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="target-audience" className="text-xs text-muted-foreground">Público Alvo / Restrições</Label>
-                    <Input
-                      id="target-audience"
-                      placeholder="Ex: Family friendly, sem mencionar mortes explícitas..."
-                      value={targetAudience}
-                      onChange={(e) => setTargetAudience(e.target.value)}
-                      className="bg-background/20 h-9 border-white/5 text-sm"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                    <div className="flex flex-col gap-1">
-                      <Label className="flex items-center gap-2 text-red-500">
-                        <ShieldAlert className="w-4 h-4" />
-                        Requer Análise Estrita?
-                      </Label>
-                      <span className="text-xs text-muted-foreground">
-                        Evita shadowbans no YT para nichos Dark pesados (Terror, Tragédias).
-                      </span>
-                    </div>
-                    <Switch
-                      checked={requiresReview}
-                      onCheckedChange={setRequiresReview}
-                      className="data-[state=checked]:bg-red-500"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <DialogFooter className="pt-6 flex justify-between w-full sm:justify-between items-center mt-2 border-t border-white/5">
-                {createStep === 2 ? (
-                  <>
-                    <Button variant="ghost" onClick={() => setCreateStep(1)} className="text-muted-foreground hover:text-white">
-                      Voltar
-                    </Button>
-                    <Button
-                      onClick={handleAddChannel}
-                      className="h-10 px-8 bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
-                      disabled={createChannel.isPending}
-                    >
-                      {createChannel.isPending ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="w-4 h-4 mr-2" />
-                      )}
-                      {createChannel.isPending ? 'Criando...' : 'Criar Canal'}
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    onClick={() => {
-                      if (!newChannelName || !newChannelNiche) {
-                        toast.error('Preencha os campos obrigatórios primeiro.');
-                        return;
-                      }
-                      setCreateStep(2);
-                    }}
-                    className="w-full h-11 bg-primary hover:bg-primary/90 shadow-lg"
-                  >
-                    Continuar Configuração <ArrowRight className="w-4 h-4 ml-2" />
-                  </Button>
-                )}
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Global Queue — pending review across all channels */}
-        {!isLoading && queueItems.length > 0 && (
-          <GlobalQueueSection items={queueItems} />
-        )}
-
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="w-10 h-10 animate-spin text-primary" />
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && channels?.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 bg-white/5 rounded-3xl border border-white/5 backdrop-blur-sm">
-            <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mb-6">
-              <Folder className="w-12 h-12 text-white/20" />
+    <div className="pt-32 pb-20 px-6 md:px-12 w-full min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-16 animate-fade-in">
+        
+        {user && !user.email_confirmed_at && (
+          <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-[2.5rem] flex items-center gap-6 animate-pulse relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent pointer-events-none" />
+            <div className="p-4 bg-red-500/20 rounded-2xl relative z-10">
+              <ShieldAlert className="w-7 h-7 text-red-500" />
             </div>
-            <h3 className="text-xl font-medium text-white mb-2">Nenhum canal encontrado</h3>
-            <p className="text-muted-foreground mb-8">Crie seu primeiro canal para começar a automação.</p>
-            <Button onClick={() => setCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20">
-              Criar meu primeiro canal
+            <div className="flex-1 relative z-10">
+              <h4 className="text-base font-black uppercase tracking-[0.2em] text-red-400 italic">E-mail não verificado</h4>
+              <p className="text-sm text-red-300/60 mt-1 font-medium">Verifique seu e-mail para desbloquear a criação de canais e o acesso completo à plataforma.</p>
+            </div>
+            <Button size="sm" variant="outline" className="border-red-500/20 text-red-400 hover:bg-red-500/10 font-black uppercase text-[10px] tracking-[0.2em] h-12 px-6 rounded-xl relative z-10" onClick={() => window.location.reload()}>
+              Verificar
             </Button>
           </div>
         )}
 
-        {/* Channels Grid */}
-        {!isLoading && channels && channels.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {channels.map((channel, index) => {
-              const colors = ['blue', 'purple', 'green', 'red'];
-              const color = colors[index % colors.length];
-              const counts = channelCounts.find(c => c.channel_id === channel.id);
+        {/* Hero / Header Section */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-10">
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 text-primary font-black uppercase tracking-[0.4em] text-[10px] ml-1">
+              <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
+              Rede de Canais · Ativa
+            </div>
+            <h1 className="text-6xl md:text-7xl font-black tracking-tighter text-white uppercase italic leading-[0.9]">
+              {userName ? `Olá,` : 'Dashboard'}<br/>
+              <span className="text-primary">{userName ? userName.split(' ')[0] : ''}</span>
+            </h1>
+            <p className="text-xl text-white/30 font-bold max-w-2xl leading-relaxed italic">
+              Gerencie seus canais, acompanhe a produção e escale sua rede de conteúdo.
+            </p>
+          </div>
 
-              return (
-                <ChannelFolder
-                  key={channel.id}
-                  name={channel.name}
-                  niche={channel.niche}
-                  subscribers={formatNumber(channel.subscribers || 0)}
-                  videoCount={channel.youtube_total_videos || 0}
-                  color={color}
-                  pendingReview={counts?.pending_review}
-                  inProduction={counts?.in_production}
-                  onClick={() => handleChannelClick(channel.id)}
-                />
-              );
-            })}
+          <div className="flex items-center gap-4 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-80 group">
+              <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/20 group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text"
+                placeholder="Buscar canal ou vídeo..."
+                value={searchTerm}
+                onChange={(e) => setSearchFiltered(e.target.value)}
+                className="w-full h-16 bg-black/40 border border-white/5 rounded-2xl pl-12 pr-6 text-xs font-black uppercase tracking-widest focus:border-primary/50 focus:ring-0 transition-all outline-none"
+              />
+            </div>
+
+            <Dialog open={createDialogOpen} onOpenChange={(open) => {
+              setCreateDialogOpen(open);
+              if (!open) {
+                setCreateStep(1);
+                setNewChannelName('');
+                setNewChannelNiche('');
+                setIsCustomNiche(false);
+                setToneOfVoice('');
+                setTargetAudience('');
+                setRequiresReview(false);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button size="lg" className="h-16 rounded-2xl px-10 bg-primary hover:bg-orange-600 text-white shadow-[0_20px_50px_rgba(var(--primary),0.4)] transition-all hover:scale-[1.05] active:scale-[0.95] relative overflow-hidden group border-0 shrink-0">
+                  <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+                  <Plus className="w-6 h-6 mr-3 relative z-10" />
+                  <span className="text-lg font-black uppercase italic tracking-tighter relative z-10">Adicionar Canal</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[650px] bg-[#08080a] border-white/5 shadow-[0_40px_120px_rgba(0,0,0,1)] rounded-[3rem] p-0 overflow-hidden border-t-primary/20">
+                <div className="bg-gradient-to-b from-primary/10 to-transparent p-10 border-b border-white/5">
+                  <DialogHeader>
+                    <DialogTitle className="text-4xl font-black italic tracking-tighter uppercase flex items-center gap-4 text-white leading-none">
+                      <div className="w-12 h-12 rounded-2xl bg-primary flex items-center justify-center shadow-[0_0_30px_rgba(var(--primary),0.5)]">
+                        <Zap className="w-7 h-7 text-white fill-current" />
+                      </div>
+                      {createStep === 1 ? 'Adicionar Canal' : 'Configuração de IA'}
+                    </DialogTitle>
+                    <DialogDescription className="text-white/20 font-black uppercase tracking-[0.3em] text-[9px] pt-3 ml-1">
+                      {createStep === 1
+                        ? 'Preencha as informações básicas do canal.'
+                        : 'Personalize o comportamento da IA para este canal.'}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
+
+                <div className="p-10 space-y-10">
+                  {createStep === 1 && (
+                    <div className="space-y-10 animate-in fade-in slide-in-from-right-8 duration-700">
+                      <div className="space-y-4">
+                        <Label htmlFor="channel-name" className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 ml-1">Nome do Canal</Label>
+                        <Input
+                          id="channel-name"
+                          placeholder="Ex: Curiosidades do Universo..."
+                          value={newChannelName}
+                          onChange={(e) => setNewChannelName(e.target.value)}
+                          className="h-16 bg-black/60 border-white/10 rounded-2xl focus:ring-primary/50 text-xl font-black uppercase tracking-tight p-6 placeholder:opacity-10"
+                        />
+                      </div>
+
+                      <div className="space-y-5">
+                        <Label className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 ml-1">Nicho do Canal</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          {nicheOptions.slice(0, 8).map((niche) => (
+                            <Button
+                              key={niche.value}
+                              type="button"
+                              variant={!isCustomNiche && newChannelNiche === niche.value ? "default" : "outline"}
+                              className={cn(
+                                "h-14 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300",
+                                !isCustomNiche && newChannelNiche === niche.value 
+                                  ? "bg-primary border-0 shadow-lg shadow-primary/30 text-white scale-105" 
+                                  : "bg-white/[0.03] border-white/5 text-white/30 hover:bg-white/10 hover:text-white"
+                              )}
+                              onClick={() => {
+                                setNewChannelNiche(niche.value);
+                                setIsCustomNiche(false);
+                              }}
+                            >
+                              {niche.label.split(' ')[1] || niche.label}
+                            </Button>
+                          ))}
+                          <Button
+                            type="button"
+                            variant={isCustomNiche ? "default" : "outline"}
+                            className={cn(
+                              "h-14 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300",
+                              isCustomNiche 
+                                ? "bg-primary border-0 shadow-lg shadow-primary/30 text-white scale-105" 
+                                : "bg-white/[0.03] border-white/5 text-white/30 hover:bg-white/10 hover:text-white"
+                            )}
+                            onClick={() => {
+                              setNewChannelNiche('');
+                              setIsCustomNiche(true);
+                            }}
+                          >
+                            Outro
+                          </Button>
+                        </div>
+                        {isCustomNiche && (
+                          <Input
+                            autoFocus
+                            placeholder="Digite o nicho personalizado..."
+                            value={newChannelNiche}
+                            onChange={(e) => setNewChannelNiche(e.target.value)}
+                            className="h-14 bg-black/60 border-white/10 rounded-2xl focus:ring-primary/50 font-black uppercase p-6"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {createStep === 2 && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-700">
+                      <div className="p-8 bg-primary/5 border border-primary/20 rounded-[2.5rem] flex items-start gap-6 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent opacity-50" />
+                        <div className="p-4 bg-primary/20 rounded-2xl relative z-10">
+                          <Wand2 className="w-7 h-7 text-primary" />
+                        </div>
+                        <div className="relative z-10">
+                          <h4 className="text-base font-black uppercase tracking-widest text-primary italic">Configuração de IA</h4>
+                          <p className="text-sm text-white/40 mt-2 font-medium leading-relaxed italic">A IA usará os melhores parâmetros de retenção por padrão. Os campos abaixo são opcionais para personalização avançada.</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        <Label htmlFor="tone-of-voice" className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30 ml-1">Tom de Voz</Label>
+                        <Input
+                          id="tone-of-voice"
+                          placeholder="Ex: Informativo, descontraído, direto..."
+                          value={toneOfVoice}
+                          onChange={(e) => setToneOfVoice(e.target.value)}
+                          className="h-16 bg-black/60 border-white/10 rounded-2xl p-6 font-black uppercase tracking-tight focus:ring-primary/50"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center justify-between p-6 bg-red-500/[0.03] border border-red-500/10 rounded-[2rem] group hover:bg-red-500/5 transition-colors">
+                        <div className="flex flex-col gap-1">
+                          <Label className="flex items-center gap-3 text-red-500 font-black uppercase tracking-[0.2em] text-[11px]">
+                            <ShieldAlert className="w-4 h-4 group-hover:animate-pulse" />
+                            Revisão Obrigatória
+                          </Label>
+                          <span className="text-[9px] text-white/20 uppercase font-black tracking-widest mt-1 ml-7">
+                            Exige aprovação manual antes de publicar.
+                          </span>
+                        </div>
+                        <Switch
+                          checked={requiresReview}
+                          onCheckedChange={setRequiresReview}
+                          className="data-[state=checked]:bg-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-10 bg-black/60 border-t border-white/5 flex gap-5">
+                  {createStep === 2 ? (
+                    <>
+                      <Button variant="ghost" onClick={() => setCreateStep(1)} className="flex-1 h-16 rounded-2xl text-white/20 hover:text-white font-black uppercase tracking-widest text-[10px] hover:bg-white/5 transition-all">
+                        Voltar
+                      </Button>
+                      <Button
+                        onClick={handleAddChannel}
+                        className="flex-[2] h-16 rounded-2xl bg-primary hover:bg-orange-600 shadow-[0_15px_40px_rgba(var(--primary),0.4)] font-black uppercase italic tracking-tighter text-xl border-0 transition-all hover:scale-[1.02]"
+                        disabled={createChannel.isPending}
+                      >
+                        {createChannel.isPending ? <Loader2 className="w-6 h-6 animate-spin mr-3" /> : <CheckCircle2 className="w-6 h-6 mr-3" />}
+                        Criar Canal
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      onClick={() => {
+                        if (!newChannelName || !newChannelNiche) {
+                          toast.error('Preencha os campos obrigatórios (Nome e Categoria)');
+                          return;
+                        }
+                        setCreateStep(2);
+                      }}
+                      className="w-full h-16 rounded-2xl bg-primary hover:bg-orange-600 shadow-[0_15px_40px_rgba(var(--primary),0.4)] font-black uppercase italic tracking-tighter text-xl border-0 transition-all hover:scale-[1.02]"
+                    >
+                      Continuar <ArrowRight className="w-6 h-6 ml-3" />
+                    </Button>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        {/* Global Queue */}
+        {!isLoading && queueItems.length > 0 && (
+          <div className="animate-in fade-in slide-in-from-bottom-10 duration-1000">
+            <GlobalQueueSection items={queueItems} />
           </div>
         )}
 
-        {/* Delete Dialog (Future Proofing) */}
+        {/* Channels Grid */}
+        <div className="space-y-8">
+          <div className="flex items-center justify-between border-b border-white/5 pb-6">
+            <h2 className="text-xs font-black uppercase tracking-[0.4em] text-white/20 flex items-center gap-3 italic">
+              <LayoutDashboard className="w-4 h-4" /> Rede de Canais <span className="text-primary font-mono not-italic tracking-normal">[{filteredChannels?.length || 0}]</span>
+            </h2>
+          </div>
+
+          {isLoading ? (
+            <div className="py-12">
+              <SkeletonList count={6} />
+            </div>
+          ) : filteredChannels?.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-40 bg-white/[0.02] rounded-[4rem] border border-white/5 backdrop-blur-md relative overflow-hidden group">
+              <div className="absolute inset-0 bg-grid-white/[0.02] pointer-events-none" />
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-primary/5 rounded-full blur-[120px] group-hover:bg-primary/10 transition-colors duration-1000" />
+              
+              <div className="w-28 h-28 bg-white/5 rounded-[2rem] flex items-center justify-center mb-8 border border-white/5 shadow-inner transition-transform group-hover:scale-110 duration-500">
+                <Folder className="w-12 h-12 text-white/10" />
+              </div>
+              <h3 className="text-3xl font-black text-white uppercase italic tracking-tight mb-3 relative z-10">Nenhum Canal</h3>
+              <p className="text-sm text-white/20 font-black uppercase tracking-[0.3em] mb-12 relative z-10">Crie seu primeiro canal para começar.</p>
+              <Button onClick={() => setCreateDialogOpen(true)} className="h-16 rounded-2xl px-12 bg-primary text-white shadow-[0_20px_50px_rgba(var(--primary),0.3)] font-black uppercase italic tracking-tighter border-0 relative z-10 hover:scale-[1.05] transition-all">
+                Adicionar Canal
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+              {filteredChannels?.map((channel, index) => {
+                const colors = ['blue', 'purple', 'green', 'red'];
+                const color = colors[index % colors.length];
+                const counts = channelCounts.find(c => c.channel_id === channel.id);
+
+                return (
+                  <div key={channel.id} className="animate-in fade-in zoom-in-95 duration-700 fill-mode-both" style={{ animationDelay: `${index * 100}ms` }}>
+                    <ChannelFolder
+                      name={channel.name}
+                      niche={channel.niche}
+                      subscribers={formatNumber(channel.subscribers || 0)}
+                      videoCount={channel.youtube_total_videos || 0}
+                      color={color}
+                      pendingReview={counts?.pending_review}
+                      inProduction={counts?.in_production}
+                      onClick={() => handleChannelClick(channel.id)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Delete Dialog */}
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
+          <AlertDialogContent className="bg-[#08080a] border border-white/5 rounded-[3rem] p-10 shadow-[0_40px_100px_rgba(0,0,0,1)]">
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir canal?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Esta ação excluirá permanentemente o canal <strong>{deletingChannel?.name}</strong>.
+              <AlertDialogTitle className="text-3xl font-black uppercase italic tracking-tighter text-white">Excluir Canal?</AlertDialogTitle>
+              <AlertDialogDescription className="text-white/30 font-bold text-base leading-relaxed mt-4">
+                Todos os dados e conteúdos do canal <strong className="text-white uppercase">[{deletingChannel?.name}]</strong> serão removidos permanentemente. Esta ação é irreversível.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <div className="mt-12 flex gap-4">
+              <AlertDialogCancel className="flex-1 h-16 rounded-2xl bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white font-black uppercase tracking-widest text-[10px] transition-all">Cancelar</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleConfirmDelete}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                className="flex-[1.5] h-16 rounded-2xl bg-red-600 text-white hover:bg-red-700 font-black uppercase italic tracking-tighter text-lg shadow-[0_15px_40px_rgba(220,38,38,0.3)] transition-all hover:scale-[1.02]"
               >
                 Excluir
               </AlertDialogAction>
-            </AlertDialogFooter>
+            </div>
           </AlertDialogContent>
         </AlertDialog>
 
-      </main>
-    </BeamsBackground>
+      </div>
+    </div>
   );
 }

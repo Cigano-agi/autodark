@@ -70,7 +70,10 @@ export default defineConfig(({ mode }) => ({
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-ui': ['lucide-react', 'framer-motion', 'clsx', 'tailwind-merge'],
-          'vendor-supabase': ['@supabase/supabase-js']
+          'vendor-supabase': ['@supabase/supabase-js'],
+          'vendor-charts': ['recharts'],
+          'vendor-remotion': ['remotion', '@remotion/player', '@remotion/core'],
+          'vendor-ffmpeg': ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@ffmpeg/core']
         }
       }
     }

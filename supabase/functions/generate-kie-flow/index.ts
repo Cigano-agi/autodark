@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
             const prompt = body.prompt;
             if (!prompt) throw new Error("prompt is required for generate action.");
 
+            const t0 = Date.now();
             const res = await fetch("https://api.kie.ai/api/v1/flux/kontext/generate", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${kieApiKey}` },
@@ -60,9 +61,14 @@ Deno.serve(async (req) => {
                     enableTranslation: true
                 })
             });
+            const latencyMs = Date.now() - t0;
             if (!res.ok) throw new Error(`Kie.ai Error: ${await res.text()}`);
             const data = await res.json();
-            return new Response(JSON.stringify({ status: 'success', taskId: data?.data?.taskId }), {
+            return new Response(JSON.stringify({
+                status: 'success',
+                taskId: data?.data?.taskId,
+                _debug: { provider: "kie.ai", action: "generate", latencyMs, status: res.status },
+            }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
 
@@ -70,12 +76,18 @@ Deno.serve(async (req) => {
             const taskId = body.taskId;
             if (!taskId) throw new Error("taskId is required for poll action.");
 
+            const t0 = Date.now();
             const res = await fetch(`https://api.kie.ai/api/v1/flux/kontext/record-info?taskId=${taskId}`, {
                 headers: { 'Authorization': `Bearer ${kieApiKey}` }
             });
+            const latencyMs = Date.now() - t0;
             if (!res.ok) throw new Error(`Kie.ai Poll Error: ${await res.text()}`);
             const data = await res.json();
-            return new Response(JSON.stringify({ status: 'success', data: data?.data }), {
+            return new Response(JSON.stringify({
+                status: 'success',
+                data: data?.data,
+                _debug: { provider: "kie.ai", action: "poll", latencyMs, status: res.status },
+            }), {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
         }

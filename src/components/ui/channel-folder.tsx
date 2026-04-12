@@ -16,7 +16,7 @@ interface ChannelFolderProps {
 
 export function ChannelFolder({
     name,
-    niche = "YOUTUBE AUTOMATION",
+    niche = "",
     subscribers = "0",
     videoCount = 0,
     color = "blue",

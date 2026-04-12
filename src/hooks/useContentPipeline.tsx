@@ -66,6 +66,10 @@ export function useContentPipeline(channelId: string | undefined) {
         queryClient.invalidateQueries({ queryKey: ['contents', channelId] });
     }, [queryClient, channelId]);
 
+    const invalidateIdeas = useCallback(() => {
+        queryClient.invalidateQueries({ queryKey: ['content-ideas', channelId] });
+    }, [queryClient, channelId]);
+
     const generateIdeas = useCallback(async () => {
         if (!channelId) {
             toast.error('Selecione um canal primeiro.');
@@ -84,9 +88,11 @@ export function useContentPipeline(channelId: string | undefined) {
             if (error) throw new Error(error.message);
             if (data?.error) throw new Error(data.error);
 
-            toast.success(`💡 Ideias Geradas! ${data.count} ideias criadas com sucesso.`);
+            const count = data.count ?? data.ideas?.length ?? 0;
+            toast.success(`${count} ideias criadas com sucesso.`);
 
-            invalidateContents();
+            // generateIdeas saves to content_ideas, not channel_contents
+            invalidateIdeas();
             return data;
         } catch (e: any) {
             toast.error(`Erro ao gerar ideias: ${e.message}`);
@@ -95,7 +101,7 @@ export function useContentPipeline(channelId: string | undefined) {
             setGeneratingIdeas(false);
             ideaLockRef.current = false;
         }
-    }, [channelId, invalidateContents]);
+    }, [channelId, invalidateIdeas]);
 
     const generateScript = useCallback(async (contentId: string) => {
         setGeneratingScript(prev => ({ ...prev, [contentId]: true }));
@@ -117,7 +123,7 @@ export function useContentPipeline(channelId: string | undefined) {
         } finally {
             setGeneratingScript(prev => ({ ...prev, [contentId]: false }));
         }
-    }, [toast, invalidateContents]);
+    }, [invalidateContents]);
 
     const processAudioPipeline = useCallback(async (contentId: string) => {
         setProcessingAudio(prev => ({ ...prev, [contentId]: true }));

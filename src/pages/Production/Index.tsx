@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Terminal, Zap, Loader2, ChevronLeft } from "lucide-react";
+import { Terminal, Zap, Loader2, ChevronLeft, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -34,7 +34,7 @@ export function ProductionWizardContent() {
     <main className="pt-28 pb-12 px-8 min-h-screen relative z-10 text-white w-full overflow-x-hidden">
       <div className="max-w-6xl mx-auto space-y-10 relative">
         
-        {/* Ops Center Header — Comando Central */}
+        {/* Production Center Header */}
         <div className="bg-black/40 backdrop-blur-3xl border border-white/10 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
           <div className="flex justify-between items-center relative z-10">
@@ -56,7 +56,7 @@ export function ProductionWizardContent() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* Console de Comando — Injeção de Diretrizes */}
+          {/* Painel de Controle — Configuração do Vídeo */}
           <div className={cn("lg:col-span-5 space-y-10 transition-all", !isIdle && "opacity-40 grayscale pointer-events-none")}>
             <Card className="bg-black/60 border-white/10 rounded-[3rem] shadow-2xl overflow-hidden border-t-primary/20">
               <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
@@ -96,11 +96,24 @@ export function ProductionWizardContent() {
 
                 <Button 
                   onClick={handleLaunch} 
-                  disabled={!idea || state.stage !== "idle"} 
-                  className="w-full h-24 bg-gradient-to-r from-primary to-orange-600 rounded-[2.5rem] text-2xl font-black uppercase italic shadow-2xl hover:scale-[1.02] transition-all"
+                  disabled={!idea || (state.stage !== "idle" && state.stage !== "error")} 
+                  className={cn(
+                    "w-full h-24 rounded-[2.5rem] text-2xl font-black uppercase italic shadow-2xl transition-all",
+                    state.stage === "error" 
+                      ? "bg-red-600 hover:bg-red-700" 
+                      : "bg-gradient-to-r from-primary to-orange-600 hover:scale-[1.02]"
+                  )}
                 >
-                   {state.stage === "idle" ? <><Zap className="mr-3 w-8 h-8 animate-pulse" /> Iniciar Produção</> : <Loader2 className="animate-spin w-8 h-8" />}
+                   {state.stage === "idle" && <><Zap className="mr-3 w-8 h-8 animate-pulse" /> Iniciar Produção</>}
+                   {state.stage === "error" && <><RotateCcw className="mr-3 w-8 h-8" /> Tentar Novamente</>}
+                   {state.stage !== "idle" && state.stage !== "error" && <Loader2 className="animate-spin w-8 h-8" />}
                 </Button>
+
+                {state.stage === "error" && (
+                  <p className="text-red-500 text-[10px] font-black uppercase tracking-widest text-center animate-pulse">
+                    ⚠️ {state.message}
+                  </p>
+                )}
               </CardContent>
             </Card>
           </div>

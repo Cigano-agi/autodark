@@ -5,52 +5,49 @@ import { useContents } from "@/hooks/useContents";
 import { useContentIdeas } from "@/hooks/useContentIdeas";
 import { useHeadAgent } from "@/hooks/useHeadAgent";
 import { useYouTubeMetrics } from "@/hooks/useYouTubeMetrics";
-import { ConnectYouTubeModal } from "@/components/YouTube/ConnectYouTubeModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Users, Video, Settings, Terminal,
-  Wand2, Zap, Lightbulb, BarChart3,
+  Users, Settings, Lightbulb, Zap, Activity, ChevronLeft
 } from "lucide-react";
 
 // Sub-components
 import { ChannelHeaderCard } from "./components/ChannelHeaderCard";
 import { DashboardTab } from "./tabs/DashboardTab";
 import { IdeasTab } from "./tabs/IdeasTab";
-import { ContentsTab } from "./tabs/ContentsTab";
-import { PipelineTab } from "./tabs/PipelineTab";
+import { QueueTab } from "./tabs/QueueTab";
 import { CompetitorsTab } from "./tabs/CompetitorsTab";
-import { BlueprintTab } from "./tabs/BlueprintTab";
-import { SettingsTab } from "./tabs/SettingsTab";
+import { ConfigTab } from "./tabs/ConfigTab";
+import { useChannelFoundation } from "@/hooks/useChannelFoundation";
+import { useBlueprint } from "@/hooks/useBlueprint";
+import { ChannelSetupBanner } from "@/components/Channel/ChannelSetupBanner";
+import { ConnectYouTubeModal } from "@/components/YouTube/ConnectYouTubeModal";
 
 export default function ChannelView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const initialTab = searchParams.get("tab") || "dashboard";
+  const activeTab = searchParams.get("tab") || "dashboard";
   const { channels } = useChannels();
   const channel = channels?.find(c => c.id === id);
 
   const { contents } = useContents(id);
   const { ideas } = useContentIdeas(id);
+  const { blueprint } = useBlueprint(id);
+  const { data: foundation } = useChannelFoundation(id || "");
   const { generateStrategy, isLoading: isAiLoading } = useHeadAgent();
   const { connectWithApify, syncMetrics } = useYouTubeMetrics();
 
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
-  // Auto-sync: scrape YouTube metrics if stale (>24h)
-  useEffect(() => {
-    const raw = channel as Record<string, unknown> | undefined;
-    if (raw?.youtube_channel_id) {
-      const lastScraped = raw.last_scraped_at ? new Date(raw.last_scraped_at as string) : new Date(0);
-      const hoursSince = (Date.now() - lastScraped.getTime()) / (1000 * 60 * 60);
-      if (hoursSince > 24 && !syncMetrics.isPending) {
-        syncMetrics.mutate({
-          channelId: channel!.id,
-          youtubeUrl: channel!.youtube_username ? `https://youtube.com/@${channel!.youtube_username}` : '',
-        });
-      }
-    }
-  }, [channel?.id]);
+  // Setup status calculation
+  const hubData = localStorage.getItem("autodark_hub_defaults_v2");
+  const hasHub = hubData ? !!JSON.parse(hubData)[id || ""] : false;
+  
+  const setupStatus = {
+    foundation: !!foundation?.is_complete,
+    blueprint: !!(blueprint?.persona_prompt && blueprint?.visual_style),
+    hub: hasHub
+  };
 
   if (!channel || !id) return null;
 
@@ -58,106 +55,102 @@ export default function ChannelView() {
   const doneContents = contents?.filter(c => c.status === 'tts_done' || c.status === 'published').length || 0;
 
   return (
-    <main className="pt-28 pb-12 px-6 max-w-7xl mx-auto min-h-screen relative z-10 text-foreground">
+    <div className="pt-32 pb-20 px-6 md:px-12 w-full min-h-screen">
+      <div className="max-w-7xl mx-auto space-y-10 animate-fade-in">
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="hover:text-white transition-colors flex items-center gap-1.5"
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-3 text-sm text-white/20 mb-8 ml-1">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="hover:text-primary transition-all flex items-center gap-2 group"
+          >
+            <div className="p-1.5 rounded-lg bg-white/5 border border-white/5 group-hover:border-primary/30 transition-all">
+              <ChevronLeft className="w-4 h-4 text-white" />
+            </div>
+            Dashboard
+          </button>
+          <span className="opacity-20">/</span>
+          <span className="text-white font-black uppercase tracking-widest text-[10px] italic">{channel.name}</span>
+        </div>
+
+        {/* Setup Assistant */}
+        <ChannelSetupBanner channelId={id} setupStatus={setupStatus} />
+
+        <ConnectYouTubeModal
+          open={isConnectModalOpen}
+          onOpenChange={setIsConnectModalOpen}
+          onConnect={async (url) => { await connectWithApify.mutateAsync({ channelId: channel.id, youtubeUrl: url }); }}
+          isConnecting={connectWithApify.isPending}
+        />
+
+        {/* Channel Header */}
+        <ChannelHeaderCard
+          channel={channel}
+          doneContents={doneContents}
+          totalContents={totalContents}
+          isConnecting={connectWithApify.isPending}
+          isSyncing={syncMetrics.isPending}
+          isAiLoading={isAiLoading}
+          onConnect={() => setIsConnectModalOpen(true)}
+          onSync={() => syncMetrics.mutate({ channelId: channel.id, youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : '' })}
+          onNewVideo={() => navigate(`/channel/${id}/production`)}
+          onStudio={() => navigate(`/channel/${id}/studio`)}
+          onHeadAgent={() => generateStrategy(id)}
+        />
+
+        {/* Navigation Tabs */}
+        <Tabs 
+          value={activeTab} 
+          onValueChange={(val) => {
+            navigate(`/channel/${id}?tab=${val}`, { replace: true });
+          }}
+          className="space-y-10"
         >
-          ← Meus Canais
-        </button>
-        <span>/</span>
-        <span className="text-white">{channel.name}</span>
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <TabsList className="bg-transparent h-auto p-0 gap-8">
+              {[
+                { value: "dashboard", label: "Analytics", icon: Activity },
+                { value: "ideas", label: "Estratégia", icon: Lightbulb, count: ideas.length },
+                { value: "queue", label: "Fábrica", icon: Zap, count: contents?.length },
+                { value: "competitors", label: "Concorrentes", icon: Users },
+                { value: "config", label: "Configuração", icon: Settings },
+              ].map((t) => (
+                <TabsTrigger 
+                  key={t.value}
+                  value={t.value} 
+                  className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-0 pb-4 h-auto gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-all relative group"
+                >
+                  <t.icon className="w-3.5 h-3.5" />
+                  {t.label}
+                  {t.count !== undefined && (
+                    <span className="ml-1 text-primary opacity-50">[{t.count}]</span>
+                  )}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+
+          <TabsContent value="dashboard" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <DashboardTab channelId={id} channel={channel} />
+          </TabsContent>
+
+          <TabsContent value="ideas" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <IdeasTab channelId={id} />
+          </TabsContent>
+
+          <TabsContent value="queue" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <QueueTab channelId={id} />
+          </TabsContent>
+
+          <TabsContent value="competitors" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <CompetitorsTab channelId={id} />
+          </TabsContent>
+
+          <TabsContent value="config" className="focus-visible:outline-none animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <ConfigTab channelId={id} channel={channel} />
+          </TabsContent>
+        </Tabs>
       </div>
-
-      {/* Connect YouTube Modal */}
-      <ConnectYouTubeModal
-        open={isConnectModalOpen}
-        onOpenChange={setIsConnectModalOpen}
-        onConnect={async (url) => { await connectWithApify.mutateAsync({ channelId: channel.id, youtubeUrl: url }); }}
-        isConnecting={connectWithApify.isPending}
-      />
-
-      {/* Channel Header */}
-      <ChannelHeaderCard
-        channel={channel}
-        doneContents={doneContents}
-        totalContents={totalContents}
-        isConnecting={connectWithApify.isPending}
-        isSyncing={syncMetrics.isPending}
-        isAiLoading={isAiLoading}
-        onConnect={() => setIsConnectModalOpen(true)}
-        onSync={() => syncMetrics.mutate({ channelId: channel.id, youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : '' })}
-        onNewVideo={() => navigate(`/channel/${id}/production`)}
-        onStudio={() => navigate(`/channel/${id}/studio`)}
-        onHeadAgent={() => generateStrategy(id)}
-      />
-
-      {/* Tabs */}
-      <Tabs
-        defaultValue={initialTab}
-        className="space-y-8"
-        onValueChange={(value) => {
-          if (value === "prompts") navigate(`/channel/${id}/prompts`);
-        }}
-      >
-        <TabsList className="bg-card/30 backdrop-blur border border-white/10 p-1 flex flex-wrap gap-1 h-auto rounded-xl">
-          <TabsTrigger value="dashboard" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <BarChart3 className="w-4 h-4" /> Dashboard
-          </TabsTrigger>
-          <TabsTrigger value="ideas" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Lightbulb className="w-4 h-4" /> Ideias AI ({ideas.length})
-          </TabsTrigger>
-          <TabsTrigger value="videos" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Video className="w-4 h-4" /> Conteúdos
-          </TabsTrigger>
-          <TabsTrigger value="pipeline" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Zap className="w-4 h-4" /> Pipeline
-          </TabsTrigger>
-          <TabsTrigger value="competitors" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Users className="w-4 h-4" /> Concorrentes
-          </TabsTrigger>
-          <TabsTrigger value="prompts" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Terminal className="w-4 h-4" /> Prompts
-          </TabsTrigger>
-          <TabsTrigger value="blueprint" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Wand2 className="w-4 h-4" /> Blueprint
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-            <Settings className="w-4 h-4" /> Configurações
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="dashboard" className="focus-visible:outline-none">
-          <DashboardTab channelId={id} channel={channel} />
-        </TabsContent>
-
-        <TabsContent value="ideas" className="focus-visible:outline-none">
-          <IdeasTab channelId={id} />
-        </TabsContent>
-
-        <TabsContent value="videos" className="focus-visible:outline-none">
-          <ContentsTab channelId={id} />
-        </TabsContent>
-
-        <TabsContent value="pipeline" className="focus-visible:outline-none">
-          <PipelineTab channelId={id} />
-        </TabsContent>
-
-        <TabsContent value="competitors" className="focus-visible:outline-none">
-          <CompetitorsTab channelId={id} />
-        </TabsContent>
-
-        <TabsContent value="blueprint" className="focus-visible:outline-none">
-          <BlueprintTab channelId={id} />
-        </TabsContent>
-
-        <TabsContent value="settings" className="focus-visible:outline-none">
-          <SettingsTab channelId={id} channel={channel} />
-        </TabsContent>
-      </Tabs>
-    </main>
+    </div>
   );
 }

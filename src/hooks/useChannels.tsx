@@ -74,6 +74,7 @@ export function useChannels() {
           name: channelData.name,
           niche: channelData.niche,
           niche_color: channelData.niche_color || 'bg-muted text-muted-foreground',
+          requires_review: channelData.requires_review ?? false,
         })
         .select()
         .single();
@@ -83,7 +84,7 @@ export function useChannels() {
       // Create empty blueprint for the channel with optional initial values
       await supabase.from('channel_blueprints').insert({
         channel_id: data.id,
-        tone_of_voice: channelData.tone_of_voice || null,
+        persona_prompt: channelData.tone_of_voice || null,
         target_audience: channelData.target_audience || null,
       });
 

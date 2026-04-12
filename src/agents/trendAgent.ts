@@ -11,7 +11,6 @@ export async function analyzeTrends(channelId: string): Promise<TrendInsight> {
     return { pattern: "Sem dados de concorrentes ainda.", topTitles: [], suggestedAngles: [] };
   }
 
-  // Use competitor channel names + any scraped data as context
   const competitorInfo = competitors.map((c: Record<string, unknown>) =>
     `- ${c.channel_name || c.youtube_url || "Canal"}`
   ).join("\n");

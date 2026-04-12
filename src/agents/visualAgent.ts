@@ -7,17 +7,14 @@ function resolveVisualStyle(raw: string | null | undefined): string {
   return VISUAL_STYLE_PROMPTS[raw] ?? raw;
 }
 
-export async function extractAndGenerateVisuals(
+export async function extractScenes(
   chapters: VideoChapter[],
   durationMin: number,
   blueprint: BlueprintData | null,
-  onProgress?: (done: number, total: number) => void,
 ): Promise<VideoChapter[]> {
   const style = resolveVisualStyle(blueprint?.visual_style);
-  const charHint = blueprint?.character_description ? `Featuring: ${blueprint.character_description}. ` : "";
   const updatedChapters: VideoChapter[] = [];
 
-  // Step 1: Extract scenes from all chapters
   for (const chapter of chapters) {
     if (chapter.scenes.length > 0) {
       updatedChapters.push(chapter);
@@ -39,7 +36,8 @@ Para cada cena, retorne JSON:
     {
       "title": "Título curto da cena",
       "narration": "Trecho do roteiro (5-15 seg de fala)",
-      "visual_prompt": "Prompt para imagem. Dark aesthetic. ${style}. Cinematic. No text in image."
+      "visual_prompt": "Prompt para imagem. Dark aesthetic. ${style}. Cinematic. No text in image.",
+      "emotion": "Uma destas: urgency, shock, motivation, curiosity, inspiration, neutral"
     }
   ]
 }`,
@@ -52,8 +50,18 @@ Para cada cena, retorne JSON:
       scenes: (parsed.scenes || []).map(s => ({ ...s, chapterId: chapter.id })),
     });
   }
+  return updatedChapters;
+}
 
-  // Step 2: Generate images for all scenes
+export async function generateVisuals(
+  chapters: VideoChapter[],
+  blueprint: BlueprintData | null,
+  onProgress?: (done: number, total: number) => void,
+): Promise<VideoChapter[]> {
+  const style = resolveVisualStyle(blueprint?.visual_style);
+  const charHint = blueprint?.character_description ? `Featuring: ${blueprint.character_description}. ` : "";
+  const updatedChapters = [...chapters];
+
   const totalScenes = updatedChapters.reduce((sum, ch) => sum + ch.scenes.length, 0);
   let done = 0;
 
@@ -71,8 +79,8 @@ Para cada cena, retorne JSON:
       try {
         const imageUrl = await callImageGeneration(fullPrompt);
         chapter.scenes[si] = { ...scene, imageUrl };
-      } catch (e) {
-        console.warn(`[visualAgent] Failed to generate image for scene ${si}:`, e);
+      } catch {
+        // Geração de imagem falhou para esta cena; continua sem imagem
       }
 
       done++;
@@ -81,4 +89,14 @@ Para cada cena, retorne JSON:
   }
 
   return updatedChapters;
+}
+
+export async function extractAndGenerateVisuals(
+  chapters: VideoChapter[],
+  durationMin: number,
+  blueprint: BlueprintData | null,
+  onProgress?: (done: number, total: number) => void,
+): Promise<VideoChapter[]> {
+  const chaptersWithScenes = await extractScenes(chapters, durationMin, blueprint);
+  return generateVisuals(chaptersWithScenes, blueprint, onProgress);
 }

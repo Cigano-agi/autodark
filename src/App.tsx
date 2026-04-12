@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AppLayout } from "@/components/layouts/AppLayout";
+import { AppLayout } from "@/components/layout/AppLayout";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 
@@ -23,10 +23,11 @@ const MediaHub = lazy(() => import("./pages/MediaHub/Index"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
+      staleTime: 10 * 60 * 1000, // 10 minutes (increased from 5)
+      gcTime: 30 * 60 * 1000,    // 30 minutes (increased from 10)
       retry: 1,
       refetchOnWindowFocus: false,
+      refetchOnReconnect: 'always',
     },
   },
 });

@@ -75,7 +75,7 @@ export function GlobalQueueSection({ items }: GlobalQueueSectionProps) {
               size="sm"
               variant="outline"
               className="shrink-0 border-yellow-500/30 text-yellow-300 hover:bg-yellow-500/10 hover:border-yellow-500/50 text-xs h-8 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => navigate(`/channel/${item.channel_id}?tab=conteudos`)}
+              onClick={() => navigate(`/channel/${item.channel_id}?tab=queue`)}
             >
               Revisar
               <ArrowRight className="w-3.5 h-3.5 ml-1" />

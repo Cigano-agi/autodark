@@ -106,20 +106,32 @@ Deno.serve(async (req) => {
         };
 
         let audioBuffer;
+        let finalProvider = "";
+        let fallbackUsed: string | undefined;
+        let attempts = 0;
+        const t0 = Date.now();
+
         try {
             if (AI33_API_KEY) {
+                attempts++;
                 try {
                     audioBuffer = await callTTS("AI33");
+                    finalProvider = "AI33";
                 } catch (e) {
                     console.warn(`AI33 TTS failed: ${e.message}. Falling back to OpenAI.`);
                     if (OPENAI_API_KEY) {
+                        attempts++;
                         audioBuffer = await callTTS("OpenAI");
+                        finalProvider = "OpenAI";
+                        fallbackUsed = "OpenAI";
                     } else {
                         throw e;
                     }
                 }
             } else if (OPENAI_API_KEY) {
+                attempts++;
                 audioBuffer = await callTTS("OpenAI");
+                finalProvider = "OpenAI";
             } else {
                 throw new Error("No TTS API keys found (AI33 or OpenAI)");
             }
@@ -127,12 +139,18 @@ Deno.serve(async (req) => {
             throw new Error(`TTS generation failed: ${e.message}`);
         }
 
+        const latencyMs = Date.now() - t0;
+
         return new Response(audioBuffer, {
             status: 200,
             headers: {
                 ...corsHeaders,
                 "Content-Type": "audio/mpeg",
                 "Content-Length": audioBuffer.byteLength.toString(),
+                "X-Debug-Provider": finalProvider,
+                "X-Debug-Latency-Ms": latencyMs.toString(),
+                "X-Debug-Fallback": fallbackUsed || "",
+                "X-Debug-Attempts": attempts.toString(),
             },
         });
     } catch (error) {

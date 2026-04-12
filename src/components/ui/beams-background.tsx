@@ -167,7 +167,7 @@ export function BeamsBackground({
     return (
         <div
             className={cn(
-                "relative min-h-screen w-full overflow-hidden bg-neutral-950",
+                "relative min-h-screen w-full overflow-hidden",
                 className
             )}
         >
@@ -182,16 +182,17 @@ export function BeamsBackground({
                 }}
             />
 
-            {/* REMOVED: framer-motion overlay with backdropFilter: blur(50px) — was the #2 perf killer */}
-            {/* Replaced with a simple static overlay */}
+            {/* Static overlay */}
             <div
-                className="absolute inset-0 bg-neutral-950/10 pointer-events-none"
+                className="absolute inset-0 pointer-events-none"
                 style={{ willChange: "auto" }}
             />
 
-            <div className="relative z-10 w-full h-full">
-                {children}
-            </div>
+            {children && (
+                <div className="relative z-10 w-full h-full">
+                    {children}
+                </div>
+            )}
         </div>
     );
 }

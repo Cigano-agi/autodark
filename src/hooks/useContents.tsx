@@ -37,6 +37,17 @@ export interface CreateContentData {
   reference?: string;
   nicho_slug?: string;
   script?: string;
+  // Pipeline fields
+  video_path?: string;
+  thumbnail_path?: string;
+  thumbnail_prompt?: string;
+  thumbnail_url?: string;
+  scenes?: unknown;
+  audio_url?: string;
+  voice_name?: string;
+  narration_script?: string;
+  slide_script?: unknown;
+  slide_images?: unknown;
 }
 
 export function useContents(channelId: string | undefined) {
@@ -64,21 +75,27 @@ export function useContents(channelId: string | undefined) {
     mutationFn: async (contentData: CreateContentData) => {
       if (!channelId) throw new Error('Channel ID required');
 
+      // Build insert payload — only include defined fields
+      const payload: Record<string, unknown> = {
+        channel_id: channelId,
+        title: contentData.title,
+        status: contentData.status || 'draft',
+      };
+
+      // Add optional fields only if provided
+      const optionalFields: (keyof CreateContentData)[] = [
+        'scheduled_date', 'hook', 'topic', 'angle', 'character', 'reference',
+        'nicho_slug', 'script', 'video_path', 'thumbnail_path', 'thumbnail_prompt',
+        'thumbnail_url', 'scenes', 'audio_url', 'voice_name', 'narration_script',
+        'slide_script', 'slide_images',
+      ];
+      for (const key of optionalFields) {
+        if (contentData[key] !== undefined) payload[key] = contentData[key];
+      }
+
       const { data, error } = await supabase
         .from('channel_contents')
-        .insert({
-          channel_id: channelId,
-          title: contentData.title,
-          status: contentData.status || 'draft',
-          scheduled_date: contentData.scheduled_date,
-          hook: contentData.hook,
-          topic: contentData.topic,
-          angle: contentData.angle,
-          character: contentData.character,
-          reference: contentData.reference,
-          nicho_slug: contentData.nicho_slug,
-          script: contentData.script,
-        })
+        .insert(payload)
         .select()
         .single();
 

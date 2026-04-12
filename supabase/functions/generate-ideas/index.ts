@@ -29,6 +29,7 @@ Deno.serve(async (req) => {
             });
         }
 
+        // Client autenticado com token do usuario — usado apenas para operacoes de escrita (RLS verifica ownership)
         const supabaseClient = createClient(
             Deno.env.get("SUPABASE_URL") ?? "",
             Deno.env.get("SUPABASE_ANON_KEY") ?? "",
@@ -39,6 +40,12 @@ Deno.serve(async (req) => {
             }
         );
 
+        // Client com service role — usado para leituras que nao dependem de contexto de usuario
+        const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL") ?? "",
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        );
+
         const authHeader = req.headers.get("Authorization");
         const token = authHeader ? authHeader.replace("Bearer ", "") : "";
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
@@ -47,13 +54,14 @@ Deno.serve(async (req) => {
         const { channelId } = await req.json();
         if (!channelId) throw new Error("channelId is required");
 
-        const { data: blueprint } = await supabaseClient
+        // Usar admin client para leitura de channels e blueprints — evita falso "Channel not found" por RLS
+        const { data: blueprint } = await supabaseAdmin
             .from("channel_blueprints")
             .select("*")
             .eq("channel_id", channelId)
             .maybeSingle();
 
-        const { data: channel } = await supabaseClient
+        const { data: channel } = await supabaseAdmin
             .from("channels")
             .select("name, niche")
             .eq("id", channelId)

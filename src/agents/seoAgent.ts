@@ -7,7 +7,6 @@ export async function generateSEO(
   channel: ChannelData,
   language: VideoLanguage,
 ): Promise<SEOPackage> {
-  // Calculate timestamps from chapter durations
   let currentSec = 0;
   const chapterTimestamps = chapters.map(ch => {
     const mins = Math.floor(currentSec / 60);

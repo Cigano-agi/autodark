@@ -206,6 +206,10 @@ export default {
           from: { opacity: "0", transform: "scale(0.95)" },
           to: { opacity: "1", transform: "scale(1)" },
         },
+        "conveyor": {
+          "0%": { transform: "translateX(0)" },
+          "100%": { transform: "translateX(-50%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -214,6 +218,8 @@ export default {
         "fade-in": "fade-in 0.5s ease-out forwards",
         "slide-up": "slide-up 0.4s ease-out forwards",
         "scale-in": "scale-in 0.3s ease-out forwards",
+        "conveyor": "conveyor 10s linear infinite",
+        "conveyor-slow": "conveyor 20s linear infinite",
       },
     },
   },

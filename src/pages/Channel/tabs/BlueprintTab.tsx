@@ -64,7 +64,7 @@ export function BlueprintTab({ channelId }: BlueprintTabProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Wand2 className="w-5 h-5 text-primary" /> Blueprint do Canal
+          <Wand2 className="w-5 h-5 text-primary" /> DNA Estratégico do Canal
         </h2>
         <Button
           onClick={handleSaveBlueprint}
@@ -72,7 +72,7 @@ export function BlueprintTab({ channelId }: BlueprintTabProps) {
           className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
         >
           {updateBlueprint.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-          Salvar Blueprint
+          Salvar Configurações
         </Button>
       </div>
 
@@ -80,7 +80,7 @@ export function BlueprintTab({ channelId }: BlueprintTabProps) {
         {/* Coluna esquerda — Conteúdo e Persona */}
         <div className="space-y-5">
           <Card className="bg-card/30 backdrop-blur border-white/10 p-6 space-y-4">
-            <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Conteúdo e Persona</h3>
+            <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Identidade e Conteúdo</h3>
 
             <div className="space-y-2">
               <Label className="text-white/80">Tópico Principal do Canal</Label>
@@ -93,7 +93,7 @@ export function BlueprintTab({ channelId }: BlueprintTabProps) {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white/80">Persona / Prompt do Canal</Label>
+              <Label className="text-white/80">Personalidade da IA / Voz</Label>
               <Textarea
                 value={bpPersona}
                 onChange={e => setBpPersona(e.target.value)}
@@ -114,7 +114,7 @@ export function BlueprintTab({ channelId }: BlueprintTabProps) {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-white/80">Regras de Roteiro</Label>
+              <Label className="text-white/80">Regras de Escrita</Label>
               <Textarea
                 value={bpScriptRules}
                 onChange={e => setBpScriptRules(e.target.value)}
@@ -129,7 +129,7 @@ export function BlueprintTab({ channelId }: BlueprintTabProps) {
         {/* Coluna direita — Estilo Visual */}
         <div className="space-y-5">
           <Card className="bg-card/30 backdrop-blur border-white/10 p-6 space-y-4">
-            <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Estilo Visual</h3>
+            <h3 className="text-sm font-semibold text-white/70 uppercase tracking-wider">Identidade Visual</h3>
 
             <div className="space-y-2">
               <Label className="text-white/80">Estilo de Imagem</Label>

@@ -28,7 +28,10 @@ export interface SceneData {
   title: string;
   narration: string;
   visual_prompt: string;
+  emotion?: string;
   imageUrl?: string;
+  audioUrl?: string;
+  audioDurationSec?: number;
   chapterId?: string;
   durationSec?: number;
 }

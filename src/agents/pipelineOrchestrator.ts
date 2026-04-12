@@ -10,10 +10,21 @@ import { uploadAudio, uploadImage } from "@/lib/storage";
 import { createTraceContext } from "@/lib/traceContext";
 import { logStep, logSkip, persistTrace, traceToMarkdown } from "@/lib/debugLogger";
 import { useProductionState } from "@/hooks/useProductionState";
+import { toast } from "sonner";
 import type {
   PipelineState, PipelineStage, GeneratedIdea,
   ChannelData, BlueprintData, HubDefaults, VideoLanguage, VideoChapter, SceneData
 } from "./types";
+
+/** Helper para timeout de promessas */
+const withTimeout = <T>(promise: Promise<T>, ms: number, taskName: string): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout: ${taskName} demorou mais de ${ms/1000}s`)), ms)
+    ),
+  ]);
+};
 
 function loadHubDefaults(channelId: string): HubDefaults {
   try {
@@ -165,13 +176,17 @@ export function usePipelineOrchestrator(
 
       update({ stage: "generating_script", progress: 15, message: "Decodificando roteiro...", approvedIdea });
       const script = await logStep(trace, "script_generation", async () => {
-        return generateFullScript(
-          approvedIdea.title,
-          language,
-          durationMin,
-          channel,
-          blueprint,
-          (msg) => update({ message: msg }),
+        return withTimeout(
+          generateFullScript(
+            approvedIdea.title,
+            language,
+            durationMin,
+            channel,
+            blueprint,
+            (msg) => update({ message: msg }),
+          ),
+          60000,
+          "Geração de Roteiro"
         );
       }, { provider: "openrouter" });
 
@@ -186,10 +201,14 @@ export function usePipelineOrchestrator(
 
       update({ stage: "extracting_scenes", progress: 40, message: "Mapeando segmentos..." });
       const chaptersWithScenes = await logStep(trace, "scene_extraction", async () => {
-        return extractScenes(
-          script.chapters,
-          durationMin,
-          blueprint,
+        return withTimeout(
+          extractScenes(
+            script.chapters,
+            durationMin,
+            blueprint,
+          ),
+          45000,
+          "Extração de Cenas"
         );
       }, { provider: "claude-3.5-sonnet" });
       update({ script: { ...script, chapters: chaptersWithScenes }, progress: 45 });
@@ -197,11 +216,15 @@ export function usePipelineOrchestrator(
 
       update({ stage: "generating_audio", progress: 45, message: "Sintetizando narração..." });
       const chaptersWithAudio = await logStep(trace, "tts_narration", async () => {
-        return generateAllNarrations(
-          chaptersWithScenes,
-          language,
-          hub,
-          (done, total) => update({ progress: 45 + Math.round((done / total) * 15), message: `Narrando cena ${done}/${total}...` }),
+        return withTimeout(
+          generateAllNarrations(
+            chaptersWithScenes,
+            language,
+            hub,
+            (done, total) => update({ progress: 45 + Math.round((done / total) * 15), message: `Narrando cena ${done}/${total}...` }),
+          ),
+          120000,
+          "Síntese de Áudio"
         );
       }, { provider: hub.voice });
 
@@ -233,10 +256,14 @@ export function usePipelineOrchestrator(
 
       update({ stage: "generating_visuals", progress: 60, message: "Gerando imagens..." });
       const chaptersWithVisuals = await logStep(trace, "visual_generation", async () => {
-        return generateVisuals(
-          chaptersWithAudio,
-          blueprint,
-          (done, total) => update({ progress: 60 + Math.round((done / total) * 20), message: `Artefato ${done}/${total}...` }),
+        return withTimeout(
+          generateVisuals(
+            chaptersWithAudio,
+            blueprint,
+            (done, total) => update({ progress: 60 + Math.round((done / total) * 20), message: `Artefato ${done}/${total}...` }),
+          ),
+          300000,
+          "Geração de Visuais"
         );
       }, { provider: "kie.ai" });
 
@@ -264,7 +291,11 @@ export function usePipelineOrchestrator(
 
       update({ stage: "generating_seo", progress: 85, message: "Gerando SEO..." });
       const seo = await logStep(trace, "seo_generation", async () => {
-        return generateSEO(script.title, chaptersWithVisuals, channel, language);
+        return withTimeout(
+          generateSEO(script.title, chaptersWithVisuals, channel, language),
+          30000,
+          "Geração de SEO"
+        );
       }, { provider: "openrouter" });
 
       update({ stage: "saving", progress: 92, message: "Arquivando..." });
@@ -288,21 +319,24 @@ export function usePipelineOrchestrator(
       await saveProductionState(6, "done", { seo, contentId });
 
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      toast.error(`Falha no pipeline: ${errorMsg}`);
+
       if (contentId) {
         await persistStep(contentId, channelId, "failed", {
-          error_log: err instanceof Error ? err.message : String(err),
+          error_log: errorMsg,
         });
       }
 
       await persistTrace(trace, "fail");
       await saveProductionState(state.progress > 0 ? Math.ceil(state.progress / 20) : 1, "error", {
-        error: err instanceof Error ? err.message : String(err), contentId
+        error: errorMsg, contentId
       });
 
       update({
         stage: "error",
-        message: err instanceof Error ? err.message : "Erro no pipeline",
-        error: String(err),
+        message: errorMsg,
+        error: errorMsg,
       });
     }
   }, [channelId, channel, blueprint, update]);

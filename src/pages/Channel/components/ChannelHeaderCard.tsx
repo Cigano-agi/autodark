@@ -2,9 +2,11 @@ import type { Channel } from "@/hooks/useChannels";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Users, Video, Eye, Youtube, Wand2, BrainCircuit, RefreshCw,
+  Users, Video, Eye, Youtube, Wand2, BrainCircuit, RefreshCw, Dna, Sparkles, ArrowUpRight
 } from "lucide-react";
-import { formatNumber } from "@/lib/mock-data";
+import { formatNumber } from "@/lib/utils";
+import { useNavigate } from "react-router-dom";
+import { useChannelFoundation } from "@/hooks/useChannelFoundation";
 
 interface ChannelHeaderCardProps {
   channel: Channel;
@@ -33,8 +35,23 @@ export function ChannelHeaderCard({
   onStudio,
   onHeadAgent,
 }: ChannelHeaderCardProps) {
+  const navigate = useNavigate();
+  const { data: foundation } = useChannelFoundation(channel.id);
+
+  // Simplified boost calculation
+  const filledCount = foundation ? [
+    foundation.niche,
+    foundation.sub_niches?.length > 0,
+    foundation.required_apis?.length > 0,
+    foundation.seed_channels?.length >= 5,
+    foundation.defensive_moat
+  ].filter(Boolean).length : 0;
+  
+  const boostPercent = filledCount * 20;
+
   return (
     <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-card/80 mb-8">
+      {/* ... (rest of the component) */}
       <div className="h-32 bg-gradient-to-r from-primary/20 via-purple-500/10 to-blue-500/20 relative">
         {channel.youtube_banner_url ? (
           <img src={channel.youtube_banner_url} alt="Banner" className="w-full h-full object-cover opacity-60" />
@@ -64,10 +81,20 @@ export function ChannelHeaderCard({
                 {channel.niche}
               </Badge>
             </h1>
-            <p className="text-muted-foreground">
-              {channel.youtube_username ? `@${channel.youtube_username}` : 'Gerenciado por AutoDark'}
-              {(channel as Record<string, unknown>).last_scraped_at && ` • Última sincronização ${new Date((channel as Record<string, unknown>).last_scraped_at as string).toLocaleDateString('pt-BR')} às ${new Date((channel as Record<string, unknown>).last_scraped_at as string).toLocaleTimeString('pt-BR')}`}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <p className="text-muted-foreground text-sm">
+                {channel.youtube_username ? `@${channel.youtube_username}` : 'Gerenciado por AutoDark'}
+              </p>
+              
+              <button 
+                onClick={() => navigate(`/channel/${channel.id}/foundation`)}
+                className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-bold uppercase tracking-wider hover:bg-primary/20 transition-colors group"
+              >
+                <Dna className="w-3 h-3" />
+                DNA: +{boostPercent}% Performance
+                <ArrowUpRight className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
@@ -103,7 +130,7 @@ export function ChannelHeaderCard({
               className="bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-500/20 gap-2"
             >
               <Wand2 className="w-4 h-4" />
-              Studio Longo
+              Estúdio de Edição
             </Button>
             <Button
               onClick={onHeadAgent}
@@ -111,7 +138,7 @@ export function ChannelHeaderCard({
               className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-lg shadow-purple-500/20 gap-2 border border-purple-400/20"
             >
               <BrainCircuit className={`w-4 h-4 ${isAiLoading ? 'animate-spin' : ''}`} />
-              {isAiLoading ? 'Analisando...' : 'Head Agent'}
+              {isAiLoading ? 'Analisando...' : 'Análise Estratégica'}
             </Button>
           </div>
         </div>

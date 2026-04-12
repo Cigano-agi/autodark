@@ -11,25 +11,40 @@ import { motion } from 'framer-motion';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth();
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    const { error } = await signInWithEmail(loginEmail, loginPassword);
-    setLoading(false);
+    if (!loginEmail || !loginPassword) {
+      toast.error('Preencha todos os campos');
+      return;
+    }
 
-    if (error) {
-      toast.error('Erro ao entrar: ' + error.message);
-    } else {
-      toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+    setLoading(true);
+    try {
+      if (isSignUp) {
+        const { error } = await signUpWithEmail(loginEmail, loginPassword);
+        if (error) throw error;
+        toast.success('Cadastro realizado! Verifique seu e-mail ou tente entrar.');
+        setIsSignUp(false);
+      } else {
+        const { error } = await signInWithEmail(loginEmail, loginPassword);
+        if (error) throw error;
+        toast.success('Login realizado com sucesso!');
+        navigate('/dashboard');
+      }
+    } catch (error: any) {
+      console.error('[AutoDark] Auth Error:', error);
+      toast.error(`Erro: ${error.message || 'Falha na autenticação'}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -107,10 +122,20 @@ export default function Login() {
 
               <Button type="submit" className="w-full h-11 text-base relative overflow-hidden group" disabled={loading}>
                 {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                <span className="relative z-10">{loading ? 'Entrando...' : 'Entrar na Plataforma'}</span>
+                <span className="relative z-10">{loading ? (isSignUp ? 'Criando conta...' : 'Entrando...') : (isSignUp ? 'Criar Conta' : 'Entrar na Plataforma')}</span>
                 <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
               </Button>
             </form>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => setIsSignUp(!isSignUp)}
+                className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              >
+                {isSignUp ? 'Já tem uma conta? Entre aqui' : 'Não tem uma conta? Cadastre-se'}
+              </button>
+            </div>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">

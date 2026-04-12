@@ -454,7 +454,7 @@ export function ReviewQueue({ channelId }: ReviewQueueProps) {
           >
             {tab.label}
             {tab.key === "awaiting_review" && awaitingCount > 0 && (
-              <span className="ml-1.5 bg-yellow-500 text-black text-[9px] font-bold rounded-full px-1.5 py-0.5">
+              <span className="ml-1.5 bg-yellow-500 text-primary-foreground text-[9px] font-bold rounded-full px-1.5 py-0.5">
                 {awaitingCount}
               </span>
             )}

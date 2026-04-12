@@ -25,11 +25,11 @@ import {
 // ─── Block labels ─────────────────────────────────────────────────────────────
 
 const BLOCKS = [
-  { id: "A", label: "Identity & Narrative", questions: "1–5",  boost: "+25%", description: "Script precision and emotional resonance" },
-  { id: "B", label: "Growth Strategy",  questions: "6–10", boost: "+15%", description: "Algorithm alignment and retention" },
-  { id: "C", label: "Performance Stack",   questions: "11–15", boost: "+30%", description: "Visual quality and render speed" },
-  { id: "D", label: "Viral Radar",    questions: "16–20", boost: "+20%", description: "Detecção de tendências virais" },
-  { id: "E", label: "Diferenciação",      questions: "21–25", boost: "+10%", description: "Consistência e identidade única" },
+  { id: "A", label: "Identidade e Narrativa", questions: "1–5",  boost: "+25%", description: "Precisão do roteiro e ressonância emocional" },
+  { id: "B", label: "Estratégia de Crescimento",  questions: "6–10", boost: "+15%", description: "Alinhamento com algoritmo e retenção" },
+  { id: "C", label: "Stack de Performance",   questions: "11–15", boost: "+30%", description: "Qualidade visual e velocidade de renderização" },
+  { id: "D", label: "Radar Viral",    questions: "16–20", boost: "+20%", description: "Detecção de tendências e ganchos virais" },
+  { id: "E", label: "Diferenciação Única",      questions: "21–25", boost: "+10%", description: "Consistência de marca e autoridade" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ function TagInput({ value, onChange, placeholder }: {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
-          placeholder={placeholder ?? "ENTER DATA..."}
+          placeholder={placeholder ?? "DIGITE E APERTE ENTER..."}
           className="h-12 bg-black/40 border-white/10 text-sm font-bold uppercase tracking-tight"
         />
         <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-white/10 h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]">
@@ -92,15 +92,15 @@ function TagInput({ value, onChange, placeholder }: {
 function BlockA({ f, set }: any) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-      <FormField label="1. Primary Niche" hint="geopolitics, finance, true crime, etc.">
+      <FormField label="1. Nicho Primário" hint="geopolítica, finanças, true crime, etc.">
         <Input value={f.niche} onChange={e => set("niche", e.target.value)}
           className="h-14 bg-black/40 border-white/10 font-bold uppercase tracking-tight" />
       </FormField>
-      <FormField label="2. Insider Angle" hint="Inside the system or exposing it?">
+      <FormField label="2. Ângulo de Especialista" hint="Dentro do sistema ou expondo-o?">
         <Textarea value={f.insider_angle} onChange={e => set("insider_angle", e.target.value)}
           className="bg-black/40 border-white/10 min-h-[100px] font-medium leading-relaxed italic" />
       </FormField>
-      <FormField label="3. Narrative Enemy" hint="Every success story needs a villain">
+      <FormField label="3. Inimigo Narrativo" hint="Toda história de sucesso precisa de um vilão">
         <Input value={f.narrative_enemy} onChange={e => set("narrative_enemy", e.target.value)}
           className="h-14 bg-black/40 border-white/10 font-bold uppercase tracking-tight" />
       </FormField>
@@ -112,17 +112,17 @@ function BlockB({ f, set }: any) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="grid grid-cols-2 gap-6">
-        <FormField label="6. Publication Frequency">
+        <FormField label="6. Frequência de Publicação">
           <Input value={f.publish_frequency} onChange={e => set("publish_frequency", e.target.value)}
             className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
         </FormField>
-        <FormField label="7. Target Duration (min)">
+        <FormField label="7. Duração Alvo (min)">
           <Input type="number" value={f.target_duration_min}
             onChange={e => set("target_duration_min", Number(e.target.value))}
             className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
         </FormField>
       </div>
-      <FormField label="8. Sub-Niches">
+      <FormField label="8. Sub-Nichos Relacionados">
         <TagInput value={f.sub_niches} onChange={v => set("sub_niches", v)} />
       </FormField>
     </div>
