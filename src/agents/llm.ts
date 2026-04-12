@@ -212,8 +212,8 @@ export function stripMarkdown(text: string): string {
 }
 
 /**
- * ElevenLabs TTS via youtube-generate-audio Edge Function
- * Retorna audio_url (CDN permanente) ao invés de blob
+ * TTS via Supabase Edge Function youtube-generate-audio
+ * Retorna audioUrl (CDN permanente) + duração estimada
  */
 export async function callTTS(text: string, _voice: string, voiceId: string): Promise<{ audioUrl: string; durationSec: number }> {
   // browser mode — usa estimativa
@@ -221,63 +221,24 @@ export async function callTTS(text: string, _voice: string, voiceId: string): Pr
     return { audioUrl: "", durationSec: Math.ceil(text.length / 15) };
   }
 
-  const session = await supabase.auth.getSession();
-  const token = session.data.session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/youtube-generate-audio`;
-
-  const payload = {
-    text: text.trim(),
-    voice_id: voiceId,
-  };
-
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${token}`
+  const { data, error } = await supabase.functions.invoke("youtube-generate-audio", {
+    body: {
+      text: text.trim(),
+      voice_id: voiceId,
     },
-    body: JSON.stringify(payload)
   });
 
-  if (!res.ok) {
-    let errMsg = `TTS Error (${res.status})`;
-    try {
-      const errBody = await res.json();
-      if (errBody.error) errMsg = errBody.error;
-    } catch {
-      errMsg = await res.text();
-    }
-    throw new Error(errMsg);
+  if (error) {
+    throw new Error(`TTS Error: ${error.message || error}`);
   }
 
-  const jsonBody = await res.json();
-  if (!jsonBody.audio_url) {
-    throw new Error(jsonBody.error || "Edge Function não retornou audio_url");
+  if (!data?.audio_url) {
+    throw new Error(data?.error || "Edge Function não retornou audio_url");
   }
 
-  // Estima duração baseado no texto (fallback se não conseguir fazer HEAD request)
-  const durationSec = await estimateAudioDuration(jsonBody.audio_url) || Math.ceil(text.length / 15);
+  // Estima duração baseado no texto (fallback seguro)
+  const durationSec = Math.ceil(text.trim().split(/\s+/).length / 2.5);
 
-  return { audioUrl: jsonBody.audio_url, durationSec };
+  return { audioUrl: data.audio_url, durationSec };
 }
 
-/**
- * Estima duração do áudio baseado na URL
- * Para URLs CDN, tenta fazer um HEAD request para obter Content-Length
- * Se falhar, retorna null (fallback no caller)
- */
-async function estimateAudioDuration(audioUrl: string): Promise<number | null> {
-  try {
-    const res = await fetch(audioUrl, { method: "HEAD" });
-    const contentLength = parseInt(res.headers.get("Content-Length") || "0", 10);
-    // Estimativa: MP3 a 128kbps = 128000 bits/sec = 16000 bytes/sec
-    // duração (sec) = bytes / 16000
-    if (contentLength > 0) {
-      return Math.ceil(contentLength / 16000);
-    }
-  } catch (err) {
-    // HEAD request falhou (CORS ou outro erro) — fallback será usado
-    console.warn("[estimateAudioDuration] HEAD request failed:", err);
-  }
-  return null;
-}

@@ -15,15 +15,15 @@ export async function generateAllNarrations(
     const updatedScenes: SceneData[] = [];
     for (const scene of chapter.scenes) {
       const text = stripMarkdown(scene.narration);
-      const { blob, durationSec } = await callTTS(text, hubDefaults.voice, hubDefaults.voiceId);
+      const { audioUrl, durationSec } = await callTTS(text, hubDefaults.voice, hubDefaults.voiceId);
 
-      const audioUrl = hubDefaults.voice === "browser"
+      const resolvedUrl = hubDefaults.voice === "browser"
         ? "browser_tts"
-        : URL.createObjectURL(blob);
+        : audioUrl;
 
       updatedScenes.push({
         ...scene,
-        audioUrl,
+        audioUrl: resolvedUrl,
         audioDurationSec: durationSec,
         durationSec: durationSec + 0.3,
       });

@@ -1,11 +1,11 @@
+import { supabase } from "@/integrations/supabase/client";
 import { TTSRequest, TTSResponse } from "@/types/tts";
 
 /**
- * ElevenLabs TTS via Edge Function youtube-generate-audio
+ * TTS via Supabase Edge Function youtube-generate-audio
  * Retorna uma URL permanente (CDN ou data URL)
  */
 export async function generateTTSAudio(text: string, voiceId: string): Promise<string> {
-  // Valida entrada
   if (!text || !text.trim()) {
     throw new Error("Texto não pode ser vazio");
   }
@@ -14,27 +14,19 @@ export async function generateTTSAudio(text: string, voiceId: string): Promise<s
   }
 
   try {
-    // Chama Edge Function ElevenLabs
     const payload: TTSRequest = { text: text.trim(), voice_id: voiceId };
-    const res = await fetch("/.netlify/functions/youtube-generate-audio", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+    const { data, error } = await supabase.functions.invoke("youtube-generate-audio", {
+      body: payload,
     });
 
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || `Falha na geração de áudio: ${res.status}`);
-    }
-
-    const data = (await res.json()) as TTSResponse;
-    if (!data.audio_url) {
+    if (error) throw error;
+    if (!data?.audio_url) {
       throw new Error("Edge Function não retornou audio_url");
     }
 
     return data.audio_url;
   } catch (err) {
-    console.error("[tts] ElevenLabs falhou:", err);
+    console.error("[tts] TTS falhou:", err);
     throw err;
   }
 }
