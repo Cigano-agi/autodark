@@ -243,7 +243,10 @@ export function usePipelineOrchestrator(
           sceneIndex: si,
           status: "pending" as const,
           prompt: scene.visual_prompt,
-          durationSec: scene.durationSec,
+          // durationSec ainda não foi calculado pelo narratorAgent neste ponto.
+          // Usar 8s como valor padrão seguro (duração média de cena). Será atualizado
+          // após a etapa de narração se o worker ler do estado persistido.
+          durationSec: typeof scene.durationSec === "number" ? scene.durationSec : 8,
           audioUrl: scene.audioUrl,
         }))
       );

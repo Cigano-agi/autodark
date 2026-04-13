@@ -2,19 +2,20 @@
  * useProductionState — Protocolo de Persistência de Missão.
  * Garante que o estado da fábrica sobreviva a falhas críticas (F5/Crash).
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 
 export interface SceneSnapshot {
   chapterIndex: number;
   sceneIndex: number;
-  status: "pending" | "audio_done" | "visual_done" | "complete" | "error";
+  status: "pending" | "processing" | "audio_done" | "visual_done" | "complete" | "error";
   audioUrl?: string;
   imageUrl?: string;
   durationSec?: number;
   prompt?: string;
   errorMessage?: string;
+  errorCount?: number;  // Número de tentativas falhas — worker usa para retry logic (max 3)
 }
 
 export interface ProductionStateData {
@@ -50,7 +51,11 @@ const INITIAL: Omit<ProductionState, "channel_id"> = {
 export function useProductionState(channelId: string | undefined) {
   const { user } = useAuth();
   const [state, setState] = useState<ProductionState | null>(null);
+  const stateRef = useRef<ProductionState | null>(null); // sempre aponta para o state mais recente
   const [loading, setLoading] = useState(true);
+
+  // Manter o ref sincronizado com o state em cada render
+  stateRef.current = state;
 
   // Sincronizando com o Bunker (Supabase) ao iniciar uplink
   useEffect(() => {
@@ -63,9 +68,15 @@ export function useProductionState(channelId: string | undefined) {
         .eq("channel_id", channelId)
         .maybeSingle();
 
-      if (data && !error) {
+      if (error) {
+        // Não resetar para INITIAL — pode haver estado válido no banco
+        // Manter state como null = "não carregado" — UI deve mostrar reconnecting
+        console.error("[useProductionState] Falha ao carregar estado do pipeline:", error.message);
+        setState(null);
+      } else if (data) {
         setState(data as ProductionState);
       } else {
+        // data === null && !error = banco confirmou que não há registro para este channelId
         setState({ channel_id: channelId, ...INITIAL });
       }
       setLoading(false);
@@ -99,21 +110,26 @@ export function useProductionState(channelId: string | undefined) {
   const save = useCallback(async (updates: Partial<Omit<ProductionState, "channel_id">>) => {
     if (!channelId || !user) return;
 
+    // Usar stateRef.current em vez de state para evitar closure stale
+    // (saves consecutivos no mesmo tick usariam o state do render anterior)
+    const currentState = stateRef.current;
     const merged: ProductionState = {
-      ...(state ?? { channel_id: channelId, ...INITIAL }),
+      ...(currentState ?? { channel_id: channelId, ...INITIAL }),
       ...updates,
       channel_id: channelId,
-      data: { ...(state?.data ?? {}), ...(updates.data ?? {}) },
+      data: { ...(currentState?.data ?? {}), ...(updates.data ?? {}) },
       updated_at: new Date().toISOString(),
     };
 
     setState(merged);
+    stateRef.current = merged; // atualizar ref imediatamente para próximas chamadas síncronas
 
     await (supabase.from as any)("production_states").upsert(
       { ...merged, user_id: user.id },
       { onConflict: "channel_id" }
     );
-  }, [channelId, user, state]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, user]); // state removido das deps — lemos via stateRef para evitar stale closure
 
   /** Atualização de Segmento: Salva dados sem sobrescrever o progresso total */
   const saveData = useCallback(async (

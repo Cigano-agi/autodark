@@ -10,7 +10,12 @@ export async function uploadToStorage(
   blob: Blob,
   contentType: string,
 ): Promise<string | null> {
-  if (!blob || blob.size < 100) return null;
+  if (!blob) return null;
+  if (blob.size < 50) {
+    // Threshold reduzido de 100 para 50 bytes — áudios de cenas muito curtas podem ser menores que 100B
+    console.warn(`[storage] Blob suspeito (${blob.size} bytes) para ${path} — descartando`);
+    return null;
+  }
 
   const { error } = await supabase.storage
     .from(bucket)
