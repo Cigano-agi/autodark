@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeTrends } from "./trendAgent";
 import { generateIdeasBatch } from "./headAgent";
@@ -74,6 +74,9 @@ export function usePipelineOrchestrator(
 ) {
   const [state, setState] = useState<PipelineState>(INITIAL_STATE);
   const { saveData: saveProductionState, saveScene, reset: resetProductionState, state: productionState } = useProductionState(channelId);
+  // Ref para leitura em closures assíncronos — sempre aponta para o productionState mais recente
+  const productionStateRef = useRef(productionState);
+  productionStateRef.current = productionState;
 
   const update = useCallback((patch: Partial<PipelineState>) => {
     setState(prev => ({ ...prev, ...patch }));
@@ -86,18 +89,25 @@ export function usePipelineOrchestrator(
   useEffect(() => {
     if (!productionState) return;
     if (productionState.status !== "running") return;
-    if (productionState.step !== 2.5) return; // Só retomar se estava na etapa de geração visual
+    if (productionState.step !== 2.5) return;
 
-    const scenes = productionState.scenes ?? [];
-    if (!hasUnfinishedVisuals(scenes)) return;
+    // Aguardar 2s para dar tempo ao Realtime de hidratar as cenas antes de verificar
+    // Evita falso negativo quando a aba é reaberta durante a geração visual (BUG-005)
+    const timer = setTimeout(() => {
+      const scenes = productionStateRef.current?.scenes ?? [];
+      if (!hasUnfinishedVisuals(scenes)) {
+        console.log("[orchestrator] Auto-resume: nenhuma cena pendente após 2s — nada a retomar");
+        return;
+      }
+      console.log("[orchestrator] Auto-resume detectado — retomando worker de geração visual");
+      runVisualWorker(channelId, (remaining) => {
+        update({ message: `Auto-resume: imagens restantes: ${remaining}` });
+      }).catch(err => {
+        console.error("[orchestrator] Erro no auto-resume do worker:", err);
+      });
+    }, 2000); // 2s de delay para hidratação do Realtime
 
-    console.log("[orchestrator] Auto-resume detectado — retomando worker de geração visual");
-    // Iniciar worker em background sem bloquear o render
-    runVisualWorker(channelId, (remaining) => {
-      update({ message: `Auto-resume: imagens restantes: ${remaining}` });
-    }).catch(err => {
-      console.error("[orchestrator] Erro no auto-resume do worker:", err);
-    });
+    return () => clearTimeout(timer);
   // Dependências intencionalmente limitadas: apenas status e step para não re-disparar em cada atualização de cena
   }, [channelId, productionState?.status, productionState?.step]);
 
@@ -186,6 +196,7 @@ export function usePipelineOrchestrator(
     if (!channel) return;
     const hub = loadHubDefaults(channelId);
     let contentId: string | null = null;
+    let currentStep = 1; // Rastreia step atual sem depender de state.progress (evita closure stale — BUG-004)
     const trace = createTraceContext(channelId, channel.name);
 
     try {
@@ -218,6 +229,7 @@ export function usePipelineOrchestrator(
         hook: script.hook,
         script: fullScript,
       });
+      currentStep = 2;
       await saveProductionState(2, "running", { script, contentId });
       update({ script, progress: 35 });
 
@@ -256,6 +268,7 @@ export function usePipelineOrchestrator(
         await saveScene(sceneSnap, allScenes.length);
       }
 
+      currentStep = 2.5;
       await saveProductionState(2.5, "running", { chaptersWithScenes, contentId });
 
       update({ stage: "generating_audio", progress: 45, message: "Sintetizando narração..." });
@@ -288,19 +301,40 @@ export function usePipelineOrchestrator(
                 const res = await fetch(scene.audioUrl);
                 const blob = await res.blob();
                 const storageUrl = await uploadAudio(channelId, contentId, ci * 100 + si, blob);
-                if (storageUrl) ch.scenes[si] = { ...scene, audioUrl: storageUrl };
-              } catch {
-                // Upload de áudio falhou para esta cena; mantém URL local
+                if (storageUrl) {
+                  ch.scenes[si] = { ...scene, audioUrl: storageUrl };
+                } else {
+                  console.warn(`[orchestrator] uploadAudio retornou null para cena ${ci}/${si} — Storage pode estar indisponível`);
+                }
+              } catch (uploadErr) {
+                console.warn(
+                  `[orchestrator] Falha no upload de áudio para cena ${ci}/${si}:`,
+                  uploadErr instanceof Error ? uploadErr.message : uploadErr
+                );
+                // Marcar cena com flag de re-upload necessário (BUG-002)
+                ch.scenes[si] = { ...scene, audioUploadFailed: true };
               }
             }
           }
         }
       }, { provider: "supabase-storage" });
 
+      // Serializar todas as URLs de áudio como JSON em vez de apenas a primeira cena (BUG-003)
+      const audioUrlsMap: Record<string, string> = {};
+      chaptersWithAudio.forEach((ch: any, ci: number) => {
+        ch.scenes?.forEach((scene: any, si: number) => {
+          if (scene.audioUrl && scene.audioUrl !== "browser_tts") {
+            audioUrlsMap[`${ci}_${si}`] = scene.audioUrl;
+          }
+        });
+      });
+
       await persistStep(contentId, channelId, "tts_done", {
-        audio_url: chaptersWithAudio[0]?.scenes[0]?.audioUrl || null,
+        audio_urls_json: JSON.stringify(audioUrlsMap), // todas as URLs serializadas
+        audio_url: chaptersWithAudio[0]?.scenes[0]?.audioUrl || null, // mantido por compatibilidade
         voice_name: hub.voiceId,
       });
+      currentStep = 3;
       await saveProductionState(3, "running", { chaptersWithAudio, contentId });
 
       update({ stage: "generating_visuals", progress: 60, message: "Worker processando imagens em background..." });
@@ -327,7 +361,8 @@ export function usePipelineOrchestrator(
       const REALTIME_MAX_WAIT = 10_000;
       let waited = 0;
       while (waited < REALTIME_MAX_WAIT) {
-        const scenes = productionState?.scenes ?? [];
+        // Ler via ref para evitar closure stale — productionStateRef.current é sempre o valor mais recente (BUG-001)
+        const scenes = productionStateRef.current?.scenes ?? [];
         const stillPending = scenes.filter(
           (s: any) => s.status === "pending" || s.status === "processing"
         ).length;
@@ -337,7 +372,7 @@ export function usePipelineOrchestrator(
       }
 
       // Guard: verificar que pelo menos 80% das cenas têm imagem antes de montar
-      const persistedScenes = productionState?.scenes ?? [];
+      const persistedScenes = productionStateRef.current?.scenes ?? []; // via ref para evitar stale (BUG-001)
       const scenesWithImage = persistedScenes.filter((s: any) => s.imageUrl && s.imageUrl !== "");
       const completionRatio = persistedScenes.length > 0
         ? scenesWithImage.length / persistedScenes.length
@@ -372,9 +407,11 @@ export function usePipelineOrchestrator(
       await persistStep(contentId, channelId, "visuals_done", {
         scenes: scenesJson,
       });
+      currentStep = 4;
       await saveProductionState(4, "running", { chaptersWithVisuals, contentId });
 
       update({ stage: "assembling", progress: 80, message: "Preparando exportação..." });
+      currentStep = 4.5;
       await saveProductionState(4.5, "running", { chaptersWithVisuals, contentId });
 
       update({ stage: "generating_seo", progress: 85, message: "Gerando SEO..." });
@@ -404,6 +441,7 @@ export function usePipelineOrchestrator(
 
       const finalStatus = trace.steps.some(s => s.status === "warn") ? "warn" : "ok";
       await persistTrace(trace, finalStatus);
+      currentStep = 6;
       await saveProductionState(6, "done", { seo, contentId });
 
     } catch (err) {
@@ -417,7 +455,8 @@ export function usePipelineOrchestrator(
       }
 
       await persistTrace(trace, "fail");
-      await saveProductionState(state.progress > 0 ? Math.ceil(state.progress / 20) : 1, "error", {
+      // Usar currentStep em vez de state.progress (closure stale) para persistir o step correto (BUG-004)
+      await saveProductionState(currentStep, "error", {
         error: errorMsg, contentId
       });
 

@@ -34,6 +34,7 @@ export interface SceneData {
   audioDurationSec?: number;
   chapterId?: string;
   durationSec?: number;
+  audioUploadFailed?: boolean; // flag para re-upload no auto-resume (BUG-002)
 }
 
 export interface ScriptResult {
