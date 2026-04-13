@@ -87,8 +87,41 @@ function TagInput({ value, onChange, placeholder }: {
   );
 }
 
-// ... (keep BlockA to BlockE but with updated styles)
+function SeedChannelsInput({ value, onChange }: { value: SeedChannel[], onChange: (v: SeedChannel[]) => void }) {
+  const [input, setInput] = useState("");
+  const add = () => {
+    const trimmed = input.trim();
+    if (trimmed && !value.find(s => s.name === trimmed)) {
+      onChange([...value, { channel_id: crypto.randomUUID().slice(0, 8), name: trimmed, pillar: "referência" }]);
+      setInput("");
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <Input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          placeholder="NOME DO CANAL... (ENTER)"
+          className="h-12 bg-black/40 border-white/10 text-sm font-bold uppercase tracking-tight"
+        />
+        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-white/10 h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]">ADD</Button>
+      </div>
+      {value.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {value.map(tag => (
+            <Badge key={tag.name} variant="outline" onClick={() => onChange(value.filter(t => t.name !== tag.name))} className="text-[10px] font-black uppercase tracking-widest border-white/5 bg-white/5 text-white/60 py-1.5 px-3 cursor-pointer hover:border-red-500/50 hover:text-red-400 transition-all">
+              {tag.name} ×
+            </Badge>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
+// ... (Blocks A and B)
 function BlockA({ f, set }: any) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -124,6 +157,94 @@ function BlockB({ f, set }: any) {
       </div>
       <FormField label="8. Sub-Nichos Relacionados">
         <TagInput value={f.sub_niches} onChange={v => set("sub_niches", v)} />
+      </FormField>
+    </div>
+  );
+}
+
+function BlockC({ f, set }: any) {
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+      <div className="grid grid-cols-2 gap-6">
+        <FormField label="11. Orçamento API Mensal ($)">
+          <Input type="number" value={f.monthly_api_budget} onChange={e => set("monthly_api_budget", Number(e.target.value))} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        </FormField>
+        <FormField label="12. APIs Necessárias">
+          <TagInput value={f.required_apis} onChange={v => set("required_apis", v)} placeholder="EX: OPENAI, ELEVENLABS" />
+        </FormField>
+      </div>
+      <FormField label="13. Estratégia de Evidência" hint="Qual estilo de material visual predomina?">
+        <Input value={f.evidence_strategy} onChange={e => set("evidence_strategy", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+      </FormField>
+      <div className="grid grid-cols-2 gap-6">
+        <FormField label="14. GPU VRAM (GB)">
+          <Input type="number" value={f.hardware_profile.gpu_vram_gb} onChange={e => set("hardware_profile", { ...f.hardware_profile, gpu_vram_gb: Number(e.target.value) })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        </FormField>
+        <FormField label="14. RAM (GB)">
+          <Input type="number" value={f.hardware_profile.ram_gb} onChange={e => set("hardware_profile", { ...f.hardware_profile, ram_gb: Number(e.target.value) })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        </FormField>
+      </div>
+      <div className="flex items-center space-x-4 p-4 border border-white/10 rounded-xl bg-black/20">
+        <Switch checked={f.hardware_profile.has_nvenc} onCheckedChange={v => set("hardware_profile", { ...f.hardware_profile, has_nvenc: v })} id="nvenc" />
+        <Label htmlFor="nvenc" className="text-xs font-bold uppercase tracking-widest text-white/70">Possui encoder NVENC (NVIDIA)</Label>
+      </div>
+      <div className="flex items-center space-x-4 p-4 border border-white/10 rounded-xl bg-black/20">
+        <Switch checked={f.voice_cloning} onCheckedChange={v => set("voice_cloning", v)} id="voice_cloning" />
+        <Label htmlFor="voice_cloning" className="text-xs font-bold uppercase tracking-widest text-white/70">Usar clonagem de voz premium</Label>
+      </div>
+    </div>
+  );
+}
+
+function BlockD({ f, set }: any) {
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+      <FormField label="16. Canais Semente (Inspiração)">
+         <SeedChannelsInput value={f.seed_channels || []} onChange={v => set("seed_channels", v)} />
+      </FormField>
+      <FormField label="17. Feeds RSS">
+        <TagInput value={f.rss_feeds} onChange={v => set("rss_feeds", v)} placeholder="URLs de feeds..." />
+      </FormField>
+      <div className="grid grid-cols-2 gap-6">
+        <FormField label="18. Limiar de Viralidade (Z-Score)" hint="Geralmente entre 1.5 e 3.0">
+          <Input type="number" step="0.1" value={f.z_score_threshold} onChange={e => set("z_score_threshold", Number(e.target.value))} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        </FormField>
+        <FormField label="19. Score Mínimo de Qualidade">
+          <Input type="number" value={f.quality_system?.pass_score || 8} onChange={e => set("quality_system", { ...f.quality_system, pass_score: Number(e.target.value) })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        </FormField>
+      </div>
+      <FormField label="20. Estrutura Narrativa Padrão">
+        <Textarea value={f.narrative_structure} onChange={e => set("narrative_structure", e.target.value)} className="bg-black/40 border-white/10 min-h-[100px] font-medium leading-relaxed italic" />
+      </FormField>
+      <FormField label="21. Checklist de Qualidade">
+        <TagInput value={f.quality_system?.checks || []} onChange={v => set("quality_system", { ...f.quality_system, checks: v })} placeholder="Ex: BOA RETENÇÃO NOS PRIMEIROS 5S" />
+      </FormField>
+    </div>
+  );
+}
+
+function BlockE({ f, set }: any) {
+  return (
+    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
+      <FormField label="22. Fosso Defensivo (Moat)" hint="O que impede os outros de copiarem este canal facilmente?">
+        <Textarea value={f.defensive_moat} onChange={e => set("defensive_moat", e.target.value)} className="bg-black/40 border-white/10 min-h-[100px] font-medium leading-relaxed italic" />
+      </FormField>
+      <div className="grid grid-cols-2 gap-6">
+        <FormField label="23. Dias de Publicação">
+          <TagInput value={f.publish_schedule?.days || []} onChange={v => set("publish_schedule", { ...f.publish_schedule, days: v })} placeholder="EX: SEGUNDA, QUINTA" />
+        </FormField>
+        <FormField label="24. Horário (UTC)">
+          <Input value={f.publish_schedule?.time_utc || "18:00"} onChange={e => set("publish_schedule", { ...f.publish_schedule, time_utc: e.target.value })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        </FormField>
+      </div>
+      <FormField label="25. Plano de Escala">
+        <Input value={f.scaling_plan} onChange={e => set("scaling_plan", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+      </FormField>
+      <FormField label="26. Riscos Operacionais">
+        <Input value={f.operational_risks} onChange={e => set("operational_risks", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+      </FormField>
+      <FormField label="27. Loop de Feedback">
+        <Input value={f.feedback_loop} onChange={e => set("feedback_loop", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
       </FormField>
     </div>
   );
@@ -306,13 +427,9 @@ export default function FoundationPage() {
               <CardContent className="p-10">
                 {block === 0 && <BlockA f={form} set={setField} />}
                 {block === 1 && <BlockB f={form} set={setField} />}
-                {/* ... other blocks ... */}
-                {block > 1 && (
-                  <div className="py-20 text-center space-y-4">
-                    <Zap className="w-12 h-12 text-white/5 mx-auto" />
-                    <p className="text-xs font-bold text-white/20 uppercase tracking-[0.3em]">Em breve disponível</p>
-                  </div>
-                )}
+                {block === 2 && <BlockC f={form} set={setField} />}
+                {block === 3 && <BlockD f={form} set={setField} />}
+                {block === 4 && <BlockE f={form} set={setField} />}
               </CardContent>
             </Card>
 
