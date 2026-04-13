@@ -45,9 +45,17 @@ Para cada cena, retorne JSON:
     );
 
     const parsed = extractJson(raw) as { scenes: SceneData[] };
+
+    if (!parsed.scenes || !Array.isArray(parsed.scenes) || parsed.scenes.length === 0) {
+      throw new Error(
+        `[extractScenes] LLM retornou JSON sem campo 'scenes' para capítulo "${chapter.title}". ` +
+        `Campos recebidos: ${Object.keys(parsed).join(", ")}`
+      );
+    }
+
     updatedChapters.push({
       ...chapter,
-      scenes: (parsed.scenes || []).map(s => ({ ...s, chapterId: chapter.id })),
+      scenes: parsed.scenes.map(s => ({ ...s, chapterId: chapter.id })),
     });
   }
   return updatedChapters;
@@ -89,7 +97,10 @@ export async function generateVisuals(
           const imageUrl = await callImageGeneration(fullPrompt);
           result[chapterIndex].scenes[sceneIndex] = { ...scene, imageUrl };
         } catch (err) {
-          console.error(`Error generating visual for scene:`, err);
+          console.warn(`[visualAgent] Falha ao gerar imagem para cena "${scene.title}":`, err instanceof Error ? err.message : err);
+          // Manter scene sem imageUrl — o assembler usa placeholder
+          // Não re-throw: o batch continua processando as outras cenas
+          result[chapterIndex].scenes[sceneIndex] = { ...scene, imageUrl: undefined };
         }
 
         done++;

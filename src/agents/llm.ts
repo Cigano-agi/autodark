@@ -94,20 +94,21 @@ export async function callUnsplashImage(keywords: string): Promise<string> {
 export async function callPollinationsImage(prompt: string): Promise<string> {
   const encoded = encodeURIComponent(prompt.slice(0, 400));
   const seed = Math.floor(Math.random() * 999999);
-  // Use Vercel proxy /api-pollinations → image.pollinations.ai
-  const url = `/api-pollinations/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&model=flux`;
+  // URL direta do Pollinations.ai — pública, sem CORS bloqueado para imagens
+  const directUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&model=flux`;
+  // Proxy local apenas para o fetch (evita CORS em alguns browsers); a URL armazenada é sempre a direta
+  const proxyUrl = `/api-pollinations/prompt/${encoded}?width=1280&height=720&seed=${seed}&nologo=true&model=flux`;
 
-  // Tenta até 3 vezes com backoff generoso (imagens AI demoram)
   for (let attempt = 1; attempt <= 3; attempt++) {
     try {
-      const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+      // Tenta pelo proxy local primeiro; se falhar, tenta a URL direta
+      const fetchUrl = proxyUrl;
+      const res = await fetch(fetchUrl, { signal: AbortSignal.timeout(30000) });
       if (res.ok) {
         const blob = await res.blob();
-        // Return a persistent object URL — caller should persist the HTTP URL if needed
         if (blob.size > 1000) {
-          // Construct the absolute URL so it can be stored without blob lifecycle issues
-          const absUrl = `${window.location.origin}${url}`;
-          return absUrl;
+          // SEMPRE retorna a URL direta do Pollinations — nunca localhost
+          return directUrl;
         }
       }
       if (res.status === 429 && attempt < 3) {
@@ -184,29 +185,41 @@ function generateCanvasDarkImage(prompt: string): string {
 }
 
 export function extractJson(text: string): Record<string, unknown> {
-  // Tenta encontrar JSON dentro do texto
-  let match = text.match(/\{[\s\S]*\}/);
-
-  if (!match) {
+  // Usar parser com balanceamento de chaves em vez de regex greedy.
+  // Regex greedy captura do primeiro { ao ÚLTIMO } — quando a LLM retorna
+  // dois JSONs no mesmo texto, o conteúdo entre eles gera JSON inválido.
+  const firstBrace = text.indexOf('{');
+  if (firstBrace === -1) {
     console.error("[extractJson] JSON não encontrado no texto:", text.substring(0, 200));
     throw new Error("JSON não encontrado na resposta");
   }
 
-  // Tenta parsear o JSON encontrado
+  let depth = 0;
+  let end = -1;
+  for (let i = firstBrace; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) { end = i; break; }
+    }
+  }
+
+  if (end === -1) {
+    console.error("[extractJson] JSON não fechado corretamente:", text.substring(0, 200));
+    throw new Error("JSON mal-formado: chaves não fechadas");
+  }
+
+  const jsonStr = text.slice(firstBrace, end + 1);
+
   try {
-    return JSON.parse(match[0]);
+    return JSON.parse(jsonStr);
   } catch (e) {
-    // Se falhar, tenta remover caracteres inválidos no final
-    let jsonStr = match[0];
-
-    // Remove caracteres problemáticos no final (como ``` ou ```json)
-    jsonStr = jsonStr.replace(/```[\s\S]*$/, "").trim();
-
-    // Tenta novamente
+    // Tenta limpar artefatos de markdown (```) antes de desistir
+    const cleaned = jsonStr.replace(/```[\s\S]*$/, "").trim();
     try {
-      return JSON.parse(jsonStr);
+      return JSON.parse(cleaned);
     } catch (e2) {
-      console.error("[extractJson] Falha ao parsear JSON:", jsonStr.substring(0, 200));
+      console.error("[extractJson] Falha ao parsear JSON:", cleaned.substring(0, 200));
       throw new Error(`JSON inválido: ${(e as Error).message}`);
     }
   }
