@@ -71,6 +71,7 @@ export function usePipelineOrchestrator(
   channelId: string,
   channel: ChannelData | undefined,
   blueprint: BlueprintData | null,
+  foundation: any | null,
 ) {
   const [state, setState] = useState<PipelineState>(INITIAL_STATE);
   const { saveData: saveProductionState, saveScene, reset: resetProductionState, state: productionState } = useProductionState(channelId);
@@ -216,6 +217,7 @@ export function usePipelineOrchestrator(
             durationMin,
             channel,
             blueprint,
+            foundation,
             (msg) => update({ message: msg }),
           ),
           60000,

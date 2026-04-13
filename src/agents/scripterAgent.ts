@@ -19,6 +19,7 @@ async function generateSummary(
   durationMin: number,
   channel: ChannelData,
   blueprint: BlueprintData | null,
+  foundation: any | null,
 ): Promise<{ title: string; hook: string; chapters: { id: string; title: string; summary: string }[] }> {
   const langLabel = language === "en" ? "English" : language === "es" ? "Español" : "Português Brasileiro";
   const numChapters = durationToChapters(durationMin);
@@ -27,6 +28,8 @@ async function generateSummary(
     `Você é um roteirista especializado em vídeos de YouTube de alto engajamento.
 Canal: ${channel.name} | Nicho: ${channel.niche || "geral"}
 Persona: ${blueprint?.persona_prompt || "narrador envolvente"}
+${foundation?.generated_directives?.identity ? `Diretriz de Identidade do Canal:\n${foundation.generated_directives.identity}\n` : ""}
+${foundation?.generated_directives?.script_agent ? `Diretriz de Roteiro do Canal:\n${foundation.generated_directives.script_agent}\n` : ""}
 IMPORTANT: Write ALL output content exclusively in ${langLabel}. Never respond in Portuguese or any other language unless it IS the target language.`,
     `Crie um sumário estruturado para um vídeo de ${durationMin} minutos sobre: "${idea}"
 Idioma obrigatório: ${langLabel}
@@ -63,6 +66,7 @@ async function generateChapterScript(
   durationMin: number,
   channel: ChannelData,
   blueprint: BlueprintData | null,
+  foundation: any | null,
   title: string,
 ): Promise<string> {
   const chapterIndex = allChapters.findIndex(c => c.title === chapter.title);
@@ -75,6 +79,7 @@ async function generateChapterScript(
 Idioma obrigatório: ${langLabel} — escreva TODO o roteiro neste idioma, sem exceção.
 Estilo: ${blueprint?.persona_prompt || "narrador envolvente e direto"}
 Regras: ${blueprint?.script_rules || ""}
+${foundation?.generated_directives?.script_agent ? `\nMANDATÓRIO: OBEDEÇA A ESTA DIRETRIZ ESTRUTURAL:\n${foundation.generated_directives.script_agent}\n` : ""}
 
 Este é o capítulo ${chapterIndex + 1} de ${allChapters.length} do vídeo "${title}".
 Contexto geral: ${allChapters.map(c => `${c.title}: ${c.summary}`).join(" | ")}
@@ -101,15 +106,16 @@ export async function generateFullScript(
   durationMin: number,
   channel: ChannelData,
   blueprint: BlueprintData | null,
+  foundation: any | null,
   onProgress?: (message: string) => void,
 ): Promise<ScriptResult> {
   onProgress?.("Gerando sumário...");
-  const summary = await generateSummary(idea, language, durationMin, channel, blueprint);
+  const summary = await generateSummary(idea, language, durationMin, channel, blueprint, foundation);
 
   const chaptersWithScripts: VideoChapter[] = [];
   for (const ch of summary.chapters) {
     onProgress?.(`Escrevendo cap. "${ch.title}"...`);
-    const script = await generateChapterScript(ch, summary.chapters, language, durationMin, channel, blueprint, summary.title);
+    const script = await generateChapterScript(ch, summary.chapters, language, durationMin, channel, blueprint, foundation, summary.title);
     chaptersWithScripts.push({
       id: ch.id,
       title: ch.title,
