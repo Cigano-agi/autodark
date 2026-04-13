@@ -12,7 +12,12 @@ export async function generateSEO(
     const mins = Math.floor(currentSec / 60);
     const secs = currentSec % 60;
     const time = `${mins}:${String(secs).padStart(2, "0")}`;
-    currentSec += ch.audioDurationSec || 120;
+    // Somar audioDurationSec de cada cena — VideoChapter não tem audioDurationSec direto
+    const chapterDuration = (ch.scenes ?? []).reduce(
+      (sum, s) => sum + (s.audioDurationSec ?? 0),
+      0
+    ) || 120; // fallback de 120s apenas se todas as cenas tiverem audioDurationSec = 0
+    currentSec += chapterDuration;
     return { time, label: ch.title };
   });
 
@@ -39,5 +44,23 @@ Retorne JSON:
     prompt,
     true
   );
-  return extractJson(raw) as unknown as SEOPackage;
+  const seo = extractJson(raw) as SEOPackage;
+
+  // Validar e aplicar fallbacks para campos críticos
+  if (!seo.title || typeof seo.title !== "string") {
+    seo.title = title; // fallback para o título do script passado como parâmetro
+  }
+  if (!seo.description || typeof seo.description !== "string") {
+    seo.description = "";
+  }
+  if (!seo.tags || !Array.isArray(seo.tags)) {
+    console.warn("[seoAgent] Campo 'tags' ausente ou inválido na resposta LLM — usando array vazio");
+    seo.tags = [];
+  }
+  if (!seo.chapters || !Array.isArray(seo.chapters)) {
+    console.warn("[seoAgent] Campo 'chapters' ausente na resposta LLM — reconstruindo a partir dos capítulos");
+    seo.chapters = chapters.map((ch, i) => ({ time: `${i * 2}:00`, label: ch.title }));
+  }
+
+  return seo;
 }

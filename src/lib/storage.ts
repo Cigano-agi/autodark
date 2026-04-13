@@ -53,10 +53,14 @@ export async function uploadImage(
 
     try {
       const res = await fetch(imageUrlOrBlob);
+      if (!res.ok) {
+        console.warn(`[storage] Fetch de imagem retornou ${res.status} para:`, imageUrlOrBlob.slice(0, 80));
+        return null; // Não persistir URL inválida no banco
+      }
       blob = await res.blob();
     } catch {
-      console.warn("[storage] Failed to fetch image for upload:", imageUrlOrBlob.slice(0, 80));
-      return imageUrlOrBlob; // Return original URL as fallback
+      console.warn("[storage] Falha ao buscar imagem para upload:", imageUrlOrBlob.slice(0, 80));
+      return null; // Não retornar URL original — pode ser localhost ou URL temporária
     }
   }
 
