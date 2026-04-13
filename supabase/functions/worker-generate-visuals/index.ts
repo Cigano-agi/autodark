@@ -206,27 +206,27 @@ Deno.serve(async (req) => {
     const stateRow = await getProductionState(channelId, dbHeaders);
     const allScenes: SceneSnapshot[] = stateRow.scenes ?? [];
 
-    // 2. Selecionar cenas pending (máximo MAX_BATCH)
-    // IMPORTANTE: só selecionar 'pending', nunca 'processing'
-    // (cenas 'processing' foram iniciadas por outra invocação — evitar duplicação)
+    // 2. Selecionar cenas audio_done (máximo MAX_BATCH)
+    // IMPORTANTE: só selecionar 'audio_done', nunca 'processing_visuals'
+    // (cenas 'processing_visuals' foram iniciadas por outra invocação — evitar duplicação)
     const pendingScenes = allScenes
-      .filter(s => s.status === "pending")
+      .filter(s => s.status === "audio_done")
       .slice(0, MAX_BATCH);
 
     if (pendingScenes.length === 0) {
-      console.log(`[worker] Nenhuma cena pending para channel=${channelId}`);
+      console.log(`[worker] Nenhuma cena audio_done para channel=${channelId}`);
       return new Response(
         JSON.stringify({ processed: 0, remaining: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`[worker] Processando ${pendingScenes.length} cenas pending para channel=${channelId}`);
+    console.log(`[worker] Processando ${pendingScenes.length} cenas audio_done para channel=${channelId}`);
 
-    // 3. Marcar como 'processing' IMEDIATAMENTE (previne race condition multi-tab)
+    // 3. Marcar como 'processing_visuals' IMEDIATAMENTE (previne race condition multi-tab)
     const processingScenes = allScenes.map(s =>
       pendingScenes.some(p => p.chapterIndex === s.chapterIndex && p.sceneIndex === s.sceneIndex)
-        ? { ...s, status: "processing" as const }
+        ? { ...s, status: "processing_visuals" as const }
         : s
     );
     await updateScenes(stateRow.id, processingScenes, stateRow.completed_scenes, dbHeaders);
@@ -266,7 +266,7 @@ Deno.serve(async (req) => {
         const isFatal = currentErrorCount >= MAX_ERROR_COUNT;
         updatedScenes[idx] = {
           ...updatedScenes[idx],
-          status: isFatal ? "error" : "pending",  // volta para pending se ainda tem tentativas
+          status: isFatal ? "error" : "audio_done",  // volta para audio_done se ainda tem tentativas
           errorCount: currentErrorCount,
           errorMessage: result.error,
         };
@@ -282,7 +282,8 @@ Deno.serve(async (req) => {
     await updateScenes(stateRow.id, updatedScenes, totalCompleted, dbHeaders);
 
     // 7. Contagem de remaining para o frontend saber se deve invocar novamente
-    const remainingPending = updatedScenes.filter(s => s.status === "pending").length;
+    const remainingPending = updatedScenes.filter(s => s.status === "audio_done").length;
+
 
     console.log(`[worker] Batch concluído. processed=${pendingScenes.length} succeeded=${newlyCompleted} remaining=${remainingPending}`);
 

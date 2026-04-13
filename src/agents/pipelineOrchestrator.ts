@@ -6,8 +6,9 @@ import { generateFullScript } from "./scripterAgent";
 import { generateAllNarrations } from "./narratorAgent";
 import { extractScenes } from "./visualAgent";
 import { runVisualWorker, hasUnfinishedVisuals } from "@/lib/visualWorker";
+import { runAudioWorker, hasUnfinishedAudio } from "@/lib/audioWorker";
 import { generateSEO } from "./seoAgent";
-import { uploadAudio, uploadImage } from "@/lib/storage";
+import { uploadImage } from "@/lib/storage";
 import { createTraceContext } from "@/lib/traceContext";
 import { logStep, logSkip, persistTrace, traceToMarkdown } from "@/lib/debugLogger";
 import { useProductionState } from "@/hooks/useProductionState";
@@ -93,9 +94,19 @@ export function usePipelineOrchestrator(
     if (productionState.step !== 2.5) return;
 
     // Aguardar 2s para dar tempo ao Realtime de hidratar as cenas antes de verificar
-    // Evita falso negativo quando a aba é reaberta durante a geração visual (BUG-005)
+    // Evita falso negativo quando a aba é reaberta durante a geração visual ou de áudio (BUG-005)
     const timer = setTimeout(() => {
       const scenes = productionStateRef.current?.scenes ?? [];
+      
+      const missingAudio = hasUnfinishedAudio(scenes);
+      if (missingAudio) {
+        console.log("[orchestrator] Auto-resume detectado — retomando worker de geração de áudio");
+        runAudioWorker(channelId, (remaining) => {
+          update({ message: `Auto-resume áudio: cenas restantes: ${remaining}` });
+        }).catch(err => console.error("[orchestrator] Erro no auto-resume do worker (audio):", err));
+        return;
+      }
+
       if (!hasUnfinishedVisuals(scenes)) {
         console.log("[orchestrator] Auto-resume: nenhuma cena pendente após 2s — nada a retomar");
         return;
@@ -243,7 +254,7 @@ export function usePipelineOrchestrator(
             durationMin,
             blueprint,
           ),
-          45000,
+          300000,
           "Extração de Cenas"
         );
       }, { provider: "claude-3.5-sonnet" });
@@ -273,53 +284,50 @@ export function usePipelineOrchestrator(
       currentStep = 2.5;
       await saveProductionState(2.5, "running", { chaptersWithScenes, contentId });
 
-      update({ stage: "generating_audio", progress: 45, message: "Sintetizando narração..." });
-      const { chapters: chaptersWithAudio, failedScenes: ttsFailedCount } = await logStep(trace, "tts_narration", async () => {
-        return withTimeout(
-          generateAllNarrations(
-            chaptersWithScenes,
-            language,
-            hub,
-            (done, total) => update({ progress: 45 + Math.round((done / total) * 15), message: `Narrando cena ${done}/${total}...` }),
-          ),
-          300000,
-          "Síntese de Áudio"
+      update({ stage: "generating_audio", progress: 45, message: "Worker de áudio online..." });
+      
+      await logStep(trace, "tts_narration", async () => {
+        const totalGeneratedAudio = await runAudioWorker(
+          channelId,
+          (remaining) => {
+            const total = allScenes.length;
+            const done = total - remaining;
+            update({
+              progress: 45 + Math.round((done / Math.max(total, 1)) * 15),
+              message: `Narrando cena ${done}/${total}...`,
+            });
+          }
         );
-      }, { provider: hub.voice });
+        console.log(`[orchestrator] Audio Worker concluiu. Total audios gerados: ${totalGeneratedAudio}`);
+      }, { provider: "worker-generate-audio" });
 
-      if (ttsFailedCount > 0) {
-        console.warn(`[orchestrator] ${ttsFailedCount} cenas com fallback TTS (browser_tts)`);
-        toast.warning(`${ttsFailedCount} cenas sem áudio real — usando estimativa de duração.`);
+      // Aguardar Realtime propagações de áudio (polling com timeout de 10s)
+      const AUDIO_POLL_INTERVAL = 300;
+      let audioWaited = 0;
+      while (audioWaited < 10_000) {
+        const scenes = productionStateRef.current?.scenes ?? [];
+        const stillPending = scenes.filter((s: any) => s.status === "pending" || s.status === "processing_audio").length;
+        if (stillPending === 0) break;
+        await new Promise(r => setTimeout(r, AUDIO_POLL_INTERVAL));
+        audioWaited += AUDIO_POLL_INTERVAL;
       }
 
-      await logStep(trace, "audio_upload", async () => {
-        if (!contentId) return;
-        for (let ci = 0; ci < chaptersWithAudio.length; ci++) {
-          const ch = chaptersWithAudio[ci];
-          for (let si = 0; si < ch.scenes.length; si++) {
-            const scene = ch.scenes[si];
-            if (scene.audioUrl && scene.audioUrl !== "browser_tts" && scene.audioUrl.startsWith("blob:")) {
-              try {
-                const res = await fetch(scene.audioUrl);
-                const blob = await res.blob();
-                const storageUrl = await uploadAudio(channelId, contentId, ci * 100 + si, blob);
-                if (storageUrl) {
-                  ch.scenes[si] = { ...scene, audioUrl: storageUrl };
-                } else {
-                  console.warn(`[orchestrator] uploadAudio retornou null para cena ${ci}/${si} — Storage pode estar indisponível`);
-                }
-              } catch (uploadErr) {
-                console.warn(
-                  `[orchestrator] Falha no upload de áudio para cena ${ci}/${si}:`,
-                  uploadErr instanceof Error ? uploadErr.message : uploadErr
-                );
-                // Marcar cena com flag de re-upload necessário (BUG-002)
-                ch.scenes[si] = { ...scene, audioUploadFailed: true };
-              }
-            }
-          }
-        }
-      }, { provider: "supabase-storage" });
+      // Reconstruir chaptersWithAudio a partir das cenas persistidas
+      const persistedScenesAudio = productionStateRef.current?.scenes ?? [];
+      const chaptersWithAudio = chaptersWithScenes.map((ch: any, ci: number) => ({
+        ...ch,
+        scenes: ch.scenes.map((scene: any, si: number) => {
+          const persisted = persistedScenesAudio.find(
+            (s: any) => s.chapterIndex === ci && s.sceneIndex === si
+          );
+          return {
+            ...scene,
+            audioUrl: persisted?.audioUrl ?? scene.audioUrl,
+            durationSec: persisted?.durationSec ?? scene.durationSec,
+            audioDurationSec: persisted?.durationSec ?? scene.audioDurationSec,
+          };
+        }),
+      }));
 
       // Serializar todas as URLs de áudio como JSON em vez de apenas a primeira cena (BUG-003)
       const audioUrlsMap: Record<string, string> = {};
@@ -366,7 +374,7 @@ export function usePipelineOrchestrator(
         // Ler via ref para evitar closure stale — productionStateRef.current é sempre o valor mais recente (BUG-001)
         const scenes = productionStateRef.current?.scenes ?? [];
         const stillPending = scenes.filter(
-          (s: any) => s.status === "pending" || s.status === "processing"
+          (s: any) => s.status === "audio_done" || s.status === "processing_visuals"
         ).length;
         if (stillPending === 0) break;
         await new Promise(r => setTimeout(r, REALTIME_POLL_INTERVAL));

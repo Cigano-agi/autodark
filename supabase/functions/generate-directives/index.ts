@@ -6,31 +6,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const AI33_API_KEY   = Deno.env.get("AI33_API_KEY");
 const OPENROUTER_KEY = Deno.env.get("OPENROUTER_API_KEY");
 
 async function callLLM(system: string, user: string): Promise<string> {
-  // Tenta AI33 primeiro, fallback OpenRouter
-  if (AI33_API_KEY) {
-    try {
-      const res = await fetch("https://api.ai33.pro/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${AI33_API_KEY}` },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-5",
-          messages: [{ role: "system", content: system }, { role: "user", content: user }],
-          temperature: 0.3,
-          max_tokens: 4000,
-        }),
-      });
-      if (res.ok) {
-        const d = await res.json();
-        return d.choices[0].message.content;
-      }
-    } catch (_) { /* fallthrough */ }
-  }
-
-  if (!OPENROUTER_KEY) throw new Error("Nenhuma API key configurada (AI33 ou OpenRouter)");
+  if (!OPENROUTER_KEY) throw new Error("Nenhuma API key configurada (OpenRouter)");
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -38,9 +17,10 @@ async function callLLM(system: string, user: string): Promise<string> {
       "Content-Type": "application/json",
       "Authorization": `Bearer ${OPENROUTER_KEY}`,
       "HTTP-Referer": "https://autodark.app",
+      "X-Title": "AutoDark",
     },
     body: JSON.stringify({
-      model: "anthropic/claude-sonnet-4-5",
+      model: "anthropic/claude-3.5-sonnet",
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
       temperature: 0.3,
       max_tokens: 4000,
