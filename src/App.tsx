@@ -14,7 +14,7 @@ import NotFound from "./pages/NotFound";
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ChannelView = lazy(() => import("./pages/Channel/Index"));
 const ChannelPrompts = lazy(() => import("./pages/ChannelPrompts"));
-const LongVideoStudio = lazy(() => import("./pages/LongVideoStudio"));
+const VideosIndex = lazy(() => import("./pages/Videos/Index"));
 const ProductionWizard = lazy(() => import("./pages/Production/Index"));
 const PipelinePage = lazy(() => import("./pages/Pipeline/Index"));
 const FoundationPage = lazy(() => import("./pages/Foundation/Index"));
@@ -83,7 +83,8 @@ const AppRoutes = () => (
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/channel/:id" element={<ChannelView />} />
         <Route path="/channel/:id/prompts" element={<ChannelPrompts />} />
-        <Route path="/channel/:id/studio" element={<LongVideoStudio />} />
+        <Route path="/channel/:id/videos" element={<VideosIndex />} />
+        <Route path="/channel/:id/studio" element={<Navigate to="../videos" replace />} />
         <Route path="/channel/:id/production" element={<ProductionWizard />} />
         <Route path="/channel/:id/foundation" element={<FoundationPage />} />
         <Route path="/pipeline" element={<PipelinePage />} />

@@ -94,7 +94,7 @@ export default function ChannelView() {
           onConnect={() => setIsConnectModalOpen(true)}
           onSync={() => syncMetrics.mutate({ channelId: channel.id, youtubeUrl: channel.youtube_username ? `https://youtube.com/@${channel.youtube_username}` : '' })}
           onNewVideo={() => navigate(`/channel/${id}/production`)}
-          onStudio={() => navigate(`/channel/${id}/studio`)}
+          onStudio={() => navigate(`/channel/${id}/videos`)}
           onHeadAgent={() => generateStrategy(id)}
         />
 

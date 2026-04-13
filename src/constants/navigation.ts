@@ -7,6 +7,7 @@ import {
   FileCode,
   Zap,
   Wand2,
+  Film,
 } from "lucide-react";
 
 export interface NavItem {
@@ -53,9 +54,9 @@ export const CHANNEL_NAV_ITEMS: NavItem[] = [
     icon: PlayCircle,
   },
   {
-    label: "Estúdio de Edição",
-    path: "/channel/:id/studio",
-    icon: Wand2,
+    label: "Vídeos",
+    path: "/channel/:id/videos",
+    icon: Film,
   },
   {
     label: "Prompts de IA",

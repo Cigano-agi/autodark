@@ -207,6 +207,12 @@ export function useVideoAssembler() {
         const FPS    = 30;
         const FADE_SEC = 0.4; // cross-dissolve duration between scenes
 
+        // ── AudioContext initialization (MUST be before any awaits to catch user gesture) ──
+        const audioCtx = new window.AudioContext();
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
+
         // ── Load all images (com placeholder silencioso em caso de falha) ────────────
         setLog("[autodark] Carregando imagens...");
         const images: HTMLImageElement[] = [];
@@ -234,12 +240,29 @@ export function useVideoAssembler() {
         const canvas = document.createElement("canvas");
         canvas.width  = WIDTH;
         canvas.height = HEIGHT;
+        canvas.style.position = "absolute";
+        canvas.style.top = "-9999px"; // Hide it but keep it in DOM
+        document.body.appendChild(canvas);
+
         const ctx = canvas.getContext("2d")!;
+        // Pulo do gato: é obrigatório desenhar algo no canvas ANTES de chamar captureStream
+        // caso contrário, em alguns navegadores o Stream nunca inicializa!
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
         const stream = canvas.captureStream(FPS);
 
         // ── Audio: per-scene narration + optional BGM ───────────────────────
-        const audioCtx = new AudioContext();
         const dest = audioCtx.createMediaStreamDestination();
+        
+        // HACK: Conectar um oscilador silencioso para forçar o MediaRecorder a gerar chunks de áudio.
+        // Sem isso, algumas versões do Chrome pausam a gravação de vídeo esperando áudio que nunca chega.
+        const dummyOsc = audioCtx.createOscillator();
+        const dummyGain = audioCtx.createGain();
+        dummyGain.gain.value = 0;
+        dummyOsc.connect(dummyGain).connect(dest);
+        dummyOsc.start();
+
         const sceneAudioElements: (HTMLAudioElement | null)[] = [];
 
         // Pre-load all scene audio elements and wait for metadata to correct duration
@@ -305,15 +328,27 @@ export function useVideoAssembler() {
           recorder.onstop = () => {
             // Stop all audio elements
             sceneAudioElements.forEach(el => { if (el) { el.pause(); el.currentTime = 0; } });
+            try { dummyOsc.stop(); } catch(e){}
             audioCtx.close().catch(() => {});
             
+            // Remove helper canvas from DOM
+            if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+
             const blob = new Blob(videoChunks, { type: mimeType });
+            if (blob.size === 0) {
+              reject(new Error("MediaRecorder gerou arquivo vazio. Verifique permissões do navegador ou abas ocultas."));
+              return;
+            }
+
             const url  = URL.createObjectURL(blob);
             setProgress(100);
             setLog((p) => p + `\n[autodark] Vídeo montado! (${(blob.size / 1024 / 1024).toFixed(1)} MB)`);
             resolve(url);
           };
-          recorder.onerror = (e) => reject(e);
+          recorder.onerror = (e: any) => {
+            if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            reject(new Error(`MediaRecorder error: ${e?.error?.message || e.message || "Unknown Event Error"}`));
+          };
           recorder.start(100);
 
           let elapsed    = 0;
@@ -330,7 +365,10 @@ export function useVideoAssembler() {
                 requestAnimationFrame(drawFrame);
                 return;
               }
-              recorder.stop();
+              try { recorder.requestData(); } catch (e) {} // Força a liberação dos últimos chunks
+              setTimeout(() => {
+                if (recorder.state !== "inactive") recorder.stop();
+              }, 100);
               return;
             }
 

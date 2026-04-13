@@ -9,8 +9,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-const MAX_BATCH = 5;
+const MAX_BATCH = 1;
 const MAX_ERROR_COUNT = 3;
+const STALE_TIMEOUT_MINUTES = 10; // Tempo para considerar uma cena de áudio como travada
 
 interface SceneSnapshot {
   chapterIndex: number;
@@ -178,14 +179,28 @@ Deno.serve(async (req) => {
     const stateRow = await getProductionState(channelId, dbHeaders);
     const allScenes: SceneSnapshot[] = stateRow.scenes ?? [];
 
+    const now = new Date();
+    // Usamos o updated_at da linha como proxy para o tempo da última atividade da produção
+    const updatedAt = new Date(stateRow.updated_at || now);
+    const diffMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
+    const isStale = diffMinutes > STALE_TIMEOUT_MINUTES;
+
     const pendingScenes = allScenes
-      .filter(s => s.status === "pending")
+      .filter(s => {
+        if (s.status === "pending") return true;
+        // Se a produção estiver parada há mais de 10 min, reprocessamos o que estiver 'processing_audio'
+        if (s.status === "processing_audio" && isStale) return true;
+        return false;
+      })
       .slice(0, MAX_BATCH);
 
     if (pendingScenes.length === 0) {
-      console.log(`[worker-audio] Nenhuma cena pending para channel=${channelId}`);
+      const remainingGlobal = allScenes.filter(s => s.status === "pending").length;
+      const processingGlobal = allScenes.filter(s => s.status === "processing_audio").length;
+      
+      console.log(`[worker-audio] Nenhuma cena elegível para channel=${channelId}. (Aguardando: ${remainingGlobal}, Em processo: ${processingGlobal})`);
       return new Response(
-        JSON.stringify({ processed: 0, remaining: 0 }),
+        JSON.stringify({ processed: 0, remaining: remainingGlobal, processing: processingGlobal }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

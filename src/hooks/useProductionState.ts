@@ -9,13 +9,13 @@ import { useAuth } from "./useAuth";
 export interface SceneSnapshot {
   chapterIndex: number;
   sceneIndex: number;
-  status: "pending" | "processing" | "audio_done" | "visual_done" | "complete" | "error";
+  status: "pending" | "processing" | "audio_done" | "visual_done" | "complete" | "error" | "processing_audio" | "processing_visuals";
   audioUrl?: string;
   imageUrl?: string;
   durationSec?: number;
   prompt?: string;
   errorMessage?: string;
-  errorCount?: number;  // Número de tentativas falhas — worker usa para retry logic (max 3)
+  errorCount?: number;
 }
 
 export interface ProductionStateData {
@@ -51,39 +51,34 @@ const INITIAL: Omit<ProductionState, "channel_id"> = {
 export function useProductionState(channelId: string | undefined) {
   const { user } = useAuth();
   const [state, setState] = useState<ProductionState | null>(null);
-  const stateRef = useRef<ProductionState | null>(null); // sempre aponta para o state mais recente
+  const stateRef = useRef<ProductionState | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Manter o ref sincronizado com o state em cada render
   stateRef.current = state;
 
-  // Sincronizando com o Bunker (Supabase) ao iniciar uplink
-  useEffect(() => {
+  const fetchState = useCallback(async () => {
     if (!channelId || !user) return;
+    setLoading(true);
+    const { data, error } = await (supabase.from as any)("production_states")
+      .select("*")
+      .eq("channel_id", channelId)
+      .maybeSingle();
 
-    (async () => {
-      setLoading(true);
-      const { data, error } = await (supabase.from as any)("production_states")
-        .select("*")
-        .eq("channel_id", channelId)
-        .maybeSingle();
-
-      if (error) {
-        // Não resetar para INITIAL — pode haver estado válido no banco
-        // Manter state como null = "não carregado" — UI deve mostrar reconnecting
-        console.error("[useProductionState] Falha ao carregar estado do pipeline:", error.message);
-        setState(null);
-      } else if (data) {
-        setState(data as ProductionState);
-      } else {
-        // data === null && !error = banco confirmou que não há registro para este channelId
-        setState({ channel_id: channelId, ...INITIAL });
-      }
-      setLoading(false);
-    })();
+    if (error) {
+      console.error("[useProductionState] Falha ao carregar estado do pipeline:", error.message);
+      setState(null);
+    } else if (data) {
+      setState(data as ProductionState);
+    } else {
+      setState({ channel_id: channelId, ...INITIAL });
+    }
+    setLoading(false);
   }, [channelId, user]);
 
-  // Monitoramento de Canal em Tempo Real
+  useEffect(() => {
+    fetchState();
+  }, [fetchState]);
+
   useEffect(() => {
     if (!channelId) return;
 
@@ -106,12 +101,9 @@ export function useProductionState(channelId: string | undefined) {
     return () => { supabase.removeChannel(channel); };
   }, [channelId]);
 
-  /** Persistência Completa: Upsert no banco de dados tático */
   const save = useCallback(async (updates: Partial<Omit<ProductionState, "channel_id">>) => {
     if (!channelId || !user) return;
 
-    // Usar stateRef.current em vez de state para evitar closure stale
-    // (saves consecutivos no mesmo tick usariam o state do render anterior)
     const currentState = stateRef.current;
     const merged: ProductionState = {
       ...(currentState ?? { channel_id: channelId, ...INITIAL }),
@@ -122,16 +114,14 @@ export function useProductionState(channelId: string | undefined) {
     };
 
     setState(merged);
-    stateRef.current = merged; // atualizar ref imediatamente para próximas chamadas síncronas
+    stateRef.current = merged;
 
     await (supabase.from as any)("production_states").upsert(
       { ...merged, user_id: user.id },
       { onConflict: "channel_id" }
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId, user]); // state removido das deps — lemos via stateRef para evitar stale closure
+  }, [channelId, user]);
 
-  /** Atualização de Segmento: Salva dados sem sobrescrever o progresso total */
   const saveData = useCallback(async (
     step: number,
     status: ProductionState["status"],
@@ -140,11 +130,12 @@ export function useProductionState(channelId: string | undefined) {
     await save({ step, status, data: patch });
   }, [save]);
 
-  /** Atualiza o snapshot de uma cena específica para Auto-Resume granular */
+  /** Atualiza o snapshot de uma cena específica */
   const saveScene = useCallback(async (patch: SceneSnapshot, totalScenes?: number) => {
     if (!channelId || !user) return;
 
-    const currentScenes: SceneSnapshot[] = state?.scenes ?? [];
+    const currentState = stateRef.current;
+    const currentScenes: SceneSnapshot[] = currentState?.scenes ?? [];
     const idx = currentScenes.findIndex(
       s => s.chapterIndex === patch.chapterIndex && s.sceneIndex === patch.sceneIndex
     );
@@ -152,20 +143,30 @@ export function useProductionState(channelId: string | undefined) {
       ? currentScenes.map((s, i) => i === idx ? { ...s, ...patch } : s)
       : [...currentScenes, patch];
 
-    const completed = updatedScenes.filter(s => s.status === "complete").length;
-    const total = totalScenes ?? state?.total_scenes ?? updatedScenes.length;
+    const completed = updatedScenes.filter(s => s.status === "complete" || s.status === "visual_done").length;
+    const total = totalScenes ?? currentState?.total_scenes ?? updatedScenes.length;
 
     await save({
       scenes: updatedScenes as unknown as ProductionState["scenes"],
       total_scenes: total,
       completed_scenes: completed,
-    } as Partial<Omit<ProductionState, "channel_id">>);
-  }, [channelId, user, state, save]);
+    });
+  }, [channelId, user, save]);
 
-  /** Reinicializar Missão (Limpeza de rastro) */
+  /** Salva todas as cenas de uma vez (Batch Update) */
+  const saveAllScenes = useCallback(async (allScenes: SceneSnapshot[]) => {
+    if (!channelId || !user) return;
+
+    await save({
+      scenes: allScenes as any,
+      total_scenes: allScenes.length,
+      completed_scenes: allScenes.filter(s => s.status === "complete" || s.status === "visual_done").length,
+    });
+  }, [channelId, user, save]);
+
   const reset = useCallback(async () => {
     await save({ step: 1, status: "idle", data: {}, scenes: [], total_scenes: 0, completed_scenes: 0 });
   }, [save]);
 
-  return { state, loading, save, saveData, saveScene, reset };
+  return { state, loading, refetch: fetchState, save, saveData, saveScene, saveAllScenes, reset };
 }

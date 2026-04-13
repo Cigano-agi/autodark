@@ -10,8 +10,9 @@ const AI33_API_KEY = Deno.env.get("AI33_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-const MAX_BATCH = 5;
+const MAX_BATCH = 1; // Processar 1 por vez para evitar timeouts e gerenciar melhor falhas
 const MAX_ERROR_COUNT = 3;
+const STALE_TIMEOUT_MINUTES = 10; // Tempo para considerar uma cena como travada
 
 // ── Tipos ──────────────────────────────────────────────────────────────────────
 interface SceneSnapshot {
@@ -206,17 +207,31 @@ Deno.serve(async (req) => {
     const stateRow = await getProductionState(channelId, dbHeaders);
     const allScenes: SceneSnapshot[] = stateRow.scenes ?? [];
 
-    // 2. Selecionar cenas audio_done (máximo MAX_BATCH)
-    // IMPORTANTE: só selecionar 'audio_done', nunca 'processing_visuals'
-    // (cenas 'processing_visuals' foram iniciadas por outra invocação — evitar duplicação)
+    // 2. Selecionar cenas para processar
+    // Prioridade 1: audio_done (limpo)
+    // Prioridade 2: processing_visuals que estão travados (se o updated_at for muito antigo)
+    
+    const now = new Date();
+    const updatedAt = new Date(stateRow.updated_at || now);
+    const diffMinutes = (now.getTime() - updatedAt.getTime()) / (1000 * 60);
+    const isStale = diffMinutes > STALE_TIMEOUT_MINUTES;
+
     const pendingScenes = allScenes
-      .filter(s => s.status === "audio_done")
+      .filter(s => {
+        if (s.status === "audio_done") return true;
+        // Se a produção não é atualizada há muito tempo, assumimos que o worker anterior morreu
+        if (s.status === "processing_visuals" && isStale) return true;
+        return false;
+      })
       .slice(0, MAX_BATCH);
 
     if (pendingScenes.length === 0) {
-      console.log(`[worker] Nenhuma cena audio_done para channel=${channelId}`);
+      const remainingGlobal = allScenes.filter(s => s.status === "audio_done").length;
+      const processingGlobal = allScenes.filter(s => s.status === "processing_visuals").length;
+      
+      console.log(`[worker] Nenhuma cena elegível para channel=${channelId}. (Aguardando: ${remainingGlobal}, Em processo: ${processingGlobal})`);
       return new Response(
-        JSON.stringify({ processed: 0, remaining: 0 }),
+        JSON.stringify({ processed: 0, remaining: remainingGlobal, processing: processingGlobal }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

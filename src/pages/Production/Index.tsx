@@ -55,18 +55,18 @@ export function ProductionWizardContent() {
           </div>
         </div>
 
-        {/* CTA: ir para Studio quando pipeline concluir (BUG-107) */}
+        {/* CTA: ir para Vídeos quando pipeline concluir */}
         {state.stage === "done" && (
           <div className="bg-primary/10 border border-primary/30 rounded-[2rem] p-6 flex items-center justify-between gap-4 animate-in zoom-in-95 duration-500">
             <div>
               <p className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                <Film className="w-4 h-4" /> Produção Concluída
+                <Film className="w-4 h-4" /> Produção Enviada!
               </p>
-              <p className="text-xs text-white/50 mt-1">Acesse o Studio para montar e exportar o MP4 final</p>
+              <p className="text-xs text-white/50 mt-1">Acompanhe a geração e monte o MP4 final na aba Vídeos.</p>
             </div>
             <Button asChild className="bg-primary text-white rounded-xl font-black text-xs uppercase tracking-widest shrink-0 h-10 px-6">
-              <Link to={`/channel/${channelId}/studio`}>
-                Ir para o Studio →
+              <Link to={`/channel/${channelId}/videos`}>
+                Ir para Vídeos →
               </Link>
             </Button>
           </div>
@@ -139,8 +139,6 @@ export function ProductionWizardContent() {
           <div className="lg:col-span-7 space-y-12">
              <Factory.Narrator />
              <Factory.Director />
-             <Factory.Editor />
-             <Factory.Publisher />
           </div>
         </div>
       </div>

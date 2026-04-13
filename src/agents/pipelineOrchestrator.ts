@@ -75,7 +75,7 @@ export function usePipelineOrchestrator(
   foundation: any | null,
 ) {
   const [state, setState] = useState<PipelineState>(INITIAL_STATE);
-  const { saveData: saveProductionState, saveScene, reset: resetProductionState, state: productionState } = useProductionState(channelId);
+  const { saveData: saveProductionState, saveScene, saveAllScenes, reset: resetProductionState, state: productionState } = useProductionState(channelId);
   // Ref para leitura em closures assíncronos — sempre aponta para o productionState mais recente
   const productionStateRef = useRef(productionState);
   productionStateRef.current = productionState;
@@ -254,7 +254,7 @@ export function usePipelineOrchestrator(
             durationMin,
             blueprint,
           ),
-          300000,
+          600000,
           "Extração de Cenas"
         );
       }, { provider: "claude-3.5-sonnet" });
@@ -276,183 +276,32 @@ export function usePipelineOrchestrator(
         }))
       );
 
-      // Salvar cada cena individualmente (saveScene faz upsert por chapterIndex+sceneIndex)
-      for (const sceneSnap of allScenes) {
-        await saveScene(sceneSnap, allScenes.length);
-      }
+      // Salvar todas as cenas em um único batch para performance e consistência
+      await saveAllScenes(allScenes);
 
       currentStep = 2.5;
       await saveProductionState(2.5, "running", { chaptersWithScenes, contentId });
 
-      update({ stage: "generating_audio", progress: 45, message: "Worker de áudio online..." });
+      update({ stage: "generating_audio", progress: 50, message: "Iniciando processamento assíncrono (áudio e imagens)..." });
       
-      await logStep(trace, "tts_narration", async () => {
-        const totalGeneratedAudio = await runAudioWorker(
-          channelId,
-          (remaining) => {
-            const total = allScenes.length;
-            const done = total - remaining;
-            update({
-              progress: 45 + Math.round((done / Math.max(total, 1)) * 15),
-              message: `Narrando cena ${done}/${total}...`,
-            });
-          }
-        );
-        console.log(`[orchestrator] Audio Worker concluiu. Total audios gerados: ${totalGeneratedAudio}`);
-      }, { provider: "worker-generate-audio" });
-
-      // Aguardar Realtime propagações de áudio (polling com timeout de 10s)
-      const AUDIO_POLL_INTERVAL = 300;
-      let audioWaited = 0;
-      while (audioWaited < 10_000) {
-        const scenes = productionStateRef.current?.scenes ?? [];
-        const stillPending = scenes.filter((s: any) => s.status === "pending" || s.status === "processing_audio").length;
-        if (stillPending === 0) break;
-        await new Promise(r => setTimeout(r, AUDIO_POLL_INTERVAL));
-        audioWaited += AUDIO_POLL_INTERVAL;
-      }
-
-      // Reconstruir chaptersWithAudio a partir das cenas persistidas
-      const persistedScenesAudio = productionStateRef.current?.scenes ?? [];
-      const chaptersWithAudio = chaptersWithScenes.map((ch: any, ci: number) => ({
-        ...ch,
-        scenes: ch.scenes.map((scene: any, si: number) => {
-          const persisted = persistedScenesAudio.find(
-            (s: any) => s.chapterIndex === ci && s.sceneIndex === si
-          );
-          return {
-            ...scene,
-            audioUrl: persisted?.audioUrl ?? scene.audioUrl,
-            durationSec: persisted?.durationSec ?? scene.durationSec,
-            audioDurationSec: persisted?.durationSec ?? scene.audioDurationSec,
-          };
-        }),
-      }));
-
-      // Serializar todas as URLs de áudio como JSON em vez de apenas a primeira cena (BUG-003)
-      const audioUrlsMap: Record<string, string> = {};
-      chaptersWithAudio.forEach((ch: any, ci: number) => {
-        ch.scenes?.forEach((scene: any, si: number) => {
-          if (scene.audioUrl && scene.audioUrl !== "browser_tts") {
-            audioUrlsMap[`${ci}_${si}`] = scene.audioUrl;
-          }
-        });
+      runAudioWorker(channelId).then(async () => {
+        await runVisualWorker(channelId);
+      }).catch(err => {
+        console.error("[orchestrator] Erro nos workers:", err);
       });
 
-      await persistStep(contentId, channelId, "tts_done", {
-        audio_urls_json: JSON.stringify(audioUrlsMap), // todas as URLs serializadas
-        audio_url: chaptersWithAudio[0]?.scenes[0]?.audioUrl || null, // mantido por compatibilidade
-        voice_name: hub.voiceId,
-      });
+      await persistStep(contentId, channelId, "processing");
       currentStep = 3;
-      await saveProductionState(3, "running", { chaptersWithAudio, contentId });
-
-      update({ stage: "generating_visuals", progress: 60, message: "Worker processando imagens em background..." });
-
-      // Invocar o worker em loop — cada batch processa 5 cenas
-      // O Realtime (useProductionState) atualiza a UI automaticamente
-      await logStep(trace, "visual_generation", async () => {
-        const totalGenerated = await runVisualWorker(
-          channelId,
-          (remaining) => {
-            const total = allScenes.length;
-            const done = total - remaining;
-            update({
-              progress: 60 + Math.round((done / Math.max(total, 1)) * 20),
-              message: `Imagens geradas: ${done}/${total}...`,
-            });
-          }
-        );
-        console.log(`[orchestrator] Worker concluiu. Total imagens geradas: ${totalGenerated}`);
-      }, { provider: "worker-generate-visuals" });
-
-      // Aguardar Realtime propagar updates (polling com timeout de 10s)
-      const REALTIME_POLL_INTERVAL = 300;
-      const REALTIME_MAX_WAIT = 10_000;
-      let waited = 0;
-      while (waited < REALTIME_MAX_WAIT) {
-        // Ler via ref para evitar closure stale — productionStateRef.current é sempre o valor mais recente (BUG-001)
-        const scenes = productionStateRef.current?.scenes ?? [];
-        const stillPending = scenes.filter(
-          (s: any) => s.status === "audio_done" || s.status === "processing_visuals"
-        ).length;
-        if (stillPending === 0) break;
-        await new Promise(r => setTimeout(r, REALTIME_POLL_INTERVAL));
-        waited += REALTIME_POLL_INTERVAL;
-      }
-
-      // Guard: verificar que pelo menos 80% das cenas têm imagem antes de montar
-      const persistedScenes = productionStateRef.current?.scenes ?? []; // via ref para evitar stale (BUG-001)
-      const scenesWithImage = persistedScenes.filter((s: any) => s.imageUrl && s.imageUrl !== "");
-      const completionRatio = persistedScenes.length > 0
-        ? scenesWithImage.length / persistedScenes.length
-        : 1;
-
-      if (completionRatio < 0.8) {
-        console.warn(
-          `[orchestrator] Apenas ${scenesWithImage.length}/${persistedScenes.length} cenas com imagem ` +
-          `(${Math.round(completionRatio * 100)}%) — abaixo do threshold de 80%.`
-        );
-        toast.warning(
-          `${scenesWithImage.length}/${persistedScenes.length} imagens geradas. ` +
-          "Montando com placeholders para as cenas faltando."
-        );
-      }
-
-      // Reconstruir chaptersWithVisuals a partir das cenas persistidas no banco
-      const chaptersWithVisuals = chaptersWithAudio.map((ch: any, ci: number) => ({
-        ...ch,
-        scenes: ch.scenes.map((scene: any, si: number) => {
-          const persisted = persistedScenes.find(
-            (s: any) => s.chapterIndex === ci && s.sceneIndex === si
-          );
-          return {
-            ...scene,
-            imageUrl: persisted?.imageUrl ?? scene.imageUrl,
-          };
-        }),
-      }));
-
-      const scenesJson = chaptersWithVisuals.flatMap(ch => ch.scenes);
-      await persistStep(contentId, channelId, "visuals_done", {
-        scenes: scenesJson,
-      });
-      currentStep = 4;
-      await saveProductionState(4, "running", { chaptersWithVisuals, contentId });
-
-      update({ stage: "assembling", progress: 80, message: "Preparando exportação..." });
-      currentStep = 4.5;
-      await saveProductionState(4.5, "running", { chaptersWithVisuals, contentId });
-
-      update({ stage: "generating_seo", progress: 85, message: "Gerando SEO..." });
-      const seo = await logStep(trace, "seo_generation", async () => {
-        return withTimeout(
-          generateSEO(script.title, chaptersWithVisuals, channel, language),
-          30000,
-          "Geração de SEO"
-        );
-      }, { provider: "openrouter" });
-
-      update({ stage: "saving", progress: 92, message: "Arquivando..." });
-      const seoBlock = `Tags: ${seo.tags.join(", ")}\n\nTimestamps:\n${seo.chapters.map(c => `${c.time} ${c.label}`).join("\n")}`;
-
-      await persistStep(contentId, channelId, "awaiting_review", {
-        title: seo.title,
-        hook: `${script.hook}\n\n## SEO\n${seoBlock}`,
-      });
+      await saveProductionState(3, "running", { chaptersWithScenes, contentId });
 
       update({
         stage: "done",
         progress: 100,
-        message: "Concluído. Pronto para revisão.",
-        seo,
-        script: { ...script, chapters: chaptersWithVisuals },
+        message: "Produção enviada para os workers! Vá na aba Vídeos para acompanhar e montar.",
+        script: { ...script, chapters: chaptersWithScenes },
       });
 
-      const finalStatus = trace.steps.some(s => s.status === "warn") ? "warn" : "ok";
-      await persistTrace(trace, finalStatus);
-      currentStep = 6;
-      await saveProductionState(6, "done", { seo, contentId });
+      await persistTrace(trace, "ok");
 
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
