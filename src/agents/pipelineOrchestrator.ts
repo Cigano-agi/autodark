@@ -1,10 +1,11 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { analyzeTrends } from "./trendAgent";
 import { generateIdeasBatch } from "./headAgent";
 import { generateFullScript } from "./scripterAgent";
 import { generateAllNarrations } from "./narratorAgent";
-import { extractScenes, generateVisuals } from "./visualAgent";
+import { extractScenes } from "./visualAgent";
+import { runVisualWorker, hasUnfinishedVisuals } from "@/lib/visualWorker";
 import { generateSEO } from "./seoAgent";
 import { uploadAudio, uploadImage } from "@/lib/storage";
 import { createTraceContext } from "@/lib/traceContext";
@@ -72,13 +73,34 @@ export function usePipelineOrchestrator(
   blueprint: BlueprintData | null,
 ) {
   const [state, setState] = useState<PipelineState>(INITIAL_STATE);
-  const { saveData: saveProductionState, reset: resetProductionState } = useProductionState(channelId);
+  const { saveData: saveProductionState, saveScene, reset: resetProductionState, state: productionState } = useProductionState(channelId);
 
   const update = useCallback((patch: Partial<PipelineState>) => {
     setState(prev => ({ ...prev, ...patch }));
   }, []);
 
   const reset = useCallback(() => setState(INITIAL_STATE), []);
+
+  // Auto-resume: ao montar o componente, verificar se há cenas processing/pending
+  // Isso acontece quando o usuário fecha e reabre a aba durante a geração visual
+  useEffect(() => {
+    if (!productionState) return;
+    if (productionState.status !== "running") return;
+    if (productionState.step !== 2.5) return; // Só retomar se estava na etapa de geração visual
+
+    const scenes = productionState.scenes ?? [];
+    if (!hasUnfinishedVisuals(scenes)) return;
+
+    console.log("[orchestrator] Auto-resume detectado — retomando worker de geração visual");
+    // Iniciar worker em background sem bloquear o render
+    runVisualWorker(channelId, (remaining) => {
+      update({ message: `Auto-resume: imagens restantes: ${remaining}` });
+    }).catch(err => {
+      console.error("[orchestrator] Erro no auto-resume do worker:", err);
+    });
+  // Dependências intencionalmente limitadas: apenas status e step para não re-disparar em cada atualização de cena
+  }, [channelId, productionState?.status, productionState?.step]);
+
 
   const updateChapter = useCallback((chapterId: string, patch: Partial<VideoChapter>) => {
     setState(prev => {
@@ -212,10 +234,29 @@ export function usePipelineOrchestrator(
         );
       }, { provider: "claude-3.5-sonnet" });
       update({ script: { ...script, chapters: chaptersWithScenes }, progress: 45 });
+
+      // Persistir cada cena como 'pending' antes de invocar o worker
+      // Isso permite que o worker processe mesmo se a aba for fechada e reaberta
+      const allScenes = chaptersWithScenes.flatMap((ch: any, ci: number) =>
+        ch.scenes.map((scene: any, si: number) => ({
+          chapterIndex: ci,
+          sceneIndex: si,
+          status: "pending" as const,
+          prompt: scene.visual_prompt,
+          durationSec: scene.durationSec,
+          audioUrl: scene.audioUrl,
+        }))
+      );
+
+      // Salvar cada cena individualmente (saveScene faz upsert por chapterIndex+sceneIndex)
+      for (const sceneSnap of allScenes) {
+        await saveScene(sceneSnap, allScenes.length);
+      }
+
       await saveProductionState(2.5, "running", { chaptersWithScenes, contentId });
 
       update({ stage: "generating_audio", progress: 45, message: "Sintetizando narração..." });
-      const chaptersWithAudio = await logStep(trace, "tts_narration", async () => {
+      const { chapters: chaptersWithAudio, failedScenes: ttsFailedCount } = await logStep(trace, "tts_narration", async () => {
         return withTimeout(
           generateAllNarrations(
             chaptersWithScenes,
@@ -227,6 +268,11 @@ export function usePipelineOrchestrator(
           "Síntese de Áudio"
         );
       }, { provider: hub.voice });
+
+      if (ttsFailedCount > 0) {
+        console.warn(`[orchestrator] ${ttsFailedCount} cenas com fallback TTS (browser_tts)`);
+        toast.warning(`${ttsFailedCount} cenas sem áudio real — usando estimativa de duração.`);
+      }
 
       await logStep(trace, "audio_upload", async () => {
         if (!contentId) return;
@@ -254,31 +300,70 @@ export function usePipelineOrchestrator(
       });
       await saveProductionState(3, "running", { chaptersWithAudio, contentId });
 
-      update({ stage: "generating_visuals", progress: 60, message: "Gerando imagens..." });
-      const chaptersWithVisuals = await logStep(trace, "visual_generation", async () => {
-        return withTimeout(
-          generateVisuals(
-            chaptersWithAudio,
-            blueprint,
-            (done, total) => update({ progress: 60 + Math.round((done / total) * 20), message: `Artefato ${done}/${total}...` }),
-          ),
-          300000,
-          "Geração de Visuais"
-        );
-      }, { provider: "kie.ai" });
+      update({ stage: "generating_visuals", progress: 60, message: "Worker processando imagens em background..." });
 
-      await logStep(trace, "image_upload", async () => {
-        if (!contentId) return;
-        for (let ci = 0; ci < chaptersWithVisuals.length; ci++) {
-          for (let si = 0; si < chaptersWithVisuals[ci].scenes.length; si++) {
-            const scene = chaptersWithVisuals[ci].scenes[si];
-            if (scene.imageUrl) {
-              const storageUrl = await uploadImage(channelId, contentId, ci * 100 + si, scene.imageUrl);
-              if (storageUrl) chaptersWithVisuals[ci].scenes[si] = { ...scene, imageUrl: storageUrl };
-            }
+      // Invocar o worker em loop — cada batch processa 5 cenas
+      // O Realtime (useProductionState) atualiza a UI automaticamente
+      await logStep(trace, "visual_generation", async () => {
+        const totalGenerated = await runVisualWorker(
+          channelId,
+          (remaining) => {
+            const total = allScenes.length;
+            const done = total - remaining;
+            update({
+              progress: 60 + Math.round((done / Math.max(total, 1)) * 20),
+              message: `Imagens geradas: ${done}/${total}...`,
+            });
           }
-        }
-      }, { provider: "supabase-storage" });
+        );
+        console.log(`[orchestrator] Worker concluiu. Total imagens geradas: ${totalGenerated}`);
+      }, { provider: "worker-generate-visuals" });
+
+      // Aguardar Realtime propagar updates (polling com timeout de 10s)
+      const REALTIME_POLL_INTERVAL = 300;
+      const REALTIME_MAX_WAIT = 10_000;
+      let waited = 0;
+      while (waited < REALTIME_MAX_WAIT) {
+        const scenes = productionState?.scenes ?? [];
+        const stillPending = scenes.filter(
+          (s: any) => s.status === "pending" || s.status === "processing"
+        ).length;
+        if (stillPending === 0) break;
+        await new Promise(r => setTimeout(r, REALTIME_POLL_INTERVAL));
+        waited += REALTIME_POLL_INTERVAL;
+      }
+
+      // Guard: verificar que pelo menos 80% das cenas têm imagem antes de montar
+      const persistedScenes = productionState?.scenes ?? [];
+      const scenesWithImage = persistedScenes.filter((s: any) => s.imageUrl && s.imageUrl !== "");
+      const completionRatio = persistedScenes.length > 0
+        ? scenesWithImage.length / persistedScenes.length
+        : 1;
+
+      if (completionRatio < 0.8) {
+        console.warn(
+          `[orchestrator] Apenas ${scenesWithImage.length}/${persistedScenes.length} cenas com imagem ` +
+          `(${Math.round(completionRatio * 100)}%) — abaixo do threshold de 80%.`
+        );
+        toast.warning(
+          `${scenesWithImage.length}/${persistedScenes.length} imagens geradas. ` +
+          "Montando com placeholders para as cenas faltando."
+        );
+      }
+
+      // Reconstruir chaptersWithVisuals a partir das cenas persistidas no banco
+      const chaptersWithVisuals = chaptersWithAudio.map((ch: any, ci: number) => ({
+        ...ch,
+        scenes: ch.scenes.map((scene: any, si: number) => {
+          const persisted = persistedScenes.find(
+            (s: any) => s.chapterIndex === ci && s.sceneIndex === si
+          );
+          return {
+            ...scene,
+            imageUrl: persisted?.imageUrl ?? scene.imageUrl,
+          };
+        }),
+      }));
 
       const scenesJson = chaptersWithVisuals.flatMap(ch => ch.scenes);
       await persistStep(contentId, channelId, "visuals_done", {
@@ -339,7 +424,7 @@ export function usePipelineOrchestrator(
         error: errorMsg,
       });
     }
-  }, [channelId, channel, blueprint, update]);
+  }, [channelId, channel, blueprint, update, saveScene, productionState]);
 
   return {
     state,

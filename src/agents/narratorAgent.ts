@@ -6,7 +6,7 @@ export async function generateAllNarrations(
   language: VideoLanguage,
   hubDefaults: HubDefaults,
   onProgress?: (done: number, total: number) => void,
-): Promise<VideoChapter[]> {
+): Promise<{ chapters: VideoChapter[]; failedScenes: number }> {
   const allScenesData: { chapterIndex: number; sceneIndex: number; scene: SceneData }[] = [];
   
   chapters.forEach((chapter, chapterIndex) => {
@@ -17,6 +17,7 @@ export async function generateAllNarrations(
 
   const totalScenes = allScenesData.length;
   let done = 0;
+  let failedCount = 0;
   
   // Create a deep copy of chapters to mutate safely
   const result: VideoChapter[] = JSON.parse(JSON.stringify(chapters));
@@ -39,14 +40,16 @@ export async function generateAllNarrations(
           durationSec: durationSec + 0.3,
         };
       } catch (err) {
-        console.error(`Error generating TTS for scene: ${text}`, err);
-        // Fallback or keep it empty
+        console.warn(`[narratorAgent] TTS falhou para cena (${text.slice(0, 50)}...):`, err instanceof Error ? err.message : err);
+        // Estima duração pelo número de palavras — mesmo cálculo do callTTS em llm.ts:249
+        const estimatedDuration = Math.ceil(text.trim().split(/\s+/).length / 2.5);
         result[chapterIndex].scenes[sceneIndex] = {
           ...scene,
           audioUrl: "browser_tts",
-          audioDurationSec: 5,
-          durationSec: 5.3,
+          audioDurationSec: estimatedDuration,
+          durationSec: estimatedDuration + 0.3,
         };
+        failedCount++;
       }
       
       done++;
@@ -56,5 +59,5 @@ export async function generateAllNarrations(
     }));
   }
 
-  return result;
+  return { chapters: result, failedScenes: failedCount };
 }
