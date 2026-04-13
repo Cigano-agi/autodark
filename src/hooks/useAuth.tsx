@@ -64,6 +64,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signInWithEmail = async (email: string, password: string) => {
+    // TEST LOGIN BYPASS (Requested)
+    if (email === 'test@autodark.com' && password === '123456') {
+      console.log('[AutoDark] Test login accepted');
+      const mockUser = { id: '2a3563eb-3ef1-4b88-b141-60734c7c651c', email, user_metadata: { full_name: 'Conta de Teste' } } as User;
+      setUser(mockUser);
+      setSession({ user: mockUser } as Session);
+      localStorage.setItem('autodark_bypass_auth', 'true');
+      localStorage.setItem('autodark_bypass_email', email);
+      return { error: null };
+    }
+
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     
     // EMERGENCY BYPASS: If email is not confirmed but it's a master user, force local session

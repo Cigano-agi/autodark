@@ -211,9 +211,9 @@ export function QueueTab({ channelId }: QueueTabProps) {
       </div>
 
       {contents.length === 0 && (
-        <Card className="bg-card/30 border-dashed border-white/10 p-20 text-center rounded-3xl">
-          <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Video className="w-10 h-10 text-white/20" />
+        <Card className="bg-card border-dashed border-border p-20 text-center rounded-[2rem]">
+          <div className="w-20 h-20 bg-secondary rounded-full flex items-center justify-center mx-auto mb-6">
+            <Video className="w-10 h-10 text-muted-foreground/50" />
           </div>
           <h3 className="text-xl font-medium text-white mb-2">Fila vazia</h3>
           <p className="text-muted-foreground mb-8 max-w-md mx-auto">
@@ -298,9 +298,9 @@ function ContentCard({
   return (
     <Card
       className={cn(
-        "bg-card/30 backdrop-blur border-border/20",
+        "bg-card border-border",
         "transition-all duration-200 ease-out",
-        "hover:scale-[1.01] hover:shadow-lg hover:shadow-black/20 hover:border-border/40",
+        "hover:scale-[1.01] hover:shadow-lg hover:border-primary/50",
       )}
     >
       <CardContent className="p-4 space-y-3">
@@ -333,7 +333,7 @@ function ContentCard({
           <div className="flex items-center gap-2">
             <ContentStatusBadge status={content.status} />
             {content.audio_duration != null && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-medium text-muted-foreground">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-secondary border border-border text-[10px] font-bold text-foreground">
                 ⏱ {content.audio_duration}s
               </span>
             )}

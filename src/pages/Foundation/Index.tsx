@@ -37,8 +37,8 @@ const BLOCKS = [
 function FormField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 ml-1">{label}</Label>
-      {hint && <p className="text-[9px] text-white/20 uppercase font-bold tracking-widest ml-1 mb-2 italic">"{hint}"</p>}
+      <Label className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground ml-1">{label}</Label>
+      {hint && <p className="text-[9px] text-muted-foreground/60 uppercase font-bold tracking-widest ml-1 mb-2 italic">"{hint}"</p>}
       {children}
     </div>
   );
@@ -63,9 +63,9 @@ function TagInput({ value, onChange, placeholder }: {
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder={placeholder ?? "DIGITE E APERTE ENTER..."}
-          className="h-12 bg-black/40 border-white/10 text-sm font-bold uppercase tracking-tight"
+          className="h-12 bg-background border-border text-foreground text-sm font-bold tracking-tight rounded-lg shadow-sm"
         />
-        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-white/10 h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]">
+        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-border h-12 px-6 rounded-lg font-black uppercase tracking-widest text-[10px] text-foreground hover:bg-secondary">
           ADD
         </Button>
       </div>
@@ -104,9 +104,9 @@ function SeedChannelsInput({ value, onChange }: { value: SeedChannel[], onChange
           onChange={e => setInput(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           placeholder="NOME DO CANAL... (ENTER)"
-          className="h-12 bg-black/40 border-white/10 text-sm font-bold uppercase tracking-tight"
+          className="h-12 bg-background border-border text-foreground text-sm font-bold tracking-tight rounded-lg shadow-sm"
         />
-        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-white/10 h-12 px-6 rounded-xl font-black uppercase tracking-widest text-[10px]">ADD</Button>
+        <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0 border-border h-12 px-6 rounded-lg font-black uppercase tracking-widest text-[10px] text-foreground hover:bg-secondary">ADD</Button>
       </div>
       {value.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -127,15 +127,15 @@ function BlockA({ f, set }: any) {
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <FormField label="1. Nicho Primário" hint="geopolítica, finanças, true crime, etc.">
         <Input value={f.niche} onChange={e => set("niche", e.target.value)}
-          className="h-14 bg-black/40 border-white/10 font-bold uppercase tracking-tight" />
+          className="h-14 bg-background border-border text-foreground font-bold tracking-tight rounded-lg shadow-sm" />
       </FormField>
       <FormField label="2. Ângulo de Especialista" hint="Dentro do sistema ou expondo-o?">
         <Textarea value={f.insider_angle} onChange={e => set("insider_angle", e.target.value)}
-          className="bg-black/40 border-white/10 min-h-[100px] font-medium leading-relaxed italic" />
+          className="bg-background border-border text-foreground min-h-[100px] font-medium leading-relaxed italic rounded-lg shadow-sm" />
       </FormField>
       <FormField label="3. Inimigo Narrativo" hint="Toda história de sucesso precisa de um vilão">
         <Input value={f.narrative_enemy} onChange={e => set("narrative_enemy", e.target.value)}
-          className="h-14 bg-black/40 border-white/10 font-bold uppercase tracking-tight" />
+          className="h-14 bg-background border-border text-foreground font-bold tracking-tight rounded-lg shadow-sm" />
       </FormField>
     </div>
   );
@@ -147,12 +147,12 @@ function BlockB({ f, set }: any) {
       <div className="grid grid-cols-2 gap-6">
         <FormField label="6. Frequência de Publicação">
           <Input value={f.publish_frequency} onChange={e => set("publish_frequency", e.target.value)}
-            className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+            className="h-14 bg-background border-border text-foreground font-bold rounded-lg shadow-sm" />
         </FormField>
         <FormField label="7. Duração Alvo (min)">
           <Input type="number" value={f.target_duration_min}
             onChange={e => set("target_duration_min", Number(e.target.value))}
-            className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+            className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
       </div>
       <FormField label="8. Sub-Nichos Relacionados">
@@ -167,21 +167,21 @@ function BlockC({ f, set }: any) {
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="grid grid-cols-2 gap-6">
         <FormField label="11. Orçamento API Mensal ($)">
-          <Input type="number" value={f.monthly_api_budget} onChange={e => set("monthly_api_budget", Number(e.target.value))} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+          <Input type="number" value={f.monthly_api_budget} onChange={e => set("monthly_api_budget", Number(e.target.value))} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
         <FormField label="12. APIs Necessárias">
           <TagInput value={f.required_apis} onChange={v => set("required_apis", v)} placeholder="EX: OPENAI, ELEVENLABS" />
         </FormField>
       </div>
       <FormField label="13. Estratégia de Evidência" hint="Qual estilo de material visual predomina?">
-        <Input value={f.evidence_strategy} onChange={e => set("evidence_strategy", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        <Input value={f.evidence_strategy} onChange={e => set("evidence_strategy", e.target.value)} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
       </FormField>
       <div className="grid grid-cols-2 gap-6">
         <FormField label="14. GPU VRAM (GB)">
-          <Input type="number" value={f.hardware_profile.gpu_vram_gb} onChange={e => set("hardware_profile", { ...f.hardware_profile, gpu_vram_gb: Number(e.target.value) })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+          <Input type="number" value={f.hardware_profile.gpu_vram_gb} onChange={e => set("hardware_profile", { ...f.hardware_profile, gpu_vram_gb: Number(e.target.value) })} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
         <FormField label="14. RAM (GB)">
-          <Input type="number" value={f.hardware_profile.ram_gb} onChange={e => set("hardware_profile", { ...f.hardware_profile, ram_gb: Number(e.target.value) })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+          <Input type="number" value={f.hardware_profile.ram_gb} onChange={e => set("hardware_profile", { ...f.hardware_profile, ram_gb: Number(e.target.value) })} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
       </div>
       <div className="flex items-center space-x-4 p-4 border border-white/10 rounded-xl bg-black/20">
@@ -207,14 +207,14 @@ function BlockD({ f, set }: any) {
       </FormField>
       <div className="grid grid-cols-2 gap-6">
         <FormField label="18. Limiar de Viralidade (Z-Score)" hint="Geralmente entre 1.5 e 3.0">
-          <Input type="number" step="0.1" value={f.z_score_threshold} onChange={e => set("z_score_threshold", Number(e.target.value))} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+          <Input type="number" step="0.1" value={f.z_score_threshold} onChange={e => set("z_score_threshold", Number(e.target.value))} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
         <FormField label="19. Score Mínimo de Qualidade">
-          <Input type="number" value={f.quality_system?.pass_score || 8} onChange={e => set("quality_system", { ...f.quality_system, pass_score: Number(e.target.value) })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+          <Input type="number" value={f.quality_system?.pass_score || 8} onChange={e => set("quality_system", { ...f.quality_system, pass_score: Number(e.target.value) })} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
       </div>
       <FormField label="20. Estrutura Narrativa Padrão">
-        <Textarea value={f.narrative_structure} onChange={e => set("narrative_structure", e.target.value)} className="bg-black/40 border-white/10 min-h-[100px] font-medium leading-relaxed italic" />
+        <Textarea value={f.narrative_structure} onChange={e => set("narrative_structure", e.target.value)} className="bg-background border-border text-foreground min-h-[100px] font-medium leading-relaxed italic rounded-lg shadow-sm" />
       </FormField>
       <FormField label="21. Checklist de Qualidade">
         <TagInput value={f.quality_system?.checks || []} onChange={v => set("quality_system", { ...f.quality_system, checks: v })} placeholder="Ex: BOA RETENÇÃO NOS PRIMEIROS 5S" />
@@ -227,24 +227,24 @@ function BlockE({ f, set }: any) {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <FormField label="22. Fosso Defensivo (Moat)" hint="O que impede os outros de copiarem este canal facilmente?">
-        <Textarea value={f.defensive_moat} onChange={e => set("defensive_moat", e.target.value)} className="bg-black/40 border-white/10 min-h-[100px] font-medium leading-relaxed italic" />
+        <Textarea value={f.defensive_moat} onChange={e => set("defensive_moat", e.target.value)} className="bg-background border-border text-foreground min-h-[100px] font-medium leading-relaxed italic rounded-lg shadow-sm" />
       </FormField>
       <div className="grid grid-cols-2 gap-6">
         <FormField label="23. Dias de Publicação">
           <TagInput value={f.publish_schedule?.days || []} onChange={v => set("publish_schedule", { ...f.publish_schedule, days: v })} placeholder="EX: SEGUNDA, QUINTA" />
         </FormField>
         <FormField label="24. Horário (UTC)">
-          <Input value={f.publish_schedule?.time_utc || "18:00"} onChange={e => set("publish_schedule", { ...f.publish_schedule, time_utc: e.target.value })} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+          <Input value={f.publish_schedule?.time_utc || "18:00"} onChange={e => set("publish_schedule", { ...f.publish_schedule, time_utc: e.target.value })} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
         </FormField>
       </div>
       <FormField label="25. Plano de Escala">
-        <Input value={f.scaling_plan} onChange={e => set("scaling_plan", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        <Input value={f.scaling_plan} onChange={e => set("scaling_plan", e.target.value)} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
       </FormField>
       <FormField label="26. Riscos Operacionais">
-        <Input value={f.operational_risks} onChange={e => set("operational_risks", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        <Input value={f.operational_risks} onChange={e => set("operational_risks", e.target.value)} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
       </FormField>
       <FormField label="27. Loop de Feedback">
-        <Input value={f.feedback_loop} onChange={e => set("feedback_loop", e.target.value)} className="h-14 bg-black/40 border-white/10 font-bold uppercase" />
+        <Input value={f.feedback_loop} onChange={e => set("feedback_loop", e.target.value)} className="h-14 bg-background border-border text-foreground font-bold uppercase rounded-lg shadow-sm" />
       </FormField>
     </div>
   );
@@ -273,7 +273,7 @@ function DirectivesViewer({ directives }: { directives: Record<string, string> }
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {Object.entries(directives).map(([key, value]) => (
         <Card key={key} className="border-white/5 bg-[#0c0c0e] rounded-[2rem] overflow-hidden shadow-xl">
-          <CardHeader className="pb-4 flex-row items-center justify-between space-y-0 bg-black/40 border-b border-white/5 px-6">
+          <CardHeader className="pb-4 flex-row items-center justify-between space-y-0 bg-card border-b border-border px-6">
             <CardTitle className="text-[10px] font-black uppercase tracking-[0.2em] text-primary">{LABELS[key] ?? key}</CardTitle>
             <Button variant="ghost" size="icon" className="h-8 w-8 text-white/20 hover:text-white"
               onClick={() => copyTo(key, value)}>
@@ -411,7 +411,7 @@ export default function FoundationPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
           <div className="lg:col-span-2 space-y-8">
             <Card className="bg-[#0a0a0c] border border-white/5 rounded-[3rem] overflow-hidden shadow-2xl">
-              <CardHeader className="bg-black/40 border-b border-white/5 p-8">
+              <CardHeader className="bg-card border-b border-border p-8">
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="text-2xl font-black uppercase italic tracking-tighter text-white">
@@ -455,7 +455,7 @@ export default function FoundationPage() {
           </div>
 
           <aside className="space-y-8">
-            <div className="p-8 bg-black/40 border border-white/5 rounded-[3rem] space-y-6 relative overflow-hidden">
+            <div className="p-8 bg-card border border-border rounded-[3rem] space-y-6 relative overflow-hidden shadow-lg">
               <div className="absolute top-0 right-0 p-6 opacity-5 pointer-events-none">
                 <Sparkles className="w-20 h-20 text-primary" />
               </div>

@@ -35,7 +35,7 @@ export function ProductionWizardContent() {
       <div className="max-w-6xl mx-auto space-y-10 relative">
         
         {/* Production Center Header */}
-        <div className="bg-black/40 backdrop-blur-3xl border border-white/10 p-10 rounded-[3rem] shadow-2xl relative overflow-hidden">
+        <div className="bg-card border border-border p-10 rounded-[3rem] shadow-xl relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
           <div className="flex justify-between items-center relative z-10">
             <div className="space-y-1">
@@ -49,7 +49,7 @@ export function ProductionWizardContent() {
               <p className="text-white/30 font-bold text-[10px] uppercase tracking-widest">{channel?.name}</p>
             </div>
             <div className="flex gap-3">
-              <Button onClick={() => navigate(`/channel/${channelId}`)} variant="outline" className="rounded-2xl border-white/10 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/10">Voltar</Button>
+              <Button onClick={() => navigate(`/channel/${channelId}`)} variant="outline" className="rounded-2xl border-border text-[10px] font-black uppercase tracking-widest bg-secondary text-foreground hover:bg-secondary/80">Voltar</Button>
               <Button onClick={resetProductionState} variant="ghost" className="rounded-2xl text-[10px] font-black uppercase tracking-widest text-red-500/50 hover:text-red-500 hover:bg-red-500/10">Reiniciar</Button>
             </div>
           </div>
@@ -75,8 +75,8 @@ export function ProductionWizardContent() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Painel de Controle — Configuração do Vídeo */}
           <div className={cn("lg:col-span-5 space-y-10 transition-all", !isIdle && "opacity-40 grayscale pointer-events-none")}>
-            <Card className="bg-black/60 border-white/10 rounded-[3rem] shadow-2xl overflow-hidden border-t-primary/20">
-              <CardHeader className="bg-white/[0.02] border-b border-white/5 p-8">
+            <Card className="bg-card border-border rounded-[3rem] shadow-2xl overflow-hidden border-t-primary">
+              <CardHeader className="bg-secondary/20 border-b border-border p-8">
                 <CardTitle className="text-xl font-black uppercase italic flex items-center gap-3 text-white">
                   <Terminal className="text-primary" /> Parâmetros de Pauta
                 </CardTitle>
@@ -88,7 +88,7 @@ export function ProductionWizardContent() {
                     value={idea}
                     onChange={e => setIdea(e.target.value)}
                     placeholder="Qual é o tema de hoje?"
-                    className="bg-black/40 border-white/10 rounded-[2rem] p-8 text-xl font-bold text-white min-h-[160px] focus:border-primary/50 transition-all" 
+                    className="bg-background border-border rounded-[2rem] p-8 text-xl font-bold text-foreground min-h-[160px] focus:border-primary/50 transition-all shadow-inner" 
                   />
                 </div>
 
@@ -97,7 +97,7 @@ export function ProductionWizardContent() {
                     <Label className="text-[10px] font-black uppercase tracking-widest text-white/30">Idioma</Label>
                     <div className="flex gap-2">
                       {["pt-BR", "en", "es"].map(l => (
-                        <Button key={l} variant={language === l ? "default" : "outline"} onClick={() => setLanguage(l as any)} className={cn("flex-1 h-12 rounded-xl font-black", language === l ? "bg-primary text-white" : "border-white/5 text-white/20")}>{l}</Button>
+                        <Button key={l} variant={language === l ? "default" : "outline"} onClick={() => setLanguage(l as any)} className={cn("flex-1 h-12 rounded-xl font-black transition-colors", language === l ? "bg-primary text-black" : "border-border text-muted-foreground hover:bg-secondary")}>{l}</Button>
                       ))}
                     </div>
                   </div>
@@ -105,7 +105,7 @@ export function ProductionWizardContent() {
                     <Label className="text-[10px] font-black uppercase tracking-widest text-white/30">Duração</Label>
                     <div className="flex gap-2">
                       {[2, 8, 15].map(d => (
-                        <Button key={d} variant={duration === d ? "default" : "outline"} onClick={() => setDuration(d as any)} className={cn("flex-1 h-12 rounded-xl font-black", duration === d ? "bg-primary text-white" : "border-white/5 text-white/20")}>{d}m</Button>
+                        <Button key={d} variant={duration === d ? "default" : "outline"} onClick={() => setDuration(d as any)} className={cn("flex-1 h-12 rounded-xl font-black transition-colors", duration === d ? "bg-primary text-black" : "border-border text-muted-foreground hover:bg-secondary")}>{d}m</Button>
                       ))}
                     </div>
                   </div>

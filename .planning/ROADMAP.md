@@ -56,6 +56,20 @@ Plans:
 
 Deliverable: Fluxo completo — tema → vídeo → aprovação → YouTube.
 
+### Phase 5 — Arquitetura Assíncrona (Background Job Queue)
+**Goal:** Refatorar o pipelineOrchestrator para modelo async baseado em background jobs — eliminar timeouts e perda de progresso ao fechar a aba.
+
+**Plans:** 5 plans
+
+Plans:
+- [ ] 05.1-PLAN.md — Migration DB: formalizar production_states + adicionar errorCount e status "processing" na interface SceneSnapshot
+- [ ] 05.2-PLAN.md — Edge Function worker-generate-visuals: busca 5 cenas pending, gera via AI33 SeedDream, salva no Storage, atualiza status com retry logic
+- [ ] 05.3-PLAN.md — Frontend ping loop: runVisualWorker() invoca o worker em loop até esvaziar a fila (com testes unitários)
+- [ ] 05.4-PLAN.md — Refatorar pipelineOrchestrator: integrar saveScene + runVisualWorker + auto-resume via useEffect
+- [ ] 05.5-PLAN.md — Ajustar useVideoAssembler: loadImageWithFallback silencioso + guard de 80% de cenas com imagem
+
+Deliverable: Pipeline roda 100% em background — fechar a aba não perde progresso, UI atualiza via Realtime.
+
 ---
 
 ## Backlog (pós-Milestone 1)

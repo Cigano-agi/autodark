@@ -59,18 +59,18 @@ export default function ChannelView() {
       <div className="max-w-7xl mx-auto space-y-10 animate-fade-in">
 
         {/* Breadcrumb */}
-        <div className="flex items-center gap-3 text-sm text-white/20 mb-8 ml-1">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-8 ml-1">
           <button
             onClick={() => navigate('/dashboard')}
             className="hover:text-primary transition-all flex items-center gap-2 group"
           >
-            <div className="p-1.5 rounded-lg bg-white/5 border border-white/5 group-hover:border-primary/30 transition-all">
-              <ChevronLeft className="w-4 h-4 text-white" />
+            <div className="p-1.5 rounded-lg bg-secondary border border-border group-hover:border-primary/50 transition-all">
+              <ChevronLeft className="w-4 h-4 text-foreground" />
             </div>
             Dashboard
           </button>
           <span className="opacity-20">/</span>
-          <span className="text-white font-black uppercase tracking-widest text-[10px] italic">{channel.name}</span>
+          <span className="text-foreground font-black uppercase tracking-widest text-[10px] italic">{channel.name}</span>
         </div>
 
         {/* Setup Assistant */}
@@ -106,7 +106,7 @@ export default function ChannelView() {
           }}
           className="space-y-10"
         >
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+          <div className="flex items-center justify-between border-b border-border pb-2">
             <TabsList className="bg-transparent h-auto p-0 gap-8">
               {[
                 { value: "dashboard", label: "Analytics", icon: Activity },
@@ -118,7 +118,7 @@ export default function ChannelView() {
                 <TabsTrigger 
                   key={t.value}
                   value={t.value} 
-                  className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-0 pb-4 h-auto gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white transition-all relative group"
+                  className="data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none border-b-2 border-transparent data-[state=active]:border-primary rounded-none px-0 pb-4 h-auto gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground hover:text-foreground transition-all relative group"
                 >
                   <t.icon className="w-3.5 h-3.5" />
                   {t.label}

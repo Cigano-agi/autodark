@@ -135,33 +135,33 @@
 
     /* Dark mode (default) */
     .dark {
-        --background: var(--base-gray900);
-        --foreground: var(--base-white);
-        --card: var(--base-gray800);
-        --card-foreground: var(--base-white);
-        --popover: var(--base-gray800);
-        --popover-foreground: var(--base-white);
-        --primary: var(--base-white);
-        --primary-foreground: var(--base-black);
-        --secondary: var(--base-gray700);
-        --secondary-foreground: var(--base-white);
-        --muted: var(--base-gray700);
-        --muted-foreground: var(--base-gray400);
+        --background: 0 0% 2%;
+        --foreground: 0 0% 98%;
+        --card: 0 0% 4%;
+        --card-foreground: 0 0% 98%;
+        --popover: 0 0% 4%;
+        --popover-foreground: 0 0% 98%;
+        --primary: 0 0% 98%;
+        --primary-foreground: 0 0% 0%;
+        --secondary: 0 0% 9%;
+        --secondary-foreground: 0 0% 98%;
+        --muted: 0 0% 9%;
+        --muted-foreground: 0 0% 60%;
         --accent: var(--base-accent);
         --accent-foreground: var(--base-white);
         --destructive: var(--base-negative);
         --destructive-foreground: var(--base-white);
-        --border: var(--base-gray700);
-        --input: var(--base-gray700);
+        --border: 0 0% 12%;
+        --input: 0 0% 10%;
         --ring: var(--base-accent);
 
-        --sidebar-background: var(--base-gray900);
-        --sidebar-foreground: var(--base-white);
+        --sidebar-background: 0 0% 2%;
+        --sidebar-foreground: 0 0% 98%;
         --sidebar-primary: var(--base-accent);
         --sidebar-primary-foreground: var(--base-white);
-        --sidebar-accent: var(--base-gray800);
+        --sidebar-accent: 0 0% 8%;
         --sidebar-accent-foreground: var(--base-white);
-        --sidebar-border: var(--base-gray700);
+        --sidebar-border: 0 0% 12%;
         --sidebar-ring: var(--base-accent);
     }
 }
