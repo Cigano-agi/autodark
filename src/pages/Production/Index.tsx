@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { Factory } from "@/components/Factory";
 import { useFactory } from "@/components/Factory/FactoryContext";
 import { BeamsBackground } from "@/components/ui/beams-background";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Terminal, Zap, Loader2, ChevronLeft, RotateCcw } from "lucide-react";
+import { Terminal, Zap, Loader2, ChevronLeft, RotateCcw, Film } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -54,6 +54,23 @@ export function ProductionWizardContent() {
             </div>
           </div>
         </div>
+
+        {/* CTA: ir para Studio quando pipeline concluir (BUG-107) */}
+        {state.stage === "done" && (
+          <div className="bg-primary/10 border border-primary/30 rounded-[2rem] p-6 flex items-center justify-between gap-4 animate-in zoom-in-95 duration-500">
+            <div>
+              <p className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                <Film className="w-4 h-4" /> Produção Concluída
+              </p>
+              <p className="text-xs text-white/50 mt-1">Acesse o Studio para montar e exportar o MP4 final</p>
+            </div>
+            <Button asChild className="bg-primary text-white rounded-xl font-black text-xs uppercase tracking-widest shrink-0 h-10 px-6">
+              <Link to={`/channel/${channelId}/studio`}>
+                Ir para o Studio →
+              </Link>
+            </Button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Painel de Controle — Configuração do Vídeo */}

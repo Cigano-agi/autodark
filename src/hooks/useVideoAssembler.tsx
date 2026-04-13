@@ -128,7 +128,64 @@ function drawSubtitles(
   ctx.globalAlpha = 1;
 }
 
-// ── Main hook ─────────────────────────────────────────────────────────────────
+// ── Image loading helpers ─────────────────────────────────────────────────────
+
+/**
+ * Cria um HTMLImageElement com canvas preto cinematográfico como placeholder.
+ * Usado quando uma imagem de cena falha ao carregar — evita abortar a montagem.
+ */
+function createPlaceholderImage(width: number, height: number, sceneLabel: string): HTMLImageElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d")!;
+
+  // Fundo preto
+  ctx.fillStyle = "#000000";
+  ctx.fillRect(0, 0, width, height);
+
+  // Gradiente sutil para dar profundidade cinematográfica
+  const grad = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, height * 0.6);
+  grad.addColorStop(0, "rgba(30, 30, 30, 0.3)");
+  grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, width, height);
+
+  // Label da cena (debug visual)
+  ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+  ctx.font = "bold 24px Arial, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(sceneLabel, width / 2, height / 2);
+
+  const img = new Image();
+  img.src = canvas.toDataURL("image/jpeg", 0.8);
+  return img;
+}
+
+/**
+ * Carrega uma imagem com fallback silencioso para placeholder preto.
+ * Nunca rejeita — resolve sempre com uma imagem (real ou placeholder).
+ */
+async function loadImageWithFallback(
+  src: string,
+  width: number,
+  height: number,
+  sceneLabel: string
+): Promise<HTMLImageElement> {
+  return new Promise<HTMLImageElement>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => {
+      console.warn(`[assembler] Falha ao carregar ${src.slice(0, 60)}... — usando placeholder`);
+      resolve(createPlaceholderImage(width, height, sceneLabel));
+    };
+    img.src = src;
+  });
+}
+
+// ── Main hook ────────────────────────────────────────────────────────────────────────────
 export function useVideoAssembler() {
   const [progress, setProgress] = useState(0);
   const [log, setLog] = useState("");
@@ -137,7 +194,7 @@ export function useVideoAssembler() {
   const assembleVideo = useCallback(
     async (
       scenes: AssemblyScene[],
-      _audioBlob: Blob | null,   // deprecated — use per-scene audioUrl instead
+      _audioBlob?: Blob | null,   // deprecated — use per-scene audioUrl instead
       bgMusicUrl?: string,       // optional background music (low volume)
     ): Promise<string> => {
       setAssembling(true);
@@ -150,19 +207,27 @@ export function useVideoAssembler() {
         const FPS    = 30;
         const FADE_SEC = 0.4; // cross-dissolve duration between scenes
 
-        // ── Load all images ─────────────────────────────────────────────────
+        // ── Load all images (com placeholder silencioso em caso de falha) ────────────
         setLog("[autodark] Carregando imagens...");
         const images: HTMLImageElement[] = [];
+        let imagesWithPlaceholder = 0;
+
         for (let i = 0; i < scenes.length; i++) {
           setLog((p) => p + `\n[autodark] Carregando cena ${i + 1}/${scenes.length}...`);
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            img.onload  = () => resolve();
-            img.onerror = () => reject(new Error(`Falha ao carregar imagem da cena ${i + 1}`));
-            img.src = scenes[i].imageUrl;
-          });
+          const scene = scenes[i];
+
+          if (!scene.imageUrl) {
+            images.push(createPlaceholderImage(WIDTH, HEIGHT, `Cena ${i + 1}`));
+            imagesWithPlaceholder++;
+            continue;
+          }
+
+          const img = await loadImageWithFallback(scene.imageUrl, WIDTH, HEIGHT, `Cena ${i + 1}`);
           images.push(img);
+        }
+
+        if (imagesWithPlaceholder > 0) {
+          setLog((p) => p + `\n[autodark] ${imagesWithPlaceholder} cena(s) com placeholder`);
         }
 
         // ── Canvas & stream ─────────────────────────────────────────────────

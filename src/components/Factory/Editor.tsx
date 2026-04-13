@@ -1,28 +1,68 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { useFactory } from "./FactoryContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Film, Play, Loader2, Download, Zap } from "lucide-react";
+import { Film, Play, Loader2, Download, Zap, CheckCircle } from "lucide-react";
 import { RemotionPreview } from "@/remotion/RemotionPreview";
 import { useVideoAssembler } from "@/hooks/useVideoAssembler";
+import type { AssemblyScene } from "@/hooks/useVideoAssembler";
+import { useFFmpegExport } from "@/hooks/useFFmpegExport";
+import { useProductionState } from "@/hooks/useProductionState";
 import { toast } from "sonner";
 
 export function Editor() {
   const { state, channelId } = useFactory();
-  const { assembleVideo, assembling, progress, log } = useVideoAssembler();
+  const { assembleVideo, assembling, progress: assemblyProgress, log: assemblyLog } = useVideoAssembler();
+  const { exportToMp4, exporting, progress: ffmpegProgress, log: ffmpegLog } = useFFmpegExport();
+  const { state: productionState } = useProductionState(channelId);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
-  const chapters = state.script?.chapters || [];
-  const allScenes = chapters.flatMap(ch => 
+  // ── Fonte de cenas: banco (productionState) tem prioridade sobre memória (state.script) ──
+  // Após auto-resume/refresh, state.script é null mas productionState tem as cenas do banco
+  const scenesFromProduction: AssemblyScene[] = (productionState?.scenes ?? [])
+    .filter(s => s.imageUrl && s.status !== "error")
+    .map(s => ({
+      imageUrl: s.imageUrl!,
+      durationSec: s.durationSec ?? 5,
+      subtitle: undefined, // SceneSnapshot não carrega narration — OK para montagem
+      audioUrl: s.audioUrl,
+      emotion: "neutral",
+    }));
+
+  const scenesFromMemory: AssemblyScene[] = (state.script?.chapters ?? []).flatMap(ch =>
     ch.scenes.map(s => ({
-      ...s,
-      chapterId: ch.id,
-      audioUrl: ch.audioUrl // Sincronização: Áudio por capítulo no estágio atual do pipeline
+      imageUrl: s.imageUrl ?? "",
+      durationSec: s.durationSec ?? 5,
+      subtitle: s.narration,
+      // BUG-101 fix: s.audioUrl (por CENA), não ch.audioUrl (por capítulo)
+      audioUrl: s.audioUrl,
+      emotion: (s as any).emotion ?? "neutral",
     }))
   ).filter(s => s.imageUrl);
 
+  // Prioridade: banco > memória. Banco é sempre mais atualizado após pipeline assíncrono.
+  const allScenes: AssemblyScene[] = scenesFromProduction.length > 0
+    ? scenesFromProduction
+    : scenesFromMemory;
+
+  // ── Estados de progresso unificados (2 etapas: render + ffmpeg) ──────────────────────
+  const isProcessing = assembling || exporting;
+  const displayProgress = assembling
+    ? Math.round(assemblyProgress * 0.7)        // canvas render: 0–70%
+    : exporting
+      ? 70 + Math.round(ffmpegProgress * 0.3)   // ffmpeg: 70–100%
+      : videoUrl ? 100 : 0;
+  const displayLog = assemblyLog || ffmpegLog;
+  const displayStage = assembling
+    ? "Etapa 1/2: Renderizando..."
+    : exporting
+      ? "Etapa 2/2: Convertendo MP4..."
+      : "";
+
+  // ── Pipeline completo: Canvas WebM → FFmpeg.wasm → MP4 H.264 ──────────────────────
   const handleAssemble = async () => {
     if (allScenes.length === 0) {
       toast.error("Nenhuma cena com imagem disponível para montagem.");
@@ -30,23 +70,24 @@ export function Editor() {
     }
 
     try {
-      const scenes = allScenes.map(s => ({
-        imageUrl: s.imageUrl!,
-        durationSec: s.durationSec || 5,
-        subtitle: s.narration,
-        audioUrl: s.audioUrl,
-        emotion: (s as any).emotion || "neutral"
-      }));
+      // Etapa 1: Canvas render → WebM (MediaRecorder)
+      toast.info("Etapa 1/2: Renderizando cenas no canvas...");
+      const webmUrl = await assembleVideo(allScenes);
 
-      const url = await assembleVideo(scenes, null);
-      setVideoUrl(url);
-      toast.success("Vídeo montado com sucesso!");
+      // Etapa 2: WebM → MP4 H.264 via FFmpeg.wasm
+      toast.info("Etapa 2/2: Convertendo para MP4 (H.264)...");
+      const webmBlob = await fetch(webmUrl).then(r => r.blob());
+      URL.revokeObjectURL(webmUrl); // liberar memória do WebM intermediário
+      const mp4Url = await exportToMp4(webmBlob);
+
+      setVideoUrl(mp4Url);
+      toast.success("MP4 exportado com sucesso! Pronto para download.");
     } catch (e: any) {
-      toast.error(`Falha na Montagem: ${e.message}`);
+      toast.error(`Falha na exportação: ${e.message}`);
     }
   };
 
-  if (!state.script) return null;
+  if (!state.script && allScenes.length === 0) return null;
 
   return (
     <div className="space-y-8">
@@ -54,9 +95,14 @@ export function Editor() {
         <h2 className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-2">
           <Film className="w-5 h-5 text-primary" /> Mesa de Edição
         </h2>
-        {assembling && (
+        {isProcessing && (
           <Badge className="bg-primary text-white animate-pulse">
-            Renderizando: {progress}%
+            {displayStage} {displayProgress}%
+          </Badge>
+        )}
+        {videoUrl && !isProcessing && (
+          <Badge className="bg-green-500/20 text-green-400 border border-green-500/30">
+            <CheckCircle className="w-3 h-3 mr-1" /> MP4 Pronto
           </Badge>
         )}
       </div>
@@ -73,10 +119,10 @@ export function Editor() {
                {allScenes.length > 0 ? (
                  <RemotionPreview 
                    slides={allScenes.map(s => ({
-                     imageUrl: s.imageUrl!,
-                     narration: s.narration,
+                     imageUrl: s.imageUrl,
+                     narration: s.subtitle ?? "",
                      durationSec: s.durationSec || 5,
-                     audioUrl: s.audioUrl
+                     audioUrl: s.audioUrl // BUG-101 fix: audioUrl por CENA
                    }))} 
                  />
                ) : (
@@ -92,42 +138,53 @@ export function Editor() {
           <Card className="bg-black/60 border-white/10 rounded-[2rem] border-t-primary/20">
             <CardHeader>
               <CardTitle className="text-xl font-black uppercase italic">Exportar Vídeo</CardTitle>
-              <CardDescription>Finalizar renderização e exportar o vídeo.</CardDescription>
+              <CardDescription>
+                {allScenes.length > 0
+                  ? `${allScenes.length} cenas prontas · Landscape 16:9 H.264`
+                  : "Aguardando cenas do pipeline..."}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {assembling && (
+              {isProcessing && (
                 <div className="space-y-2">
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-primary">
-                    <span>Processando</span>
-                    <span>{progress}%</span>
+                    <span>{displayStage || "Processando"}</span>
+                    <span>{displayProgress}%</span>
                   </div>
-                  <Progress value={progress} className="h-1 bg-white/5" />
+                  <Progress value={displayProgress} className="h-1 bg-white/5" />
                 </div>
               )}
 
               <Button 
                 onClick={handleAssemble} 
-                disabled={assembling || allScenes.length === 0}
+                disabled={isProcessing || allScenes.length === 0}
                 className="w-full h-16 bg-gradient-to-r from-primary to-orange-600 rounded-2xl text-lg font-black uppercase italic shadow-2xl hover:scale-[1.02] transition-all"
               >
-                {assembling ? <Loader2 className="w-6 h-6 animate-spin" /> : <Zap className="w-5 h-5 mr-2" />}
-                {assembling ? "Montando..." : "Iniciar Montagem Final"}
+                {isProcessing
+                  ? <><Loader2 className="w-6 h-6 animate-spin mr-2" />{displayStage}</>
+                  : <><Zap className="w-5 h-5 mr-2" />Iniciar Montagem Final</>
+                }
               </Button>
 
               {videoUrl && (
                 <div className="space-y-4 animate-in zoom-in-95 duration-500">
                   <video src={videoUrl} controls className="w-full rounded-2xl border border-primary/30 shadow-[0_0_30px_rgba(var(--primary),0.2)]" />
                   <Button asChild variant="outline" className="w-full rounded-xl border-white/10 font-black uppercase tracking-widest text-[10px]">
-                    <a href={videoUrl} download="video_final.webm">
-                      <Download className="w-3 h-3 mr-2" /> Baixar Vídeo
+                    <a href={videoUrl} download="video_final.mp4">
+                      <Download className="w-3 h-3 mr-2" /> Baixar MP4
                     </a>
+                  </Button>
+                  <Button asChild variant="ghost" className="w-full rounded-xl text-[10px] text-white/40 hover:text-white/70">
+                    <Link to={`/channel/${channelId}`}>
+                      ← Voltar ao Canal
+                    </Link>
                   </Button>
                 </div>
               )}
 
-              {log && (
+              {displayLog && (
                 <div className="p-4 bg-black rounded-xl border border-white/5 font-mono text-[9px] text-white/30 h-32 overflow-y-auto whitespace-pre-wrap">
-                  {log}
+                  {displayLog}
                 </div>
               )}
             </CardContent>

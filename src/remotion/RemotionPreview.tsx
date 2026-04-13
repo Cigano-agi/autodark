@@ -19,7 +19,7 @@ export function RemotionPreview({
   const width = DEFAULT_SLIDESHOW_PROPS.width!;
   const height = DEFAULT_SLIDESHOW_PROPS.height!;
   const playerRef = useRef<PlayerRef>(null);
-  const speechRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSceneRef = useRef<number>(-1);
   const isPlayingRef = useRef<boolean>(false);
 
@@ -31,22 +31,37 @@ export function RemotionPreview({
     return acc;
   }, []);
 
-  // Web Speech API overlay — narra cada cena ao vivo durante o play
-  const speakScene = useCallback((sceneIndex: number) => {
-    if (!("speechSynthesis" in window)) return;
+  // Tocar áudio real da cena via HTMLAudioElement (AI-33 TTS)
+  // Fallback para browser TTS apenas se audioUrl não disponível
+  const playScene = useCallback((sceneIndex: number) => {
     const scene = slides[sceneIndex];
-    if (!scene?.narration) return;
 
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(scene.narration);
-    utter.lang = "pt-BR";
-    utter.rate = 0.95;
-    utter.pitch = 1.0;
-    const voices = window.speechSynthesis.getVoices();
-    const ptVoice = voices.find((v) => v.lang.startsWith("pt"));
-    if (ptVoice) utter.voice = ptVoice;
-    speechRef.current = utter;
-    window.speechSynthesis.speak(utter);
+    // Parar qualquer áudio anterior
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current = null;
+    }
+    window.speechSynthesis?.cancel();
+
+    // Áudio real: usar HTMLAudioElement com o audioUrl da cena
+    if (scene?.audioUrl && scene.audioUrl !== "browser_tts") {
+      const el = new Audio(scene.audioUrl);
+      el.volume = 0.9;
+      audioRef.current = el;
+      el.play().catch(() => {
+        // autoplay bloqueado — silencioso, não travar a UI
+      });
+      return;
+    }
+
+    // Fallback: browser TTS apenas se não houver audioUrl real
+    if (scene?.narration && "speechSynthesis" in window) {
+      const utter = new SpeechSynthesisUtterance(scene.narration);
+      utter.rate = 0.95;
+      utter.pitch = 1.0;
+      window.speechSynthesis.speak(utter);
+    }
   }, [slides]);
 
   useEffect(() => {
@@ -54,11 +69,15 @@ export function RemotionPreview({
     if (!player) return;
 
     const onPlay = () => { isPlayingRef.current = true; };
-    const onPause = () => { isPlayingRef.current = false; window.speechSynthesis?.cancel(); };
+    const onPause = () => {
+      isPlayingRef.current = false;
+      if (audioRef.current) audioRef.current.pause();
+      window.speechSynthesis?.cancel();
+    };
     const onSeeked = () => { lastSceneRef.current = -1; };
 
     const onTimeUpdate = () => {
-      if (!isPlayingRef.current) return; // só narra se estiver tocando
+      if (!isPlayingRef.current) return;
       const frame = player.getCurrentFrame();
       let currentScene = 0;
       for (let i = sceneStartFrames.length - 1; i >= 0; i--) {
@@ -66,7 +85,7 @@ export function RemotionPreview({
       }
       if (currentScene !== lastSceneRef.current) {
         lastSceneRef.current = currentScene;
-        speakScene(currentScene);
+        playScene(currentScene);
       }
     };
 
@@ -80,9 +99,10 @@ export function RemotionPreview({
       player.removeEventListener("pause", onPause);
       player.removeEventListener("timeupdate", onTimeUpdate);
       player.removeEventListener("seeked", onSeeked);
+      if (audioRef.current) audioRef.current.pause();
       window.speechSynthesis?.cancel();
     };
-  }, [sceneStartFrames, speakScene]);
+  }, [sceneStartFrames, playScene]);
 
   if (slides.length === 0 || totalFrames === 0) {
     return (
@@ -107,7 +127,7 @@ export function RemotionPreview({
     <div className={`rounded-xl overflow-hidden border border-white/10 shadow-2xl ${className || ""}`}>
       <div className="flex items-center gap-2 px-3 py-1.5 bg-black/40 text-xs text-muted-foreground border-b border-white/5">
         <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-        Narração ao vivo via browser — dê play para ouvir
+        Preview com áudio AI — dê play para ouvir
       </div>
       <Player
         ref={playerRef}
